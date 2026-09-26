@@ -1,0 +1,40 @@
+name: Remove tracked Vercel output
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Remove tracked Vercel output
+        run: |
+          git rm -r --ignore-unmatch .vercel
+          
+          if [ ! -f .gitignore ] || ! grep -qxF '.vercel/' .gitignore; then
+            printf '\n.vercel/\n' >> .gitignore
+          fi
+
+      - name: Commit cleanup
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --cached --quiet && git diff --quiet; then
+            echo "Nothing to change."
+            exit 0
+          fi
+
+          git add .gitignore
+          git commit -m "fix: remove tracked Vercel build output"
+          git push origin HEAD:main

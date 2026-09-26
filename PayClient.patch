@@ -1,0 +1,118 @@
+*** Begin Patch
+*** Update File: src/components/pay/PayClient.tsx
+@@
+-  const tried =
+-    useRef<string | null>(
+-      null,
+-    );
++  const tried =
++    useRef<string | null>(
++      null,
++    );
+@@
+-  useEffect(() => {
+-    if (
+-      !wallet ||
+-      connected ||
+-      connecting
+-    ) {
+-      return;
+-    }
+-
+-    if (
+-      tried.current ===
+-      wallet.adapter.name
+-    ) {
+-      return;
+-    }
+-
+-    tried.current =
+-      wallet.adapter.name;
+-    void connect().catch(
+-      (error: unknown) => {
+-        setNote(
+-          error instanceof Error
+-            ? error.message
+-            : "Could not connect the wallet.",
+-        );
+-      },
+-    );
+-  }, [
+-    wallet,
+-    connected,
+-    connecting,
+-    connect,
+-  ]);
++  function connectSelectedWallet() {
++    void connect().catch(
++      (error: unknown) => {
++        setNote(
++          error instanceof Error
++            ? error.message
++            : "Could not connect the wallet.",
++        );
++      },
++    );
++  }
+@@
+                     disabled={
+                       busy ||
+                       connecting
+                     }
+-                    onClick={() => {
++                    onPointerDown={() => {
+                       const name =
+                         entry.adapter.name;
+-                      if (
+-                        wallet?.adapter
+-                          .name ===
+-                        name
+-                      ) {
+-                        tried.current =
+-                          name;
+-                        void connect().catch(
+-                          (
+-                            error: unknown,
+-                          ) => {
+-                            setNote(
+-                              error instanceof
+-                                Error
+-                                ? error.message
+-                                : "Could not connect the wallet.",
+-                            );
+-                          },
+-                        );
+-                        return;
++                      if (
++                        wallet?.adapter.name !==
++                        name
++                      ) {
++                        select(
++                          name as WalletName,
++                        );
+                       }
+-
+-                      tried.current =
+-                        null;
+-                      select(
+-                        name as WalletName,
+-                      );
+                     }}
++                    onClick={() => {
++                      const name =
++                        entry.adapter.name;
++                      if (
++                        wallet?.adapter.name ===
++                        name
++                      ) {
++                        connectSelectedWallet();
++                      } else {
++                        // Fallback for browsers that batch pointerdown updates.
++                        select(
++                          name as WalletName,
++                        );
++                      }
++                    }}
+                   >
+@@
+*** End Patch

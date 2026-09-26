@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("fonts/InstrumentSerif-Regular.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+      }
+      @font-face {
+        font-family: "Instrument Sans";
+        src: url("fonts/InstrumentSans-Regular.ttf") format("truetype");
+        font-weight: 100 900;
+        font-style: normal;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: #07090d;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background:
+          radial-gradient(ellipse 70% 60% at 50% 48%, #10151b 0%, #07090d 68%);
+      }
+      .lockup {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+      .rule {
+        width: 72px;
+        height: 1px;
+        background: #9fd4cb;
+        margin: 0 0 32px;
+      }
+      h1 {
+        margin: 0;
+        font-family: "Instrument Serif", "Liberation Serif", serif;
+        font-weight: 400;
+        font-size: 304px;
+        line-height: 0.8;
+        letter-spacing: -0.045em;
+        color: #e7edf4;
+      }
+      .tag {
+        margin: 30px 0 0;
+        font-family: "Instrument Sans", "Liberation Sans", sans-serif;
+        font-weight: 430;
+        font-size: 26px;
+        line-height: 1;
+        letter-spacing: 0.08em;
+        color: #a3b0bf;
+      }
+      .pulse {
+        margin-top: 28px;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="lockup">
+      <div class="rule"></div>
+      <h1>XPulse</h1>
+      <p class="tag">Editorial analytics</p>
+      <svg class="pulse" width="280" height="36" viewBox="0 0 280 36" fill="none" aria-hidden="true">
+        <path
+          d="M2 20 H96 L118 20 L134 7 L154 29 L172 14 L190 20 H278"
+          stroke="#9fd4cb"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+  </body>
+</html>

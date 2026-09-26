@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/studio",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Chamber · XPulse",
+      "hasCanvas": false,
+      "bodyTextLen": 701,
+      "bodyTextHash": "f868241ea2e4944de8f2e23cee292297625b41b7ae1bcccea5d18cbe8479c69e",
+      "bodyTextPrefix": "XPulse SAMPLE CHAMBER · @nicohale Unlock yours Graph source · th",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/ui-studio.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Chamber · XPulse",
+      "hasCanvas": false,
+      "bodyTextLen": 697,
+      "bodyTextHash": "c74293aac7fef483c0d0b9a4f5f7389e6eec3127662be0285570d3432ad3f21f",
+      "bodyTextPrefix": "XPulse SAMPLE CHAMBER · @nicohale Unlock yours Graph source · th",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/ui-studio-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/ui-studio.json"
+}

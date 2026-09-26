@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "XPulse",
+      "hasCanvas": false,
+      "bodyTextLen": 2118,
+      "bodyTextHash": "9489d74a09eeeaa07edbf3176de398b1a87b54833521e4b25e19a7a7d5ab74d5",
+      "bodyTextPrefix": "XPulse Chamber Lifetime SIGNAL CHAMBER · FOR PEOPLE WHO PUBLISH ",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "XPulse",
+      "hasCanvas": false,
+      "bodyTextLen": 2106,
+      "bodyTextHash": "bc6d3053926f65d8792bade5208b79a0998140a2525ad08e654e7496ddb29fc5",
+      "bodyTextPrefix": "XPulse MENU SIGNAL CHAMBER · FOR PEOPLE WHO PUBLISH ON X Impress",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}
