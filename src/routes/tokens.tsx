@@ -9,9 +9,12 @@ import type { ContentKind } from "@/lib/xpulse/content-score";
 import {
   detectTokenInput,
   explorerUrl,
+  fetchTokenOhlcv,
   fetchViralSolanaTokens,
   researchToken,
   researchTokenByAddress,
+  type ChartTimeframe,
+  type OhlcvCandle,
   type TokenIntel,
   type TokenMention,
   type TokenSearchHit,
@@ -46,6 +49,20 @@ function formatPrice(n: number | null) {
 function formatPct(n: number | null) {
   if (n == null) return "Data unavailable";
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
+/** Human-readable market cap with full and short forms. */
+function formatMcap(n: number | null): { short: string; full: string } {
+  if (n == null) return { short: "—", full: "Data unavailable" };
+  const full = n.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: n >= 1 ? 0 : 4,
+  });
+  if (n >= 1e9) return { short: `$${(n / 1e9).toFixed(2)}B`, full };
+  if (n >= 1e6) return { short: `$${(n / 1e6).toFixed(2)}M`, full };
+  if (n >= 1e3) return { short: `$${(n / 1e3).toFixed(1)}K`, full };
+  return { short: full, full };
 }
 
 function kindLabel(kind: TokenMention["kind"]) {
@@ -363,7 +380,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
 
       {intel ? (
         <>
-          <section className="panel p-4 sm:p-5">
+          <section className="panel animate-in p-4 sm:p-5">
             <div className="flex flex-wrap items-start gap-4">
               {intel.identity.logoUrl ? (
                 <img
@@ -437,7 +454,35 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
               </p>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-4 sm:col-span-1">
+                <p className="text-xs tracking-wide text-subtle uppercase">Market cap</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">
+                  {formatMcap(intel.market.marketCap).short}
+                </p>
+                <p className="mt-1 text-xs text-muted">{formatMcap(intel.market.marketCap).full}</p>
+              </div>
+              <div className="rounded-lg border border-line bg-surface-2/50 px-4 py-4">
+                <p className="text-xs tracking-wide text-subtle uppercase">FDV</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">
+                  {formatMcap(intel.market.fdv).short}
+                </p>
+                <p className="mt-1 text-xs text-muted">{formatMcap(intel.market.fdv).full}</p>
+              </div>
+              <div className="rounded-lg border border-line bg-surface-2/50 px-4 py-4">
+                <p className="text-xs tracking-wide text-subtle uppercase">Liquidity</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">
+                  {formatMcap(intel.market.liquidityUsd).short}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  {intel.market.marketCap && intel.market.liquidityUsd
+                    ? `${((intel.market.liquidityUsd / intel.market.marketCap) * 100).toFixed(1)}% of mcap`
+                    : formatMcap(intel.market.liquidityUsd).full}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ["Price", formatPrice(intel.market.priceUsd)],
                 ["24h change", formatPct(intel.market.priceChange24h)],
@@ -447,8 +492,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 ["24h volume", formatUsd(intel.market.volume24h)],
                 ["6h volume", formatUsd(intel.market.volume6h)],
                 ["1h volume", formatUsd(intel.market.volume1h)],
-                ["Market cap", formatUsd(intel.market.marketCap)],
-                ["FDV", formatUsd(intel.market.fdv)],
+                ["Market cap", formatMcap(intel.market.marketCap).short],
+                ["FDV", formatMcap(intel.market.fdv).short],
                 [
                   "24h buys / sells",
                   intel.market.buys24h != null || intel.market.sells24h != null
@@ -464,37 +509,53 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
               ))}
             </div>
 
-            {intel.chart.length > 1 ? (
-              <div className="mt-6">
-                <p className="kicker">Price path</p>
-                <MiniSpark points={intel.chart.map((p) => p.price)} />
-              </div>
-            ) : null}
+            <div className="mt-6">
+              <PriceChartPanel
+                pairAddress={intel.market.pairAddress}
+                fallback={intel.chart.map((p) => ({ t: p.t, close: p.price }))}
+              />
+            </div>
           </section>
 
-          <section className="panel space-y-3 p-4 sm:p-5">
-            <p className="kicker">DEX listing payment</p>
-            <h2 className="text-xl">Paid promotion on public DEX listings</h2>
-            {intel.market.paidListing === true ? (
-              <p className="rounded-md border border-signal/40 bg-signal/10 px-4 py-3 text-sm text-fg">
-                <span className="font-medium text-signal">Yes — paid activity detected.</span>
-                <span className="mt-1 block text-muted">
-                  {intel.market.paidListingDetail ??
-                    "This token has paid profile/boost orders on public listing data."}
-                </span>
-              </p>
-            ) : intel.market.paidListing === false ? (
-              <p className="rounded-md border border-line bg-surface-2/50 px-4 py-3 text-sm text-muted">
-                <span className="font-medium text-fg">No paid listing detected.</span>
-                <span className="mt-1 block">
-                  No paid profile or boost orders found in public listing data for this address.
-                </span>
-              </p>
-            ) : (
-              <p className="rounded-md border border-line bg-surface-2/50 px-4 py-3 text-sm text-muted">
-                Paid-listing status unavailable right now.
-              </p>
-            )}
+          <section className="panel space-y-3 p-4 sm:p-5 animate-in">
+            <p className="kicker">DEX Paid check</p>
+            <h2 className="text-xl">Same public signal as CheckDEX</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div
+                className={`rounded-md border px-4 py-3 ${
+                  intel.market.dexPaid
+                    ? "border-signal/40 bg-signal/10"
+                    : "border-line bg-surface-2/50"
+                }`}
+              >
+                <p className="text-xs text-subtle">DEX Paid (Enhanced Token Info)</p>
+                <p className="mt-1 text-lg font-medium text-fg">
+                  {intel.market.dexPaid === true
+                    ? "Yes"
+                    : intel.market.dexPaid === false
+                      ? "No"
+                      : "Unavailable"}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Approved token profile order on DexScreener public orders API.
+                </p>
+              </div>
+              <div className="rounded-md border border-line bg-surface-2/50 px-4 py-3">
+                <p className="text-xs text-subtle">Active boosts</p>
+                <p className="mt-1 text-lg font-medium text-fg">
+                  {intel.market.boostActive != null ? intel.market.boostActive : "—"}
+                </p>
+                <p className="mt-1 text-xs text-muted">
+                  Live boost count when exposed on the pair.
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-muted">
+              {intel.market.paidListingDetail ?? "Paid-listing detail unavailable."}
+            </p>
+            <p className="text-xs text-subtle">
+              Marketing signal only — not a quality or safety rating.
+            </p>
           </section>
 
           <section className="panel space-y-3 p-4 sm:p-5">
@@ -630,23 +691,119 @@ function Block({ title, body }: { title: string; body: string }) {
   );
 }
 
-function MiniSpark({ points }: { points: number[] }) {
-  if (points.length < 2) return null;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
+const TIMEFRAMES: { id: ChartTimeframe; label: string }[] = [
+  { id: "1m", label: "1m" },
+  { id: "3m", label: "3m" },
+  { id: "5m", label: "5m" },
+  { id: "1h", label: "1h" },
+  { id: "4h", label: "4h" },
+  { id: "12h", label: "12h" },
+  { id: "1M", label: "1M" },
+];
+
+function PriceChartPanel({
+  pairAddress,
+  fallback,
+}: {
+  pairAddress: string | null;
+  fallback: Array<{ t: number; close: number }>;
+}) {
+  const [tf, setTf] = useState<ChartTimeframe>("1h");
+  const [candles, setCandles] = useState<OhlcvCandle[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBusy(true);
+    setNote(null);
+    void fetchTokenOhlcv(pairAddress, tf)
+      .then((rows) => {
+        if (cancelled) return;
+        if (rows.length >= 2) {
+          setCandles(rows);
+          setNote(null);
+        } else {
+          setCandles([]);
+          setNote("Live candles unavailable for this timeframe — showing snapshot path.");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCandles([]);
+          setNote("Chart data temporarily unavailable.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pairAddress, tf]);
+
+  const series =
+    candles.length >= 2
+      ? candles.map((c) => ({ t: c.t, close: c.close }))
+      : fallback;
+
+  return (
+    <div className="animate-in">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="kicker">Price chart</p>
+        <div className="flex flex-wrap gap-1">
+          {TIMEFRAMES.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              onClick={() => setTf(x.id)}
+              className={`h-8 rounded-md px-2.5 font-mono text-xs transition ${
+                tf === x.id
+                  ? "bg-accent/20 text-accent border border-accent/40"
+                  : "border border-line text-muted hover:text-fg"
+              }`}
+            >
+              {x.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {busy ? (
+        <p className="mt-3 text-sm text-muted">Loading {tf} candles…</p>
+      ) : null}
+      {note ? <p className="mt-2 text-xs text-subtle">{note}</p> : null}
+      <PriceLine series={series} />
+    </div>
+  );
+}
+
+function PriceLine({ series }: { series: Array<{ t: number; close: number }> }) {
+  if (series.length < 2) {
+    return <p className="mt-3 text-sm text-muted">Not enough points to draw a chart.</p>;
+  }
+  const prices = series.map((s) => s.close);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
   const span = max - min || 1;
-  const w = 320;
-  const h = 64;
-  const d = points
-    .map((p, i) => {
-      const x = (i / (points.length - 1)) * w;
-      const y = h - ((p - min) / span) * (h - 8) - 4;
+  const w = 640;
+  const h = 160;
+  const d = series
+    .map((s, i) => {
+      const x = (i / (series.length - 1)) * w;
+      const y = h - ((s.close - min) / span) * (h - 16) - 8;
       return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
+  const up = series[series.length - 1]!.close >= series[0]!.close;
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className="mt-2 h-16 w-full max-w-md text-accent" aria-hidden>
-      <path d={d} fill="none" stroke="currentColor" strokeWidth="2" />
-    </svg>
+    <div className="mt-3 overflow-hidden rounded-md border border-line bg-surface-2/30 p-2 transition-opacity duration-300">
+      <svg viewBox={`0 0 ${w} ${h}`} className={`h-40 w-full ${up ? "text-signal" : "text-danger"}`} aria-hidden>
+        <path d={d} fill="none" stroke="currentColor" strokeWidth="2.5" />
+      </svg>
+      <div className="mt-1 flex justify-between font-mono text-[10px] text-subtle">
+        <span>{formatPrice(min)}</span>
+        <span>{formatPrice(max)}</span>
+      </div>
+    </div>
   );
 }
