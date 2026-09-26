@@ -7,6 +7,12 @@ import {
   type LanguageToolMatch,
 } from "./public-apis";
 import { rewritePost, suggestEdits, type EditSuggestion, type RewriteResult } from "./rewrite";
+import {
+  getTrendSnapshot,
+  trendAlignmentScore,
+  trendRewriteHints,
+  type TrendSnapshot,
+} from "./trends";
 import type { PostMetrics, WritingSignals } from "./types";
 import { extractPublicXPostId, resolvePublicXPost } from "./x-public";
 
@@ -26,6 +32,8 @@ export type EnrichedAnalysis = {
     quotes: number;
     bookmarks: number;
   } | null;
+  trends: TrendSnapshot | null;
+  trendAlignment: number;
   sources: string[];
 };
 
@@ -33,6 +41,8 @@ export type EnrichedRewrite = RewriteResult & {
   languageToolApplied: number;
   vocabularySwaps: string[];
   viral: ViralWritingAnalysis;
+  trends: TrendSnapshot | null;
+  trendAlignment: number;
   sources: string[];
 };
 
@@ -113,6 +123,16 @@ export async function enrichPostAnalysis(input: {
   const signals = writingSignals(text);
   const suggestions = suggestEdits(text);
 
+  let trends: TrendSnapshot | null = null;
+  let trendAlignment = 0;
+  try {
+    trends = await getTrendSnapshot();
+    trendAlignment = trendAlignmentScore(text, trends);
+    if (trends.sources.length) sources.push(...trends.sources.map((s) => `trends:${s}`));
+  } catch {
+    trends = null;
+  }
+
   const publicReach =
     vx || fx
       ? {
@@ -134,6 +154,8 @@ export async function enrichPostAnalysis(input: {
     languageTool,
     vocabulary,
     publicReach,
+    trends,
+    trendAlignment,
     sources: [...new Set(sources)],
   };
 }
@@ -202,7 +224,7 @@ function applyVocabularySwaps(text: string, vocabulary: Record<string, string[]>
  */
 export async function enrichAndRewrite(text: string, variant = 0): Promise<EnrichedRewrite> {
   const sources: string[] = ["xpulse-rewrite"];
-  const [matches, vocabulary] = await Promise.all([
+  const [matches, vocabulary, trends] = await Promise.all([
     checkLanguageTool(text).then((rows) => {
       if (rows.length) sources.push("languagetool.org");
       return rows;
@@ -211,6 +233,10 @@ export async function enrichAndRewrite(text: string, variant = 0): Promise<Enric
       if (Object.keys(map).length) sources.push("datamuse.com");
       return map;
     }),
+    getTrendSnapshot().then((snap) => {
+      if (snap.sources.length) sources.push(...snap.sources.map((s) => `trends:${s}`));
+      return snap;
+    }).catch(() => null),
   ]);
 
   let working = text.trim();
@@ -222,6 +248,8 @@ export async function enrichAndRewrite(text: string, variant = 0): Promise<Enric
   // Bump variant after public-API polish so each click explores a new high-score frame
   const local = rewritePost(working, Math.max(0, Math.floor(variant)));
   const viral = analyzeViralWriting(local.text, emptyMetrics());
+  const trendAlignment = trends ? trendAlignmentScore(local.text, trends) : 0;
+  const hints = trends ? trendRewriteHints(trends) : [];
 
   return {
     ...local,
@@ -229,10 +257,13 @@ export async function enrichAndRewrite(text: string, variant = 0): Promise<Enric
       ...local.applied,
       ...(lt.applied ? [`LanguageTool fixed ${lt.applied} grammar/typo issue(s)`] : []),
       ...vocab.swaps.map((s) => `Lexicon: ${s}`),
+      ...hints.map((h) => `Trend: ${h}`),
     ],
     languageToolApplied: lt.applied,
     vocabularySwaps: vocab.swaps,
     viral,
+    trends,
+    trendAlignment,
     sources: [...new Set(sources)],
   };
 }
