@@ -1,5 +1,5 @@
 import type { WritingSignals } from "./types";
-import { writingSignals } from "./metrics.ts";
+import { writingSignals } from "./metrics";
 
 const SIGNAL_LABELS: Record<keyof WritingSignals, string> = {
   hook: "Hook",
