@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { Button } from "@/components/ui/button";
 import {
   explorerUrl,
+  fetchViralSolanaTokens,
   researchToken,
   type TokenIntel,
   type TokenSearchHit,
+  type ViralToken,
 } from "@/lib/xpulse/token-intel";
 import { generateFromToken } from "@/lib/xpulse/content-create";
 import type { ContentKind } from "@/lib/xpulse/content-score";
@@ -40,6 +42,26 @@ function TokensPage() {
   const [intel, setIntel] = useState<TokenIntel | null>(null);
   const [content, setContent] = useState<ReturnType<typeof generateFromToken> | null>(null);
   const [copied, setCopied] = useState(false);
+  const [viral, setViral] = useState<ViralToken[]>([]);
+  const [viralBusy, setViralBusy] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setViralBusy(true);
+    void fetchViralSolanaTokens(10)
+      .then((rows) => {
+        if (!cancelled) setViral(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setViral([]);
+      })
+      .finally(() => {
+        if (!cancelled) setViralBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function runSearch(value?: string) {
     const q = (value ?? query).trim();
@@ -116,6 +138,59 @@ function TokensPage() {
             {error}
           </p>
         ) : null}
+      </section>
+
+      <section className="panel p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="kicker">Moving now</p>
+            <h2 className="mt-1 text-xl">Solana tokens with activity</h2>
+          </div>
+          <p className="text-xs text-subtle">Ranked by volume, move, and liquidity · not financial advice</p>
+        </div>
+        {viralBusy ? (
+          <p className="mt-4 text-sm text-muted">Loading market activity…</p>
+        ) : viral.length === 0 ? (
+          <p className="mt-4 text-sm text-muted">Market activity temporarily unavailable.</p>
+        ) : (
+          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+            {viral.map((t) => (
+              <li key={t.address}>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 rounded-md border border-line bg-surface-2/40 px-3 py-3 text-left transition hover:border-accent/40"
+                  onClick={() => {
+                    setQuery(t.address);
+                    void runSearch(t.address);
+                  }}
+                >
+                  {t.logoUrl ? (
+                    <img src={t.logoUrl} alt="" className="h-8 w-8 rounded-full" />
+                  ) : (
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-line font-mono text-[10px]">
+                      {t.symbol.slice(0, 2)}
+                    </span>
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-fg">
+                      {t.name} <span className="text-muted">({t.symbol})</span>
+                    </span>
+                    <span className="block truncate text-xs text-subtle">{t.reason}</span>
+                  </span>
+                  <span className="text-right font-mono text-xs">
+                    <span className={t.priceChange24h != null && t.priceChange24h >= 0 ? "text-signal" : "text-danger"}>
+                      {t.priceChange24h != null
+                        ? `${t.priceChange24h >= 0 ? "+" : ""}${t.priceChange24h.toFixed(1)}%`
+                        : "—"}
+                    </span>
+                    <br />
+                    <span className="text-subtle">score {t.viralScore}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {hits && hits.length > 0 ? (
