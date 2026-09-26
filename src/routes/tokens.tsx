@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,18 @@ function formatPrice(n: number | null) {
   return `$${n.toExponential(2)}`;
 }
 
+/** Always open the dedicated token page. */
+function tokenHref(address: string) {
+  return `/tokens/${encodeURIComponent(address)}`;
+}
+
+function openToken(address: string) {
+  const href = tokenHref(address);
+  // Hard navigation — reliable even if client router cache is stale
+  window.location.assign(href);
+}
+
 function TokensPage() {
-  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,14 +66,6 @@ function TokensPage() {
       cancelled = true;
     };
   }, []);
-
-  function openToken(address: string) {
-    // Dedicated token page (registered in routeTree)
-    void navigate({
-      to: "/tokens/$address",
-      params: { address },
-    });
-  }
 
   async function runSearch(value?: string) {
     const q = (value ?? query).trim();
@@ -131,10 +133,15 @@ function TokensPage() {
           <ul className="mt-4 space-y-2">
             {hits.map((h) => (
               <li key={h.address}>
-                <button
-                  type="button"
+                <Link
+                  to="/tokens/$address"
+                  params={{ address: h.address }}
                   className="flex w-full items-center gap-3 rounded-md border border-line bg-surface-2/50 px-3 py-3 text-left transition hover:border-accent/40"
-                  onClick={() => openToken(h.address)}
+                  onClick={(e) => {
+                    // Ensure navigation even if router Link is not resolved yet
+                    e.preventDefault();
+                    openToken(h.address);
+                  }}
                 >
                   {h.logoUrl ? (
                     <img src={h.logoUrl} alt="" className="h-9 w-9 rounded-full" />
@@ -154,7 +161,7 @@ function TokensPage() {
                     <br />
                     Liq {formatUsd(h.liquidityUsd)}
                   </span>
-                </button>
+                </Link>
               </li>
             ))}
           </ul>
@@ -179,10 +186,13 @@ function TokensPage() {
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">
             {viral.map((t) => (
               <li key={t.address}>
-                <button
-                  type="button"
+                <a
+                  href={tokenHref(t.address)}
                   className="flex w-full items-center gap-3 rounded-md border border-line bg-surface-2/40 px-3 py-3 text-left transition hover:border-accent/40"
-                  onClick={() => openToken(t.address)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openToken(t.address);
+                  }}
                 >
                   {t.logoUrl ? (
                     <img src={t.logoUrl} alt="" className="h-8 w-8 rounded-full" />
@@ -212,7 +222,7 @@ function TokensPage() {
                     <br />
                     <span className="text-subtle">score {t.viralScore}</span>
                   </span>
-                </button>
+                </a>
               </li>
             ))}
           </ul>
