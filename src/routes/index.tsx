@@ -21,9 +21,9 @@ const READINGS = [
 ] as const;
 
 const MOVES = [
-  ["01", "Read one link", "The chamber follows a single post. Nothing from the rest of the account is averaged in."],
-  ["02", "Compare two links", "Set a reference next to the post you want to improve. Gaps stay visible."],
-  ["03", "Keep the wallet", "Lifetime access is a one-time transfer. The wallet that paid is the key."],
+  ["01", "Create for X", "Posts, threads, and articles scored for attention — not engagement bait. Built for devs, community, and token narratives."],
+  ["02", "Research Solana", "Look up any token by name or contract. Market structure, liquidity, risks — then turn research into publish-ready copy."],
+  ["03", "Your Chamber", "Your links and stats in one place. Charts, history, and rewrite tools without averaging the whole account."],
 ] as const;
 
 /** Public list prices at time of write — used for a clear yearly comparison. */
@@ -81,12 +81,13 @@ function Home() {
         <p className="kicker">What do you want to do?</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {[
-            ["/research", "Research a topic"],
-            ["/tokens", "Search Solana token"],
             ["/create", "Create a post"],
             ["/create", "Create a thread"],
-            ["/analyze", "Analyze my draft"],
-            ["/studio", "Open chamber"],
+            ["/tokens", "Push my token"],
+            ["/tokens", "Search any CA"],
+            ["/research", "Research a topic"],
+            ["/analyze", "Improve a draft"],
+            ["/pulse", "Your Chamber"],
           ].map(([to, label]) => (
             <Link
               key={label}
@@ -100,19 +101,23 @@ function Home() {
       </section>
       <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-12">
         <div className="rise">
-          <p className="kicker">Signal chamber · for people who publish on X</p>
+          <p className="kicker">X + Solana intelligence · create · research · publish</p>
           <h1 className="mt-4 max-w-xl text-4xl leading-tight sm:text-6xl">
-            Impressions are loud. Opens are the signal.
+            From research to a post that can travel.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted">
-            XPulse is a chamber for launch threads and X Articles. It keeps detail expands, dwell, and profile visits in one place, then sets the thread next to the piece it was supposed to open.
+            Built for creators, token devs, and community members who need fast, professional X content —
+            grounded in real market data, scored for attention, without engagement bait.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/studio" className={buttonVariants()}>
-              Enter the chamber
+            <Link to="/create" className={buttonVariants()}>
+              Create content
             </Link>
-            <Link to="/onboard" className={buttonVariants({ variant: "quiet" })}>
-              Unlock lifetime · $10
+            <Link to="/tokens" className={buttonVariants({ variant: "quiet" })}>
+              Research a token
+            </Link>
+            <Link to="/pulse" className={buttonVariants({ variant: "quiet" })}>
+              Your Chamber
             </Link>
           </div>
           <dl className="mt-8 grid max-w-lg grid-cols-3 gap-3">
@@ -149,16 +154,18 @@ function Home() {
 
       <section className="grid items-start gap-8 border-t border-line pt-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <div>
-          <p className="kicker">How it reads</p>
-          <h2 className="mt-3 text-3xl">Analyze one post at a time.</h2>
+          <p className="kicker">Who it is for</p>
+          <h2 className="mt-3 text-3xl">Devs, community, and publishers on X.</h2>
           <p className="mt-3 text-muted">
-            Select a link in your Chamber and the 3D graph follows that post only. Compare mode uses two public X links to expose writing gaps.
+            Ship launch threads for your token, explain a bag to the community, or improve a draft before it goes live.
+            Research by name or contract, then turn facts into posts, threads, or articles with a clear content score.
           </p>
         </div>
         <div className="panel p-5">
-          <p className="kicker">No X login</p>
+          <p className="kicker">No X login required</p>
           <p className="mt-3 text-sm text-muted">
-            Public link analysis does not require an X login. XPulse resolves public post data through public embed-compatible sources and keeps unavailable metrics explicitly unavailable.
+            Analyze public links and create content without connecting an X account. Your Solana wallet is the identity.
+            Unavailable metrics stay marked unavailable — never invented.
           </p>
         </div>
       </section>
