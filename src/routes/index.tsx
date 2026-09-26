@@ -70,6 +70,72 @@ const PRICE_ROWS = [
   },
 ] as const;
 
+
+function WatchHowItWorks() {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={buttonVariants({ variant: "quiet" })}
+      >
+        ▶ Watch how it works
+      </button>
+      {open ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-bg/80 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="How XPulse works"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="panel animate-in max-w-lg w-full p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <p className="kicker">How it works</p>
+              <button
+                type="button"
+                className="text-sm text-muted hover:text-fg"
+                onClick={() => setOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+            <h2 className="mt-2 text-xl">Sixty seconds, end to end</h2>
+            <ol className="mt-4 space-y-2 text-sm text-muted">
+              <li>1. Research a token by name, symbol, or contract (any supported chain).</li>
+              <li>2. Read real market structure — liquidity, volume, paid listing signals.</li>
+              <li>3. Connect your Solana wallet for lifetime access.</li>
+              <li>4. Open Your Chamber — live portfolio allocation and balances.</li>
+              <li>5. Research a topic or paste a draft.</li>
+              <li>6. Generate a post, thread, or article from that research.</li>
+              <li>7. Check Content Score — improve weak dimensions before publishing.</li>
+            </ol>
+            <p className="mt-4 text-xs text-subtle">
+              Video asset can replace this walkthrough when available. Playback is always user-controlled.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link to="/tokens" className={buttonVariants()} onClick={() => setOpen(false)}>
+                Start with a token
+              </Link>
+              <button
+                type="button"
+                className={buttonVariants({ variant: "quiet" })}
+                onClick={() => setOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function Home() {
   const thread = sampleModel.posts[0]!;
   const article = sampleModel.posts[1]!;
@@ -101,24 +167,27 @@ function Home() {
       </section>
       <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-12">
         <div className="rise">
-          <p className="kicker">X + Solana intelligence · create · research · publish</p>
+          <p className="kicker">Web3 intelligence · X content workstation</p>
           <h1 className="mt-4 max-w-xl text-4xl leading-tight sm:text-6xl">
-            From research to a post that can travel.
+            Research deeper.
+            <br />
+            Create smarter.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted">
-            Built for creators, token devs, and community members who need fast, professional X content —
-            grounded in real market data, scored for attention, without engagement bait.
+            Research multi-chain tokens, read your wallet, turn real data into professional X posts,
+            threads and articles — then score and improve before you publish.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/create" className={buttonVariants()}>
+            <Link to="/tokens" className={buttonVariants()}>
+              Analyze a token
+            </Link>
+            <Link to="/create" className={buttonVariants({ variant: "quiet" })}>
               Create content
             </Link>
-            <Link to="/tokens" className={buttonVariants({ variant: "quiet" })}>
-              Research a token
-            </Link>
             <Link to="/pulse" className={buttonVariants({ variant: "quiet" })}>
-              Your Chamber
+              Open Your Chamber
             </Link>
+            <WatchHowItWorks />
           </div>
           <dl className="mt-8 grid max-w-lg grid-cols-3 gap-3">
             <Fact label="Sample views" value={formatCompact(thread.metrics.impressions)} />
@@ -152,7 +221,28 @@ function Home() {
         ))}
       </section>
 
-      <section className="grid items-start gap-8 border-t border-line pt-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      
+      <section className="border-t border-line pt-12">
+        <p className="kicker">Workflow</p>
+        <h2 className="mt-3 text-3xl">From data to publish-ready output.</h2>
+        <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["01", "Token research", "Name, symbol, or contract across chains."],
+            ["02", "Wallet intelligence", "Real balances and allocation in Your Chamber."],
+            ["03", "Data analysis", "Liquidity, volume, structure — never invented."],
+            ["04", "Content creation", "Posts, threads, articles grounded in research."],
+            ["05", "Content score", "What works, what is weak, how to improve."],
+            ["06", "Publish-ready", "Ship only when the piece holds up."],
+          ].map(([n, title, copy]) => (
+            <li key={n} className="panel lift-card p-4">
+              <p className="font-mono text-xs text-accent">{n}</p>
+              <h3 className="mt-2 text-lg">{title}</h3>
+              <p className="mt-1 text-sm text-muted">{copy}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+<section className="grid items-start gap-8 border-t border-line pt-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <div>
           <p className="kicker">Who it is for</p>
           <h2 className="mt-3 text-3xl">Devs, community, and publishers on X.</h2>
