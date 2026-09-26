@@ -450,3 +450,18 @@ export const rewriteEnriched = createServerFn({ method: "POST" })
     const variant = Number((data as { variant?: number })?.variant ?? 0) || 0;
     return enrichAndRewrite(text, variant);
   });
+
+export const deletePosts = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((data: unknown) => data)
+  .handler(async ({ data, context }) => {
+    const { runDeletePosts } = await import("./data.server");
+    return runDeletePosts(context.userId, data);
+  });
+
+export const clearPosts = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const { runClearPosts } = await import("./data.server");
+    return runClearPosts(context.userId);
+  });
