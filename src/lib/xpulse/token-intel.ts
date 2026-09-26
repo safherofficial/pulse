@@ -46,11 +46,30 @@ export type TokenAnalysis = {
   risks: string[];
 };
 
+export type TokenMention = {
+  author: string;
+  handle: string;
+  verified: boolean;
+  kind: "official" | "kol" | "politician" | "verified" | "other";
+  text: string;
+  url: string;
+  likes: number | null;
+  at: string | null;
+};
+
+export type TokenMentionsReport = {
+  totalFound: number | null;
+  items: TokenMention[];
+  note: string;
+  updatedAt: string;
+};
+
 export type TokenIntel = {
   identity: TokenIdentity;
   market: TokenMarket;
   chart: TokenChartPoint[];
   analysis: TokenAnalysis;
+  mentions: TokenMentionsReport;
   freshness: string;
 };
 
@@ -319,11 +338,13 @@ export async function researchTokenByAddress(address: string): Promise<TokenInte
   if (!pair) return null;
   const identity = identityFromPair(pair, clean);
   const market = marketFromPair(pair);
+  const mentions = await fetchTokenMentions(identity);
   return {
     identity,
     market,
     chart: approximateChart(market),
     analysis: analyzeToken(identity, market),
+    mentions,
     freshness: market.updatedAt,
   };
 }
