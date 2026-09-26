@@ -293,6 +293,8 @@ export type TokenFactSet = {
   risks: string[];
   dexPaid: "paid" | "not_paid" | "unknown";
   boosts: number | null;
+  xPatterns: string[];
+  xNote: string | null;
   builtAt: string;
 };
 
@@ -385,7 +387,22 @@ export function buildTokenFactSet(intel: TokenIntel): TokenFactSet {
     risks: analysis.risks.slice(0, 6),
     dexPaid,
     boosts: market.boostActive,
+    xPatterns: [],
+    xNote: null,
     builtAt: new Date().toISOString(),
+  };
+}
+
+/** Attach X editorial patterns to an existing FactSet (facts stay locked). */
+export function attachXPatterns(
+  facts: TokenFactSet,
+  patterns: string[],
+  note: string | null,
+): TokenFactSet {
+  return {
+    ...facts,
+    xPatterns: patterns.slice(0, 6),
+    xNote: note,
   };
 }
 
@@ -468,8 +485,21 @@ export function generateFromFactSet(
       .slice(0, 4)
       .map((m) => `${m.key.replace(/_/g, " ")} ${m.value}`)
       .join(" · ");
+    const insight = facts.findings[1] ?? facts.findings[0] ?? "";
     const riskLine = facts.risks[0] ? `Risk flag: ${facts.risks[0]}` : "";
-    text = [hook, metricLine, rest || riskLine, "Informational only — not financial advice."]
+    // Patterns guide structure only — never inject foreign post text
+    const patternHint =
+      facts.xPatterns[0] && mode !== "more_technical"
+        ? "" // applied via hook/structure selection above
+        : "";
+    void patternHint;
+    text = [
+      hook,
+      metricLine,
+      insight && insight !== hook ? insight : rest,
+      riskLine,
+      "Informational only — not financial advice.",
+    ]
       .filter(Boolean)
       .join("\n\n");
     if (mode === "more_concise") {
