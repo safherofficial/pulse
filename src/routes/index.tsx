@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TopNav } from "@/components/top-nav";
 import { PulseBeat } from "@/components/scene/PulseBeat";
 import { buttonVariants } from "@/components/ui/button";
@@ -67,71 +67,190 @@ const PRICE_ROWS = [
     yearly: "$72–144+",
     focus: "Cross-network scheduling",
     ours: false,
-  },
-] as const;
-
-
 function WatchHowItWorks() {
   const [open, setOpen] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [scene, setScene] = useState(0);
+  const timerRef = useRef<number | null>(null);
+
+  const scenes = [
+    {
+      title: "One intelligence workspace",
+      body: "Too many tabs. Too much noise. Research tokens, read your wallet, and ship X content from one place.",
+    },
+    {
+      title: "Token research",
+      body: "Search by name, symbol, or contract — multi-chain. Market structure, liquidity, volume, charts when available.",
+    },
+    {
+      title: "Wallet intelligence",
+      body: "Connect your Solana wallet. Live balances, portfolio value, and allocation in Your Chamber.",
+    },
+    {
+      title: "Research → insight",
+      body: "Collect real data first. Analysis only uses what the research step actually returned.",
+    },
+    {
+      title: "Content from data",
+      body: "Generate posts, threads, and articles locked to a fact set — regenerate writing, not the numbers.",
+    },
+    {
+      title: "Score and improve",
+      body: "Content Score shows what works and what is weak. Improve before you publish.",
+    },
+    {
+      title: "Research deeper. Create smarter.",
+      body: "From data to publish-ready output — without engagement bait or invented metrics.",
+    },
+  ] as const;
+
+  useEffect(() => {
+    if (!open || !playing) {
+      if (timerRef.current != null) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+    timerRef.current = window.setInterval(() => {
+      setScene((s) => {
+        if (s >= scenes.length - 1) {
+          setPlaying(false);
+          return s;
+        }
+        return s + 1;
+      });
+    }, 4500);
+    return () => {
+      if (timerRef.current != null) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [open, playing, scenes.length]);
+
+  function openPlayer() {
+    setOpen(true);
+    setScene(0);
+    setPlaying(false);
+  }
+
+  function closePlayer() {
+    setOpen(false);
+    setPlaying(false);
+    setScene(0);
+  }
+
+  const progress = ((scene + 1) / scenes.length) * 100;
+
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openPlayer}
         className={buttonVariants({ variant: "quiet" })}
       >
         ▶ Watch how it works
       </button>
       {open ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-bg/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center bg-bg/85 p-4 backdrop-blur-md"
           role="dialog"
           aria-modal="true"
           aria-label="How XPulse works"
-          onClick={() => setOpen(false)}
+          onClick={closePlayer}
         >
           <div
-            className="panel animate-in max-w-lg w-full p-5"
+            className="panel animate-in w-full max-w-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between gap-2">
-              <p className="kicker">How it works</p>
+            {/* Poster / scene stage */}
+            <div className="relative aspect-video bg-gradient-to-br from-surface-2 via-bg to-surface border-b border-line">
+              <div className="absolute inset-0 flex flex-col justify-end p-5">
+                <p className="font-mono text-[10px] tracking-[0.2em] text-accent uppercase">
+                  Scene {scene + 1} / {scenes.length}
+                </p>
+                <h2 className="mt-2 text-xl text-fg sm:text-2xl">{scenes[scene]!.title}</h2>
+                <p className="mt-2 max-w-md text-sm text-muted">{scenes[scene]!.body}</p>
+              </div>
+              {!playing && scene === 0 ? (
+                <button
+                  type="button"
+                  className="absolute inset-0 grid place-items-center bg-bg/40 transition hover:bg-bg/20"
+                  onClick={() => setPlaying(true)}
+                  aria-label="Play intro"
+                >
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full border border-accent/50 bg-accent/20 text-2xl text-accent">
+                    ▶
+                  </span>
+                </button>
+              ) : null}
+            </div>
+
+            {/* Progress */}
+            <div className="h-1 w-full bg-line">
+              <div
+                className="h-full bg-accent transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 p-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
+                  onClick={() => setPlaying((p) => !p)}
+                >
+                  {playing ? "Pause" : "Play"}
+                </button>
+                <button
+                  type="button"
+                  className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
+                  onClick={() => setScene((s) => Math.max(0, s - 1))}
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
+                  onClick={() => setScene((s) => Math.min(scenes.length - 1, s + 1))}
+                >
+                  Next
+                </button>
+              </div>
               <button
                 type="button"
-                className="text-sm text-muted hover:text-fg"
-                onClick={() => setOpen(false)}
+                className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
+                onClick={closePlayer}
               >
                 Close
               </button>
             </div>
-            <h2 className="mt-2 text-xl">Sixty seconds, end to end</h2>
-            <ol className="mt-4 space-y-2 text-sm text-muted">
-              <li>1. Research a token by name, symbol, or contract (any supported chain).</li>
-              <li>2. Read real market structure — liquidity, volume, paid listing signals.</li>
-              <li>3. Connect your Solana wallet for lifetime access.</li>
-              <li>4. Open Your Chamber — live portfolio allocation and balances.</li>
-              <li>5. Research a topic or paste a draft.</li>
-              <li>6. Generate a post, thread, or article from that research.</li>
-              <li>7. Check Content Score — improve weak dimensions before publishing.</li>
-            </ol>
-            <p className="mt-4 text-xs text-subtle">
-              Video asset can replace this walkthrough when available. Playback is always user-controlled.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link to="/tokens" className={buttonVariants()} onClick={() => setOpen(false)}>
-                Start with a token
-              </Link>
-              <button
-                type="button"
-                className={buttonVariants({ variant: "quiet" })}
-                onClick={() => setOpen(false)}
+            <div className="border-t border-line px-4 py-3 flex flex-wrap gap-2">
+              <Link
+                to="/tokens"
+                className={buttonVariants()}
+                onClick={closePlayer}
               >
-                Close
-              </button>
+                Analyze a token
+              </Link>
+              <Link
+                to="/pulse"
+                className={buttonVariants({ variant: "quiet" })}
+                onClick={closePlayer}
+              >
+                Open Your Chamber
+              </Link>
             </div>
           </div>
         </div>
       ) : null}
+    </>
+  );
+}
+
+ll}
     </>
   );
 }
