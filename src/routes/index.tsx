@@ -71,7 +71,7 @@ const PRICE_ROWS = [
 ] as const;
 
 
-function WatchHowItWorks() {
+function WatchHowItWorks({ variant = "button" }: { variant?: "button" | "card" } = {}) {
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [scene, setScene] = useState(0);
@@ -147,8 +147,30 @@ function WatchHowItWorks() {
 
   const progress = ((scene + 1) / scenes.length) * 100;
 
-  return (
-    <>
+  const trigger =
+    variant === "card" ? (
+      <button
+        type="button"
+        onClick={openPlayer}
+        className="group relative w-full overflow-hidden rounded-xl border border-line text-left transition hover:border-accent/50"
+      >
+        <div className="relative aspect-[21/9] bg-gradient-to-br from-surface-2 via-bg to-surface sm:aspect-[2.4/1]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(56,189,248,0.12),transparent_55%)]" />
+          <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-7">
+            <p className="font-mono text-[10px] tracking-[0.2em] text-accent uppercase">
+              Product tour · ~45s
+            </p>
+            <h3 className="mt-2 text-xl text-fg sm:text-2xl">Watch how it works</h3>
+            <p className="mt-1 max-w-lg text-sm text-muted">
+              Token research → wallet → content intelligence → score → publish-ready.
+            </p>
+          </div>
+          <span className="absolute right-5 top-1/2 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-accent/50 bg-accent/20 text-xl text-accent transition group-hover:scale-105 sm:right-8">
+            ▶
+          </span>
+        </div>
+      </button>
+    ) : (
       <button
         type="button"
         onClick={openPlayer}
@@ -156,6 +178,11 @@ function WatchHowItWorks() {
       >
         ▶ Watch how it works
       </button>
+    );
+
+  return (
+    <>
+      {trigger}
       {open ? (
         <div
           className="fixed inset-0 z-50 grid place-items-center bg-bg/85 p-4 backdrop-blur-md"
@@ -335,6 +362,16 @@ function Home() {
       </section>
 
       
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="kicker">See the product</p>
+            <h2 className="mt-2 text-2xl tracking-tight sm:text-3xl">Watch how it works</h2>
+          </div>
+        </div>
+        <WatchHowItWorks variant="card" />
+      </section>
+
       <section className="border-t border-line pt-12">
         <p className="kicker">Workflow</p>
         <h2 className="mt-3 text-3xl">From data to publish-ready output.</h2>
