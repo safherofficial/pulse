@@ -309,6 +309,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
   const [factSet, setFactSet] = useState<TokenFactSet | null>(null);
   const [variant, setVariant] = useState(0);
   const [regenMode, setRegenMode] = useState<RegenMode>("default");
+  const [viral, setViral] = useState<ViralIntel | null>(null);
+  const [viralBusy, setViralBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,6 +323,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
     setError(null);
     setIntel(null);
     setContent(null);
+    setViral(null);
+    setFactSet(null);
 
     async function load() {
       try {
