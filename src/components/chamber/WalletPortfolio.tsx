@@ -200,7 +200,7 @@ export function WalletPortfolio() {
               {snap.assets.length === 0 && snap.solBalance == null ? (
                 <p className="text-sm text-muted">No holdings returned.</p>
               ) : (
-                <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
+                <ul className="max-h-80 space-y-2 overflow-y-auto pr-1">
                   {snap.solBalance != null && Number.isFinite(snap.solBalance) ? (
                     <li className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface-2/40 px-3 py-2 text-sm">
                       <span>SOL</span>
@@ -213,14 +213,17 @@ export function WalletPortfolio() {
                       </span>
                     </li>
                   ) : null}
-                  {snap.assets.slice(0, 12).map((a) => (
+                  {snap.assets.map((a) => (
                     <li
                       key={a.mint}
                       className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface-2/40 px-3 py-2 text-sm"
                     >
-                      <span className="truncate">
-                        {a.symbol}{" "}
+                      <span className="min-w-0 truncate">
+                        <span className="text-fg">{a.symbol}</span>{" "}
                         <span className="text-xs text-subtle">{a.name}</span>
+                        <span className="mt-0.5 block font-mono text-[10px] text-subtle truncate">
+                          {a.mint}
+                        </span>
                       </span>
                       <span className="shrink-0 font-mono text-xs text-muted">
                         {formatAmount(a.amount)}
