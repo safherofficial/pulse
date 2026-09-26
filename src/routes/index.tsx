@@ -77,6 +77,27 @@ function Home() {
   return (
     <main className="mx-auto flex max-w-6xl flex-col gap-16 px-4 py-5 sm:px-6 sm:py-7">
       <TopNav />
+      <section className="panel p-4 sm:p-5">
+        <p className="kicker">What do you want to do?</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[
+            ["/research", "Research a topic"],
+            ["/tokens", "Search Solana token"],
+            ["/create", "Create a post"],
+            ["/create", "Create a thread"],
+            ["/analyze", "Analyze my draft"],
+            ["/studio", "Open chamber"],
+          ].map(([to, label]) => (
+            <Link
+              key={label}
+              to={to}
+              className="inline-flex h-11 items-center rounded-md border border-line bg-surface-2/50 px-4 text-sm text-fg transition hover:border-accent/50 hover:text-accent"
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      </section>
       <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-12">
         <div className="rise">
           <p className="kicker">Signal chamber · for people who publish on X</p>
