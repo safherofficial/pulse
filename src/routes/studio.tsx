@@ -3,7 +3,7 @@ import { Chamber } from "@/components/chamber/Chamber";
 import { sampleModel } from "@/lib/xpulse/sample";
 
 export const Route = createFileRoute("/studio")({
-  head: () => ({ meta: [{ title: "Chamber · XPulse" }] }),
+  head: () => ({ meta: [{ title: "Your Chamber · XPulse" }] }),
   component: StudioPage,
 });
 
