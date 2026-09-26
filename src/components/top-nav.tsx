@@ -77,14 +77,6 @@ function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNaviga
       >
         Analyze
       </Link>
-      <Link
-        to="/studio"
-        className={item}
-        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
-        onClick={onNavigate}
-      >
-        Chamber
-      </Link>
       <AuthSlot onNavigate={onNavigate} stacked={stacked} />
     </nav>
   );
