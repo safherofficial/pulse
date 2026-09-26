@@ -7,8 +7,33 @@ export type DbSource = "neon" | "pglite";
 // "unset" — otherwise production would silently run on the PGLite fallback.
 const rawDatabaseUrl =
   typeof process !== "undefined" ? process.env.DATABASE_URL : undefined;
+
+/**
+ * pg-connection-string v2 treats prefer/require/verify-ca as verify-full and warns.
+ * Normalize to explicit verify-full to silence the warning and keep current security.
+ * @see https://www.postgresql.org/docs/current/libpq-ssl.html
+ */
+export function normalizeDatabaseUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const mode = (u.searchParams.get("sslmode") || "").toLowerCase();
+    if (mode === "require" || mode === "prefer" || mode === "verify-ca") {
+      u.searchParams.set("sslmode", "verify-full");
+    }
+    // Neon / pooled URLs sometimes omit sslmode; Pool still uses SSL for neon.tech
+    return u.toString();
+  } catch {
+    return url.replace(
+      /([?&])sslmode=(require|prefer|verify-ca)\b/gi,
+      "$1sslmode=verify-full",
+    );
+  }
+}
+
 const databaseUrl =
-  rawDatabaseUrl && rawDatabaseUrl.trim() ? rawDatabaseUrl : undefined;
+  rawDatabaseUrl && rawDatabaseUrl.trim()
+    ? normalizeDatabaseUrl(rawDatabaseUrl.trim())
+    : undefined;
 
 /**
  * Active backend: real **Neon** when `DATABASE_URL` is set (deployed / configured
