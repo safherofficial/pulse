@@ -1,7 +1,8 @@
 /**
- * Solana token intelligence — free public market data only.
+ * Multi-chain token intelligence — free public market data only.
  * Never invent missing fields; mark them unavailable.
  * UI must not expose provider names.
+ * Lifetime payment remains Solana-only and is unrelated to analysis chain.
  */
 
 const TIMEOUT_MS = 8_000;
@@ -12,7 +13,7 @@ export type TokenIdentity = {
   symbol: string;
   decimals: number | null;
   logoUrl: string | null;
-  chain: "solana";
+  chain: string;
   website: string | null;
   twitter: string | null;
   telegram: string | null;
@@ -93,6 +94,7 @@ export type TokenSearchHit = {
   logoUrl: string | null;
   priceUsd: number | null;
   liquidityUsd: number | null;
+  chain: string;
 };
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -113,11 +115,53 @@ async function fetchJson<T>(url: string): Promise<T | null> {
 }
 
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/** Supported chain ids as returned by public market data. */
+export const KNOWN_CHAINS = [
+  "solana",
+  "ethereum",
+  "base",
+  "bsc",
+  "arbitrum",
+  "polygon",
+  "avalanche",
+  "optimism",
+  "sui",
+  "ton",
+  "tron",
+] as const;
 
 export function detectTokenInput(input: string): "address" | "name" {
   const clean = input.trim();
-  if (SOLANA_ADDRESS_RE.test(clean)) return "address";
+  if (EVM_ADDRESS_RE.test(clean) || SOLANA_ADDRESS_RE.test(clean)) return "address";
   return "name";
+}
+
+export function looksLikeEvm(address: string): boolean {
+  return EVM_ADDRESS_RE.test(address.trim());
+}
+
+export function looksLikeSolana(address: string): boolean {
+  return SOLANA_ADDRESS_RE.test(address.trim());
+}
+
+export function chainLabel(chainId: string | null | undefined): string {
+  const c = (chainId ?? "").toLowerCase();
+  const map: Record<string, string> = {
+    solana: "Solana",
+    ethereum: "Ethereum",
+    base: "Base",
+    bsc: "BNB Chain",
+    arbitrum: "Arbitrum",
+    polygon: "Polygon",
+    avalanche: "Avalanche",
+    optimism: "Optimism",
+    sui: "Sui",
+    ton: "TON",
+    tron: "Tron",
+  };
+  return map[c] ?? (c ? c.charAt(0).toUpperCase() + c.slice(1) : "Unknown");
 }
 
 type DexPair = {
@@ -147,9 +191,14 @@ type DexPair = {
   boosts?: { active?: number };
 };
 
-function pickBestPair(pairs: DexPair[]): DexPair | null {
-  const sol = pairs.filter((p) => (p.chainId ?? "").toLowerCase() === "solana");
-  const pool = sol.length ? sol : pairs;
+function pickBestPair(pairs: DexPair[], preferChain?: string | null): DexPair | null {
+  let pool = pairs;
+  if (preferChain) {
+    const pref = pairs.filter(
+      (p) => (p.chainId ?? "").toLowerCase() === preferChain.toLowerCase(),
+    );
+    if (pref.length) pool = pref;
+  }
   if (!pool.length) return null;
   return pool
     .slice()
@@ -171,7 +220,7 @@ function identityFromPair(pair: DexPair, addressHint?: string): TokenIdentity {
     symbol: (base?.symbol ?? "—").toUpperCase(),
     decimals: null,
     logoUrl: pair.info?.imageUrl ?? null,
-    chain: "solana",
+    chain: (pair.chainId ?? "unknown").toLowerCase(),
     website,
     twitter,
     telegram,
@@ -238,6 +287,7 @@ export type DexPaidReport = {
 async function fetchPaidListing(
   address: string,
   activeBoosts?: number | null,
+  chainId: string = "solana",
 ): Promise<{ paid: boolean | null; detail: string | null; report: DexPaidReport }> {
   const emptyReport = (detail: string, dexPaid: boolean | null = null): DexPaidReport => ({
     dexPaid,
@@ -248,7 +298,7 @@ async function fetchPaidListing(
   try {
     const rows = await fetchJson<
       Array<{ type?: string; status?: string; paymentTimestamp?: number }>
-    >(`https://api.dexscreener.com/orders/v1/solana/${encodeURIComponent(address)}`);
+    >(`https://api.dexscreener.com/orders/v1/${encodeURIComponent(chainId)}/${encodeURIComponent(address)}`);
     if (!Array.isArray(rows)) {
       return {
         paid: null,
@@ -429,15 +479,15 @@ export async function searchTokensByName(query: string): Promise<TokenSearchHit[
   const data = await fetchJson<{ pairs?: DexPair[] }>(
     `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`,
   );
-  const pairs = (data?.pairs ?? []).filter(
-    (p) => (p.chainId ?? "").toLowerCase() === "solana",
-  );
+  const pairs = data?.pairs ?? [];
   const seen = new Set<string>();
   const hits: TokenSearchHit[] = [];
   for (const pair of pairs) {
     const addr = pair.baseToken?.address;
-    if (!addr || seen.has(addr)) continue;
-    seen.add(addr);
+    const chain = (pair.chainId ?? "unknown").toLowerCase();
+    const key = `${chain}:${addr}`;
+    if (!addr || seen.has(key)) continue;
+    seen.add(key);
     hits.push({
       address: addr,
       name: pair.baseToken?.name ?? "Unknown",
@@ -445,44 +495,54 @@ export async function searchTokensByName(query: string): Promise<TokenSearchHit[
       logoUrl: pair.info?.imageUrl ?? null,
       priceUsd: pair.priceUsd != null ? Number(pair.priceUsd) : null,
       liquidityUsd: pair.liquidity?.usd ?? null,
+      chain,
     });
-    if (hits.length >= 12) break;
+    if (hits.length >= 16) break;
   }
   return hits;
 }
 
-export async function researchTokenByAddress(address: string): Promise<TokenIntel | null> {
+export async function researchTokenByAddress(
+  address: string,
+  preferChain?: string | null,
+): Promise<TokenIntel | null> {
   let clean = address.trim();
   try {
     clean = decodeURIComponent(clean);
   } catch {
     /* keep raw */
   }
-  // Strip accidental path noise
   clean = clean.split(/[/?#]/)[0]!.trim();
-  if (!SOLANA_ADDRESS_RE.test(clean)) return null;
+  if (!EVM_ADDRESS_RE.test(clean) && !SOLANA_ADDRESS_RE.test(clean)) return null;
 
   const data = await fetchJson<{ pairs?: DexPair[] }>(
     `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(clean)}`,
   );
 
   let pairs = data?.pairs ?? [];
-  // Fallback: search by address string if tokens endpoint is empty
   if (!pairs.length) {
     const fallback = await fetchJson<{ pairs?: DexPair[] }>(
       `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(clean)}`,
     );
     pairs = (fallback?.pairs ?? []).filter(
       (p) =>
-        (p.chainId ?? "").toLowerCase() === "solana" &&
-        (p.baseToken?.address === clean || p.quoteToken?.address === clean),
+        p.baseToken?.address?.toLowerCase() === clean.toLowerCase() ||
+        p.quoteToken?.address?.toLowerCase() === clean.toLowerCase(),
     );
   }
 
-  const pair = pickBestPair(pairs);
+  // Auto-detect prefer chain from address shape when not provided
+  let prefer = preferChain ?? null;
+  if (!prefer) {
+    if (EVM_ADDRESS_RE.test(clean)) prefer = null; // let liquidity pick among EVM chains
+    else if (SOLANA_ADDRESS_RE.test(clean)) prefer = "solana";
+  }
+
+  const pair = pickBestPair(pairs, prefer);
   if (!pair) return null;
 
-  const paid = await fetchPaidListing(clean, pair.boosts?.active ?? null);
+  const chainId = (pair.chainId ?? "unknown").toLowerCase();
+  const paid = await fetchPaidListing(clean, pair.boosts?.active ?? null, chainId);
 
   const identity = identityFromPair(pair, clean);
   const boosts = pair.boosts?.active ?? null;
@@ -542,8 +602,19 @@ export async function researchToken(input: string): Promise<
   return { kind: "empty" };
 }
 
-export function explorerUrl(address: string): string {
-  return `https://solscan.io/token/${encodeURIComponent(address)}`;
+export function explorerUrl(address: string, chain?: string): string {
+  const c = (chain ?? "").toLowerCase();
+  if (c === "ethereum") return `https://etherscan.io/token/${encodeURIComponent(address)}`;
+  if (c === "base") return `https://basescan.org/token/${encodeURIComponent(address)}`;
+  if (c === "bsc") return `https://bscscan.com/token/${encodeURIComponent(address)}`;
+  if (c === "arbitrum") return `https://arbiscan.io/token/${encodeURIComponent(address)}`;
+  if (c === "polygon") return `https://polygonscan.com/token/${encodeURIComponent(address)}`;
+  if (c === "avalanche") return `https://snowtrace.io/token/${encodeURIComponent(address)}`;
+  if (c === "optimism") return `https://optimistic.etherscan.io/token/${encodeURIComponent(address)}`;
+  if (SOLANA_ADDRESS_RE.test(address) || c === "solana") {
+    return `https://solscan.io/token/${encodeURIComponent(address)}`;
+  }
+  return `https://dexscreener.com/search?q=${encodeURIComponent(address)}`;
 }
 
 export type ViralToken = {
@@ -689,8 +760,10 @@ export async function fetchTokenOhlcv(
 ): Promise<OhlcvCandle[]> {
   if (!pairAddress) return [];
   const cfg = TF_CONFIG[timeframe];
+  // network slug is not always equal to dexscreener chainId; best-effort
+  const network = "solana"; // pair-address based; caller may pass network later
   const url =
-    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${encodeURIComponent(pairAddress)}` +
+    `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${encodeURIComponent(pairAddress)}` +
     `/ohlcv/${cfg.geckoTf}?aggregate=${cfg.aggregate}&limit=${cfg.limit}&currency=usd&token=base`;
   try {
     const data = await fetchJson<{
