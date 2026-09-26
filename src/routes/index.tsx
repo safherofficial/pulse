@@ -67,6 +67,10 @@ const PRICE_ROWS = [
     yearly: "$72–144+",
     focus: "Cross-network scheduling",
     ours: false,
+  },
+] as const;
+
+
 function WatchHowItWorks() {
   const [open, setOpen] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -164,8 +168,7 @@ function WatchHowItWorks() {
             className="panel animate-in w-full max-w-lg overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Poster / scene stage */}
-            <div className="relative aspect-video bg-gradient-to-br from-surface-2 via-bg to-surface border-b border-line">
+            <div className="relative aspect-video border-b border-line bg-gradient-to-br from-surface-2 via-bg to-surface">
               <div className="absolute inset-0 flex flex-col justify-end p-5">
                 <p className="font-mono text-[10px] tracking-[0.2em] text-accent uppercase">
                   Scene {scene + 1} / {scenes.length}
@@ -187,7 +190,6 @@ function WatchHowItWorks() {
               ) : null}
             </div>
 
-            {/* Progress */}
             <div className="h-1 w-full bg-line">
               <div
                 className="h-full bg-accent transition-all duration-500"
@@ -227,12 +229,8 @@ function WatchHowItWorks() {
                 Close
               </button>
             </div>
-            <div className="border-t border-line px-4 py-3 flex flex-wrap gap-2">
-              <Link
-                to="/tokens"
-                className={buttonVariants()}
-                onClick={closePlayer}
-              >
+            <div className="flex flex-wrap gap-2 border-t border-line px-4 py-3">
+              <Link to="/tokens" className={buttonVariants()} onClick={closePlayer}>
                 Analyze a token
               </Link>
               <Link
@@ -250,10 +248,6 @@ function WatchHowItWorks() {
   );
 }
 
-ll}
-    </>
-  );
-}
 
 function Home() {
   const thread = sampleModel.posts[0]!;
