@@ -32,7 +32,7 @@ function formatPrice(n: number | null) {
 
 /** Always open the dedicated token page. */
 function tokenHref(address: string) {
-  return `/tokens/${encodeURIComponent(address)}`;
+  return `/token/${encodeURIComponent(address)}`;
 }
 
 function openToken(address: string) {
@@ -134,7 +134,7 @@ function TokensPage() {
             {hits.map((h) => (
               <li key={h.address}>
                 <Link
-                  to="/tokens/$address"
+                  to="/token/$address"
                   params={{ address: h.address }}
                   className="flex w-full items-center gap-3 rounded-md border border-line bg-surface-2/50 px-3 py-3 text-left transition hover:border-accent/40"
                   onClick={(e) => {
