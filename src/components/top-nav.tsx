@@ -41,7 +41,42 @@ function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNaviga
   const item = `nav-link inline-flex h-11 items-center px-3 text-sm text-muted hover:text-fg ${stacked ? "w-full" : ""}`;
 
   return (
-    <nav className={stacked ? "flex flex-col" : "flex flex-wrap items-center gap-1"} aria-label="Primary">
+    <nav
+      className={stacked ? "flex flex-col" : "flex flex-wrap items-center gap-1"}
+      aria-label="Primary"
+    >
+      <Link
+        to="/research"
+        className={item}
+        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
+        onClick={onNavigate}
+      >
+        Research
+      </Link>
+      <Link
+        to="/tokens"
+        className={item}
+        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
+        onClick={onNavigate}
+      >
+        Tokens
+      </Link>
+      <Link
+        to="/create"
+        className={item}
+        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
+        onClick={onNavigate}
+      >
+        Create
+      </Link>
+      <Link
+        to="/analyze"
+        className={item}
+        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
+        onClick={onNavigate}
+      >
+        Analyze
+      </Link>
       <Link
         to="/studio"
         className={item}
@@ -49,14 +84,6 @@ function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNaviga
         onClick={onNavigate}
       >
         Chamber
-      </Link>
-      <Link
-        to="/onboard"
-        className={item}
-        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
-        onClick={onNavigate}
-      >
-        Lifetime
       </Link>
       <AuthSlot onNavigate={onNavigate} stacked={stacked} />
     </nav>
@@ -80,7 +107,11 @@ function AuthSlot({ onNavigate, stacked }: { onNavigate: () => void; stacked: bo
 
   return (
     <div className={`flex items-center gap-2 ${stacked ? "flex-wrap px-3 py-2" : ""}`}>
-      <Link to="/pulse" className="inline-flex h-11 items-center px-3 text-sm text-fg" onClick={onNavigate}>
+      <Link
+        to="/pulse"
+        className="inline-flex h-11 items-center px-3 text-sm text-fg"
+        onClick={onNavigate}
+      >
         Your chamber
       </Link>
       <UserButton />
