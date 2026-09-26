@@ -5,12 +5,14 @@ import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
 import { researchTokenIntel } from "@/lib/xpulse/api";
 import {
+  attachXPatterns,
   buildTokenFactSet,
   generateFromFactSet,
   regenerateFromFactSet,
   type RegenMode,
   type TokenFactSet,
 } from "@/lib/xpulse/content-create";
+import { researchXContentIntel } from "@/lib/xpulse/x-content-intel";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import type { GeneratedContent } from "@/lib/xpulse/content-create";
 import {
@@ -357,9 +359,22 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
     window.setTimeout(() => setCopied(false), 1500);
   }
 
-  function createContent(kind: ContentKind) {
+  async function createContent(kind: ContentKind) {
     if (!intel) return;
-    const facts = factSet ?? buildTokenFactSet(intel);
+    let facts = factSet ?? buildTokenFactSet(intel);
+    // X research once per fact set — regenerations reuse it
+    if (!facts.xPatterns.length && facts.xNote == null) {
+      try {
+        const xIntel = await researchXContentIntel(intel);
+        facts = attachXPatterns(
+          facts,
+          xIntel.patterns.map((p) => p.pattern),
+          xIntel.note,
+        );
+      } catch {
+        facts = attachXPatterns(facts, [], "X content sample unavailable.");
+      }
+    }
     setFactSet(facts);
     const next = generateFromFactSet(facts, kind, regenMode, variant);
     setContent(next);
@@ -713,7 +728,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             </div>
             <div className="flex flex-wrap gap-2">
               {(["post", "thread", "article"] as ContentKind[]).map((k) => (
-                <Button key={k} type="button" variant="quiet" onClick={() => createContent(k)}>
+                <Button key={k} type="button" variant="quiet" onClick={() => void createContent(k)}>
                   {k === "post" ? "Generate post" : k === "thread" ? "Generate thread" : "Generate article"}
                 </Button>
               ))}
