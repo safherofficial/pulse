@@ -93,7 +93,7 @@ function formatUsd(n: number | null): string {
 export function tokenBrief(intel: TokenIntel): string {
   const { identity, market, analysis } = intel;
   const lines = [
-    `${identity.name} (${identity.symbol}) · Solana`,
+    `${identity.name} (${identity.symbol}) · ${identity.chain}`,
     `CA: ${identity.address}`,
     `Price: ${formatPrice(market.priceUsd)}`,
     `24h change: ${market.priceChange24h != null ? `${market.priceChange24h.toFixed(1)}%` : "unavailable"}`,
@@ -252,15 +252,6 @@ export function generateFromDraft(
   };
 }
 
-export function generateFromToken(
-  intel: TokenIntel,
-  kind: ContentKind,
-  angleId?: string,
-  variant = 0,
-): GeneratedContent {
-  const brief = tokenBrief(intel);
-  return generateFromDraft(brief, kind, angleId ?? "data", variant);
-}
 
 export function improveForScore(
   text: string,
@@ -285,4 +276,262 @@ export function improveForScore(
     };
   }
   return best;
+}
+
+
+/** Locked factual layer for token content — never altered by regeneration. */
+export type TokenFactSet = {
+  identity: {
+    name: string;
+    symbol: string;
+    chain: string;
+    address: string;
+  };
+  metrics: Array<{ key: string; value: string }>;
+  findings: string[];
+  story: string | null;
+  risks: string[];
+  dexPaid: "paid" | "not_paid" | "unknown";
+  boosts: number | null;
+  builtAt: string;
+};
+
+export type RegenMode =
+  | "default"
+  | "stronger_hook"
+  | "more_professional"
+  | "more_viral"
+  | "more_technical"
+  | "more_human"
+  | "more_concise"
+  | "more_data"
+  | "more_story"
+  | "different_angle";
+
+export function buildTokenFactSet(intel: TokenIntel): TokenFactSet {
+  const { identity, market, analysis } = intel;
+  const metrics: TokenFactSet["metrics"] = [];
+  const push = (key: string, value: string | null | undefined) => {
+    if (value && value !== "unavailable" && value !== "Data unavailable") {
+      metrics.push({ key, value });
+    }
+  };
+  push("price", formatPrice(market.priceUsd));
+  if (market.priceChange1h != null) push("change_1h", `${market.priceChange1h.toFixed(1)}%`);
+  if (market.priceChange6h != null) push("change_6h", `${market.priceChange6h.toFixed(1)}%`);
+  if (market.priceChange24h != null) push("change_24h", `${market.priceChange24h.toFixed(1)}%`);
+  push("liquidity", formatUsd(market.liquidityUsd));
+  push("volume_24h", formatUsd(market.volume24h));
+  push("market_cap", formatUsd(market.marketCap));
+  push("fdv", formatUsd(market.fdv));
+  if (market.buys24h != null || market.sells24h != null) {
+    push("trades_24h", `${market.buys24h ?? "—"} buys / ${market.sells24h ?? "—"} sells`);
+  }
+  if (market.dexId) push("dex", market.dexId);
+
+  const findings: string[] = [];
+  if (market.priceChange24h != null && market.volume24h != null) {
+    if (Math.abs(market.priceChange24h) > 15 && market.volume24h > 50_000) {
+      findings.push(
+        `Price moved ${market.priceChange24h >= 0 ? "+" : ""}${market.priceChange24h.toFixed(1)}% over 24h while volume printed ${formatUsd(market.volume24h)}.`,
+      );
+    }
+  }
+  if (market.liquidityUsd != null && market.marketCap != null && market.marketCap > 0) {
+    const ratio = market.liquidityUsd / market.marketCap;
+    if (ratio < 0.05) {
+      findings.push(
+        `Liquidity is thin relative to market cap (${(ratio * 100).toFixed(1)}% of mcap).`,
+      );
+    } else if (ratio > 0.25) {
+      findings.push(
+        `Liquidity is relatively deep versus market cap (${(ratio * 100).toFixed(1)}% of mcap).`,
+      );
+    }
+  }
+  if (market.volume24h != null && market.liquidityUsd != null && market.liquidityUsd > 0) {
+    const turn = market.volume24h / market.liquidityUsd;
+    if (turn > 3) {
+      findings.push(`24h volume is ${turn.toFixed(1)}× liquidity — elevated turnover.`);
+    }
+  }
+  if (market.priceChange24h != null && market.priceChange1h != null) {
+    if (Math.sign(market.priceChange24h) !== Math.sign(market.priceChange1h) && Math.abs(market.priceChange1h) > 3) {
+      findings.push(
+        `Short-term (1h ${market.priceChange1h >= 0 ? "+" : ""}${market.priceChange1h.toFixed(1)}%) diverges from the 24h move.`,
+      );
+    }
+  }
+  for (const line of [analysis.snapshot, analysis.activity, analysis.marketStructure]) {
+    if (line && !findings.includes(line)) findings.push(line);
+  }
+
+  const story = findings[0] ?? null;
+
+  let dexPaid: TokenFactSet["dexPaid"] = "unknown";
+  if (market.dexPaid === true) dexPaid = "paid";
+  else if (market.dexPaid === false) dexPaid = "not_paid";
+
+  return {
+    identity: {
+      name: identity.name,
+      symbol: identity.symbol,
+      chain: identity.chain,
+      address: identity.address,
+    },
+    metrics,
+    findings: findings.slice(0, 8),
+    story,
+    risks: analysis.risks.slice(0, 6),
+    dexPaid,
+    boosts: market.boostActive,
+    builtAt: new Date().toISOString(),
+  };
+}
+
+function factSetToDraft(facts: TokenFactSet): string {
+  const lines = [
+    `${facts.identity.name} (${facts.identity.symbol}) · ${facts.identity.chain}`,
+    `CA: ${facts.identity.address}`,
+    ...facts.metrics.map((m) => `${m.key}: ${m.value}`),
+    `dex_paid: ${facts.dexPaid}`,
+    facts.boosts != null ? `boosts: ${facts.boosts}` : "",
+    "",
+    "Key findings:",
+    ...facts.findings.map((f) => `• ${f}`),
+    "",
+    "Risks:",
+    ...facts.risks.map((r) => `• ${r}`),
+    "",
+    "Informational only — not financial advice. Unverified claims are omitted.",
+  ];
+  return lines.filter((l) => l !== "").join("\n");
+}
+
+function pickHook(facts: TokenFactSet, mode: RegenMode, variant: number): string {
+  const candidates: string[] = [];
+  if (facts.story) candidates.push(facts.story);
+  for (const f of facts.findings) candidates.push(f);
+  for (const m of facts.metrics) {
+    if (m.key.includes("change") || m.key === "volume_24h" || m.key === "liquidity") {
+      candidates.push(`${facts.identity.symbol}: ${m.key.replace(/_/g, " ")} ${m.value}`);
+    }
+  }
+  if (!candidates.length) {
+    candidates.push(
+      `${facts.identity.name} (${facts.identity.symbol}) on ${facts.identity.chain} — reading the available market structure.`,
+    );
+  }
+  const idx = Math.abs(variant) % candidates.length;
+  let hook = candidates[idx]!;
+  if (mode === "stronger_hook" || mode === "more_viral") {
+    hook = hook.replace(/\.$/, "");
+    if (!/[?]$/.test(hook) && variant % 2 === 0) {
+      // observation emphasis, not fake claim
+      hook = `Worth noting: ${hook.charAt(0).toLowerCase()}${hook.slice(1)}`;
+    }
+  }
+  if (mode === "more_concise") {
+    hook = hook.split(/[.—]/)[0]!.trim();
+  }
+  return hook;
+}
+
+/**
+ * Generate token content from a locked FactSet.
+ * Regeneration changes writing only — never the facts.
+ */
+export function generateFromFactSet(
+  facts: TokenFactSet,
+  kind: ContentKind,
+  mode: RegenMode = "default",
+  variant = 0,
+): GeneratedContent {
+  const draft = factSetToDraft(facts);
+  const angleId =
+    mode === "more_data"
+      ? "data"
+      : mode === "more_story"
+        ? "story"
+        : mode === "different_angle"
+          ? undefined
+          : "data";
+  const base = generateFromDraft(draft, kind, angleId, variant);
+  const hook = pickHook(facts, mode, variant);
+
+  let text = base.text;
+  // Force factual hook as first beat for posts
+  if (kind === "post") {
+    const rest = text.split(/\n\n+/).slice(1).join("\n\n");
+    const metricLine = facts.metrics
+      .filter((m) => ["price", "change_24h", "liquidity", "volume_24h", "market_cap"].includes(m.key))
+      .slice(0, 4)
+      .map((m) => `${m.key.replace(/_/g, " ")} ${m.value}`)
+      .join(" · ");
+    const riskLine = facts.risks[0] ? `Risk flag: ${facts.risks[0]}` : "";
+    text = [hook, metricLine, rest || riskLine, "Informational only — not financial advice."]
+      .filter(Boolean)
+      .join("\n\n");
+    if (mode === "more_concise") {
+      text = [hook, metricLine].filter(Boolean).join("\n\n");
+    }
+    if (mode === "more_technical") {
+      text = [
+        hook,
+        facts.metrics.map((m) => `${m.key}: ${m.value}`).join("\n"),
+        facts.dexPaid !== "unknown" ? `dex_paid: ${facts.dexPaid}` : "dex_paid: unknown",
+        riskLine,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+    }
+  }
+
+  // Strip hype phrases that rewrite may introduce
+  text = text
+    .replace(/\b(about to explode|guaranteed|100x|to the moon|ape in)\b/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+
+  const score = scoreContent(text, kind);
+  // Penalty already in scoreContent; reinforce data quality via applied notes
+  return {
+    kind,
+    angle: base.angle,
+    text,
+    score,
+    applied: [
+      ...base.applied,
+      `Fact set locked (${facts.metrics.length} metrics, ${facts.findings.length} findings)`,
+      `Mode: ${mode}`,
+      `Variant: ${variant}`,
+      `Story: ${facts.story ? "derived from data" : "none"}`,
+    ],
+  };
+}
+
+export function generateFromToken(
+  intel: TokenIntel,
+  kind: ContentKind,
+  angleId?: string,
+  variant = 0,
+): GeneratedContent {
+  const facts = buildTokenFactSet(intel);
+  if (angleId === "story") {
+    return generateFromFactSet(facts, kind, "more_story", variant);
+  }
+  if (angleId === "data") {
+    return generateFromFactSet(facts, kind, "more_data", variant);
+  }
+  return generateFromFactSet(facts, kind, "default", variant);
+}
+
+/** Unlimited regeneration — same FactSet, new writing. */
+export function regenerateFromFactSet(
+  facts: TokenFactSet,
+  kind: ContentKind,
+  mode: RegenMode,
+  previousVariant: number,
+): GeneratedContent {
+  return generateFromFactSet(facts, kind, mode, previousVariant + 1 + Math.floor(Math.random() * 17));
 }
