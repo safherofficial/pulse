@@ -313,27 +313,45 @@ async function fetchPaidListing(
     const approvedProfile = normalized.some(
       (r) =>
         (r.type === "tokenProfile" || r.type === "communityTakeover") &&
-        (r.status === "approved" || r.status === "processing" || r.status === "on-hold"),
+        (r.status === "approved"),
     );
-    const hasAnyPaidOrder = normalized.length > 0;
+    const pendingProfile = normalized.some(
+      (r) =>
+        (r.type === "tokenProfile" || r.type === "communityTakeover") &&
+        (r.status === "processing" || r.status === "on-hold" || r.status === "pending"),
+    );
     const types = [...new Set(normalized.map((r) => r.type))];
     const parts: string[] = [];
+
+    // Explicit three-state model: true = PAID, false = NOT PAID, null = UNKNOWN
+    // Empty successful response → NOT PAID (verified absence of orders)
+    // API failure → UNKNOWN (handled in catch / non-array)
+    let dexPaid: boolean | null = false;
     if (approvedProfile) {
-      parts.push("DEX Paid (Enhanced Token Info / profile approved)");
-    } else if (hasAnyPaidOrder) {
-      parts.push(`Orders present: ${types.join(", ")} — profile not yet approved as DEX Paid`);
+      dexPaid = true;
+      parts.push("DEX Paid — Enhanced Token Info approved");
+    } else if (pendingProfile) {
+      dexPaid = null; // not verified paid yet
+      parts.push("Profile order present but not approved — status unknown until approved");
+    } else if (normalized.length > 0) {
+      dexPaid = false;
+      parts.push(`Orders found (${types.join(", ")}) but not an approved token profile — DEX Paid: No`);
     } else {
-      parts.push("No paid DexScreener orders found");
+      dexPaid = false;
+      parts.push("DEX Paid: No — no paid orders returned for this token");
     }
     if (activeBoosts != null && activeBoosts > 0) {
-      parts.push(`Active boosts: ${activeBoosts}`);
+      parts.push(`Active boosts: ${activeBoosts} (boost ≠ profile paid)`);
     }
-    const dexPaid = approvedProfile ? true : hasAnyPaidOrder ? false : false;
+
+    const anyActivity =
+      normalized.length > 0 || (activeBoosts != null && activeBoosts > 0);
+
     return {
-      paid: hasAnyPaidOrder || (activeBoosts != null && activeBoosts > 0) ? true : false,
+      paid: anyActivity ? true : false,
       detail: parts.join(". ") + ".",
       report: {
-        dexPaid: approvedProfile,
+        dexPaid,
         boostActive: activeBoosts ?? null,
         orders: normalized,
         detail: parts.join(". ") + ".",
@@ -342,8 +360,8 @@ async function fetchPaidListing(
   } catch {
     return {
       paid: null,
-      detail: "Paid-listing status unavailable.",
-      report: emptyReport("Paid-listing status unavailable."),
+      detail: "DEX Paid status unknown — listing data temporarily unavailable.",
+      report: emptyReport("DEX Paid status unknown — listing data temporarily unavailable.", null),
     };
   }
 }
