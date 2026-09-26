@@ -119,6 +119,11 @@ const VAGUE_MAP: Array<[RegExp, string[]]> = [
   [/\breally\b/gi, ["", "clearly", "truly"]],
   [/\bvery\b/gi, ["", "genuinely", "markedly"]],
   [/\bjust\b/gi, ["", "simply", "only"]],
+  [/\bcrypto\b/gi, ["on-chain", "web3", "Solana"]],
+  [/\bblockchain\b/gi, ["Solana", "on-chain", "L1"]],
+  [/\bproject\b/gi, ["protocol", "product", "build"]],
+  [/\bcommunity\b/gi, ["holders", "builders", "users"]],
+  [/\blaunch\b/gi, ["ship", "mainnet launch", "go live"]],
 ];
 
 export function suggestEdits(text: string): EditSuggestion[] {
@@ -409,8 +414,8 @@ export function rewritePost(text: string, variant = 0): RewriteResult {
     };
     if (!best || score > avgScore(best.after)) best = candidate;
     // Early exit on clear win
-    if (score > baseline + 1.5 && offset <= 1) break;
-    if (score > baseline + 0.5 && offset <= 3) break;
+    if (score > baseline + 3 && offset <= 1) break;
+    if (score > baseline + 1.5 && offset <= 4) break;
   }
 
   // Safety: if no improvement, return a minimal structural polish of the original
