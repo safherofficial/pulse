@@ -8,7 +8,7 @@ const NAV = [
   { to: "/tokens", label: "Tokens" },
   { to: "/create", label: "Create" },
   { to: "/analyze", label: "Analyze" },
-  { to: "/studio", label: "Chamber" },
+  { to: "/pulse", label: "Your Chamber" },
 ] as const;
 
 export function WorkspaceShell({
