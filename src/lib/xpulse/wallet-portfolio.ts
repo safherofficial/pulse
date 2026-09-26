@@ -217,14 +217,29 @@ export async function fetchWalletPortfolio(address: string): Promise<PortfolioSn
     return { ...empty, note: "Invalid wallet address." };
   }
 
-  const [lamportsRaw, tokenAccounts] = await Promise.all([
+  const TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+  const TOKEN_2022_PROGRAM = "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
+
+  const [lamportsRaw, tokenAccountsLegacy, tokenAccounts2022] = await Promise.all([
     rpc<number | { value?: number }>("getBalance", [address]),
     rpc<{ value: ParsedTokenAccount[] }>("getTokenAccountsByOwner", [
       address,
-      { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+      { programId: TOKEN_PROGRAM },
+      { encoding: "jsonParsed" },
+    ]),
+    rpc<{ value: ParsedTokenAccount[] }>("getTokenAccountsByOwner", [
+      address,
+      { programId: TOKEN_2022_PROGRAM },
       { encoding: "jsonParsed" },
     ]),
   ]);
+
+  const tokenAccounts = {
+    value: [
+      ...(tokenAccountsLegacy?.value ?? []),
+      ...(tokenAccounts2022?.value ?? []),
+    ],
+  };
 
   // Some RPC wrappers return { value: number }; standard is number (lamports)
   const lamports =
@@ -240,19 +255,40 @@ export async function fetchWalletPortfolio(address: string): Promise<PortfolioSn
   const solBalanceSafe =
     solBalance != null && Number.isFinite(solBalance) ? solBalance : null;
 
-  const holdings: Array<{ mint: string; amount: number; decimals: number }> = [];
-  for (const row of tokenAccounts?.value ?? []) {
+  // Aggregate multiple token accounts of the same mint
+  const byMint = new Map<string, { amount: number; decimals: number }>();
+  for (const row of tokenAccounts.value) {
     const info = row.account?.data?.parsed?.info;
     const mint = info?.mint;
     const ta = info?.tokenAmount;
     if (!mint || !ta) continue;
     const parsed = parseTokenAmount(ta);
     if (!parsed) continue;
-    holdings.push({ mint, amount: parsed.amount, decimals: parsed.decimals });
+    const prev = byMint.get(mint);
+    if (prev) {
+      byMint.set(mint, {
+        amount: prev.amount + parsed.amount,
+        decimals: Math.max(prev.decimals, parsed.decimals),
+      });
+    } else {
+      byMint.set(mint, { amount: parsed.amount, decimals: parsed.decimals });
+    }
   }
 
+  const holdings = [...byMint.entries()].map(([mint, v]) => ({
+    mint,
+    amount: v.amount,
+    decimals: v.decimals,
+  }));
   holdings.sort((a, b) => b.amount - a.amount);
-  const priceMap = await priceForMints(holdings.slice(0, 25).map((h) => h.mint));
+
+  // Price in batches of 30 (API limit) — cover as many as practical
+  const allMints = holdings.map((h) => h.mint);
+  const priceMap = new Map<string, { price: number | null; symbol: string; name: string; logo: string | null }>();
+  for (let i = 0; i < allMints.length && i < 90; i += 30) {
+    const batch = await priceForMints(allMints.slice(i, i + 30));
+    for (const [k, v] of batch) priceMap.set(k, v);
+  }
 
   const solMeta = await priceForMints(["So11111111111111111111111111111111111111112"]);
   const solPriceUsd =
@@ -337,7 +373,7 @@ export async function fetchWalletPortfolio(address: string): Promise<PortfolioSn
   }
 
   let note: string | null = null;
-  if (lamports == null && !tokenAccounts) {
+  if (lamports == null && tokenAccounts.value.length === 0) {
     note = "Wallet balances temporarily unavailable.";
   } else {
     const parts = [
