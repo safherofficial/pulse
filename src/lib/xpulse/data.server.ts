@@ -17,8 +17,12 @@ import {
 } from "./contracts";
 import {
   BUILTIN_TREASURY,
-  PRICE_LAMPORTS,
-  PRICE_SOL
+  PRICE_USD,
+  FALLBACK_PRICE_SOL,
+  FALLBACK_PRICE_LAMPORTS,
+  PRICE_USDC_BASE,
+  USDC_MINT_MAINNET,
+  USDC_MINT_DEVNET,
 } from "./constants";
 import {
   asMetrics,
@@ -191,12 +195,36 @@ function shortWallet(address: string) {
   return `${address.slice(0, 4)}…${address.slice(-4)}`;
 }
 
+async function liveSolQuote(): Promise<{ priceSol: number; priceLamports: number; solUsd: number; source: string }> {
+  try {
+    const { resolveSolUsd } = await import("./public-apis");
+    const quote = await resolveSolUsd();
+    const priceSol = PRICE_USD / quote.usd;
+    const priceLamports = Math.max(1, Math.ceil(priceSol * 1_000_000_000));
+    return { priceSol, priceLamports, solUsd: quote.usd, source: quote.source };
+  } catch {
+    return {
+      priceSol: FALLBACK_PRICE_SOL,
+      priceLamports: FALLBACK_PRICE_LAMPORTS,
+      solUsd: PRICE_USD / FALLBACK_PRICE_SOL,
+      source: "fallback",
+    };
+  }
+}
+
 export function billingConfig(): BillingConfig {
   const envTreasury =
     process.env.SOLANA_TREASURY_ADDRESS?.trim() || "";
 
   return {
-    priceSol: PRICE_SOL,
+    priceUsd: PRICE_USD,
+    priceSol: FALLBACK_PRICE_SOL,
+    priceLamports: FALLBACK_PRICE_LAMPORTS,
+    priceUsdc: PRICE_USD,
+    priceUsdcBase: PRICE_USDC_BASE,
+    solUsd: PRICE_USD / FALLBACK_PRICE_SOL,
+    solUsdSource: "fallback",
+    usdcMint: USDC_MINT_MAINNET,
     treasury:
       envTreasury || BUILTIN_TREASURY,
     mainnetEnabled:
@@ -206,6 +234,19 @@ export function billingConfig(): BillingConfig {
       "true",
     usingBuiltinTreasury:
       !envTreasury
+  };
+}
+
+export async function billingConfigLive(): Promise<BillingConfig> {
+  const base = billingConfig();
+  const quote = await liveSolQuote();
+  return {
+    ...base,
+    priceSol: Number(quote.priceSol.toFixed(6)),
+    priceLamports: quote.priceLamports,
+    solUsd: quote.solUsd,
+    solUsdSource: quote.source,
+    usdcMint: USDC_MINT_MAINNET,
   };
 }
 
@@ -956,13 +997,35 @@ export async function runVerifyPayment(
       );
     }
 
-    const verdict =
+    const quote = await liveSolQuote();
+    // 3% tolerance for SOL price drift between client quote and server verify
+    const minLamports = Math.floor(quote.priceLamports * 0.97);
+
+    const solVerdict =
       assessTransfer(tx, {
         treasury,
         payer: address,
-        minLamports:
-          PRICE_LAMPORTS
+        minLamports,
       });
+
+    let verdict: { ok: true; lamports: number } | { ok: false; reason: string } = solVerdict;
+    if (!solVerdict.ok) {
+      const { assessUsdcTransfer } = await import("./solana");
+      const usdcVerdict = assessUsdcTransfer(result, {
+        treasury,
+        payer: address,
+        mint: cluster === "devnet" ? USDC_MINT_DEVNET : USDC_MINT_MAINNET,
+        minBaseUnits: Math.floor(PRICE_USDC_BASE * 0.99),
+      });
+      if (usdcVerdict.ok) {
+        verdict = { ok: true, lamports: 0 };
+      } else {
+        verdict = {
+          ok: false,
+          reason: solVerdict.reason + " Also checked USDC: " + usdcVerdict.reason,
+        };
+      }
+    }
 
     if (!verdict.ok) {
       throw new PulseError(
@@ -996,7 +1059,7 @@ export async function runVerifyPayment(
         ok: true as const,
         lifetime: false as const,
         message:
-          "Transaction confirmed on devnet. Lifetime is granted for a mainnet payment of 0.15 SOL."
+          "Transaction confirmed on devnet. Lifetime is granted for a mainnet payment of $10 (SOL or USDC)."
       };
     }
 

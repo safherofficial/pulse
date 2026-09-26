@@ -20,7 +20,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ChamberUnlockTransition } from "@/components/pay/ChamberUnlockTransition";
 import { getBillingConfig, getMe, verifyPayment } from "@/lib/xpulse/api";
-import { PRICE_LAMPORTS } from "@/lib/xpulse/constants";
 import { shortAddress } from "@/lib/xpulse/format";
 import type { BillingConfig, Me } from "@/lib/xpulse/types";
 
@@ -246,7 +245,7 @@ function PayPanel({ wallets }: { wallets: PayWalletAdapter[] }) {
         SystemProgram.transfer({
           fromPubkey: publicKey,
           toPubkey: treasury,
-          lamports: PRICE_LAMPORTS,
+          lamports: config.priceLamports,
         }),
       );
 
@@ -296,7 +295,7 @@ function PayPanel({ wallets }: { wallets: PayWalletAdapter[] }) {
   return (
     <div className="grid gap-6">
       <div>
-        <p className="kicker">0.15 SOL · once · mainnet</p>
+        <p className="kicker">$10 lifetime · SOL or USDC · mainnet</p>
         <h2 className="mt-2 text-2xl font-medium tracking-tight sm:text-3xl">
           Lifetime access belongs to the wallet that pays.
         </h2>
@@ -360,7 +359,7 @@ function PayPanel({ wallets }: { wallets: PayWalletAdapter[] }) {
           ) : trialExpired ? (
             <div className="panel p-4">
               <p className="text-sm text-fg">Your 7-day trial has ended.</p>
-              <p className="mt-2 text-sm text-muted">Pay 0.15 SOL from this wallet to unlock the Chamber permanently.</p>
+              <p className="mt-2 text-sm text-muted">Pay $10 in SOL (live quote) or 10 USDC from this wallet to unlock the Chamber permanently.</p>
             </div>
           ) : null}
 
@@ -368,8 +367,19 @@ function PayPanel({ wallets }: { wallets: PayWalletAdapter[] }) {
             disabled={!connected || busy || mainnetBlocked || trialActive}
             onClick={() => void pay()}
           >
-            {busy ? "Working…" : "Pay 0.15 SOL"}
+            {busy
+              ? "Working…"
+              : config
+                ? `Pay ~${config.priceSol.toFixed(4)} SOL ($${config.priceUsd})`
+                : "Pay $10 lifetime"}
           </Button>
+
+          {config ? (
+            <p className="text-xs text-subtle">
+              Live quote via {config.solUsdSource}: 1 SOL ≈ ${config.solUsd.toFixed(2)}. Or send exactly {config.priceUsdc} USDC
+              (mint {config.usdcMint.slice(0, 4)}…{config.usdcMint.slice(-4)}) to the treasury and verify the signature.
+            </p>
+          ) : null}
 
           {pendingSignature ? (
             <div className="panel grid gap-2 p-4">

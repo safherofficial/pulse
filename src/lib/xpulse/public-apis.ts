@@ -239,3 +239,47 @@ export async function expandVagueVocabulary(text: string): Promise<Record<string
   );
   return out;
 }
+
+/**
+ * CoinGecko free API — SOL/USD spot for lifetime price conversion.
+ * https://api.coingecko.com/api/v3/simple/price
+ */
+export async function fetchSolUsdPrice(): Promise<number | null> {
+  try {
+    const response = await fetchWithTimeout(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json()) as { solana?: { usd?: number } };
+    const usd = payload?.solana?.usd;
+    return typeof usd === "number" && usd > 0 ? usd : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Jupiter public price API fallback. */
+export async function fetchSolUsdPriceJupiter(): Promise<number | null> {
+  try {
+    const response = await fetchWithTimeout(
+      "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112",
+    );
+    if (!response.ok) return null;
+    const payload = (await response.json()) as {
+      data?: Record<string, { price?: string | number }>;
+    };
+    const raw = payload?.data?.["So11111111111111111111111111111111111111112"]?.price;
+    const usd = typeof raw === "string" ? Number(raw) : Number(raw);
+    return Number.isFinite(usd) && usd > 0 ? usd : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function resolveSolUsd(): Promise<{ usd: number; source: string }> {
+  const cg = await fetchSolUsdPrice();
+  if (cg) return { usd: cg, source: "coingecko" };
+  const jup = await fetchSolUsdPriceJupiter();
+  if (jup) return { usd: jup, source: "jupiter" };
+  return { usd: 150, source: "fallback" };
+}

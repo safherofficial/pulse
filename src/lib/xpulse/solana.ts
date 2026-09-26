@@ -9,7 +9,7 @@ export type ChainTx = {
 
 /**
  * A lifetime payment is a confirmed transfer where the treasury's balance
- * rose by at least 0.15 SOL and the claimed wallet signed and spent at least
+ * rose by at least the required lifetime amount and the claimed wallet signed and spent at least
  * that much. Balance deltas survive both legacy and versioned transactions.
  */
 export function assessTransfer(
@@ -33,7 +33,7 @@ export function assessTransfer(
   const gained = postT - preT;
   const spent = preP - postP;
   if (gained < opts.minLamports || spent < opts.minLamports) {
-    return { ok: false, reason: "The treasury received less than 0.15 SOL from this wallet." };
+    return { ok: false, reason: "The treasury received less than the required lifetime amount from this wallet." };
   }
   return { ok: true, lamports: gained };
 }
@@ -75,4 +75,83 @@ export function fromRpcResult(result: unknown): ChainTx | null {
     postBalances: row.meta.postBalances.map((n) => Number(n)),
     err: row.meta.err ?? null,
   };
+}
+
+
+export type TokenBalanceRow = {
+  mint?: string;
+  owner?: string;
+  uiTokenAmount?: { amount?: string; decimals?: number };
+};
+
+/**
+ * Accept a confirmed SPL USDC transfer where the treasury token account
+ * gained at least minBaseUnits and the payer signed the transaction.
+ */
+export function assessUsdcTransfer(
+  rpcResult: unknown,
+  opts: { treasury: string; payer: string; mint: string; minBaseUnits: number },
+): { ok: true; baseUnits: number } | { ok: false; reason: string } {
+  if (!rpcResult || typeof rpcResult !== "object") {
+    return { ok: false, reason: "Could not read token balances for USDC verification." };
+  }
+  const row = rpcResult as {
+    meta?: {
+      err?: unknown;
+      preTokenBalances?: TokenBalanceRow[];
+      postTokenBalances?: TokenBalanceRow[];
+    };
+    transaction?: {
+      message?: {
+        header?: { numRequiredSignatures?: number };
+        accountKeys?: unknown[];
+      };
+    };
+  };
+  if (row.meta?.err) return { ok: false, reason: "The transaction failed on-chain." };
+
+  const msg = row.transaction?.message;
+  const sigs = msg?.header?.numRequiredSignatures ?? 0;
+  const keys = (msg?.accountKeys ?? []).map((key, index) => {
+    if (typeof key === "string") return { pubkey: key, signer: index < sigs };
+    if (key && typeof key === "object" && "pubkey" in key) {
+      const parsed = key as { pubkey?: string; signer?: boolean };
+      return { pubkey: String(parsed.pubkey ?? ""), signer: Boolean(parsed.signer) };
+    }
+    return { pubkey: "", signer: false };
+  });
+  const payerSigned = keys.some((k) => k.pubkey === opts.payer && k.signer);
+  if (!payerSigned) return { ok: false, reason: "This wallet did not sign the USDC transaction." };
+
+  const pre = row.meta?.preTokenBalances ?? [];
+  const post = row.meta?.postTokenBalances ?? [];
+
+  const amountFor = (balances: TokenBalanceRow[], ownerHint: string) => {
+    let total = 0;
+    for (const b of balances) {
+      if (b.mint !== opts.mint) continue;
+      // Treasury ATA owner is the treasury wallet
+      if (b.owner && b.owner !== opts.treasury && b.owner !== ownerHint) continue;
+      if (b.owner === opts.treasury) {
+        total += Number(b.uiTokenAmount?.amount ?? 0) || 0;
+      }
+    }
+    return total;
+  };
+
+  // Sum all post-pre for mint where owner is treasury
+  const preTreasury = pre
+    .filter((b) => b.mint === opts.mint && b.owner === opts.treasury)
+    .reduce((s, b) => s + (Number(b.uiTokenAmount?.amount ?? 0) || 0), 0);
+  const postTreasury = post
+    .filter((b) => b.mint === opts.mint && b.owner === opts.treasury)
+    .reduce((s, b) => s + (Number(b.uiTokenAmount?.amount ?? 0) || 0), 0);
+  const gained = postTreasury - preTreasury;
+  if (gained < opts.minBaseUnits) {
+    return {
+      ok: false,
+      reason: `Treasury USDC gain ${gained} is below the required ${opts.minBaseUnits} base units.`,
+    };
+  }
+  return { ok: true, baseUnits: gained };
 }

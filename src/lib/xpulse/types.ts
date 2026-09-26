@@ -117,7 +117,14 @@ export type PulseModel = {
 };
 
 export type BillingConfig = {
+  priceUsd: number;
   priceSol: number;
+  priceLamports: number;
+  priceUsdc: number;
+  priceUsdcBase: number;
+  solUsd: number;
+  solUsdSource: string;
+  usdcMint: string;
   treasury: string;
   mainnetEnabled: boolean;
   devnetUnlocks: boolean;

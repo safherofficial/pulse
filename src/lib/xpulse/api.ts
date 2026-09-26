@@ -6,12 +6,12 @@ export const getBillingConfig =
     method: "GET",
   }).handler(async () => {
     const {
-      billingConfig,
+      billingConfigLive,
     } = await import(
       "./data.server"
     );
 
-    return billingConfig();
+    return billingConfigLive();
   });
 
 export const issueLoginNonce =
@@ -447,5 +447,6 @@ export const rewriteEnriched = createServerFn({ method: "POST" })
     if (!text.trim()) {
       throw new Error("Text is required for rewrite.");
     }
-    return enrichAndRewrite(text);
+    const variant = Number((data as { variant?: number })?.variant ?? 0) || 0;
+    return enrichAndRewrite(text, variant);
   });

@@ -200,7 +200,7 @@ function applyVocabularySwaps(text: string, vocabulary: Record<string, string[]>
 /**
  * Rewrite pipeline: LanguageTool → Datamuse vocabulary → local viral rewrite.
  */
-export async function enrichAndRewrite(text: string): Promise<EnrichedRewrite> {
+export async function enrichAndRewrite(text: string, variant = 0): Promise<EnrichedRewrite> {
   const sources: string[] = ["xpulse-rewrite"];
   const [matches, vocabulary] = await Promise.all([
     checkLanguageTool(text).then((rows) => {
@@ -219,7 +219,8 @@ export async function enrichAndRewrite(text: string): Promise<EnrichedRewrite> {
   const vocab = applyVocabularySwaps(working, vocabulary);
   working = vocab.text;
 
-  const local = rewritePost(working);
+  // Bump variant after public-API polish so each click explores a new high-score frame
+  const local = rewritePost(working, Math.max(0, Math.floor(variant)));
   const viral = analyzeViralWriting(local.text, emptyMetrics());
 
   return {

@@ -356,6 +356,7 @@ function RewriteCoach({ post }: { post: PulsePost }) {
   const [enrichBusy, setEnrichBusy] = useState(false);
   const [enrichError, setEnrichError] = useState<string | null>(null);
   const [result, setResult] = useState<EnrichedRewrite | null>(null);
+  const [variant, setVariant] = useState(0);
   const [rewriteBusy, setRewriteBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -404,8 +405,10 @@ function RewriteCoach({ post }: { post: PulsePost }) {
     setRewriteBusy(true);
     setCopied(false);
     try {
-      const payload = (await rewriteEnriched({ data: { text: post.text } })) as EnrichedRewrite;
+      const nextVariant = variant;
+      const payload = (await rewriteEnriched({ data: { text: post.text, variant: nextVariant } })) as EnrichedRewrite;
       setResult(payload);
+      setVariant((v) => v + 1);
     } catch (reason) {
       setEnrichError(reason instanceof Error ? reason.message : "Rewrite failed.");
     } finally {
@@ -545,7 +548,7 @@ function RewriteCoach({ post }: { post: PulsePost }) {
 
       <div className="mt-5 flex flex-wrap gap-2">
         <Button type="button" disabled={rewriteBusy} onClick={() => void runRewrite()}>
-          {rewriteBusy ? "Rewriting…" : result ? "Rewrite again" : "Rewrite this post"}
+          {rewriteBusy ? "Rewriting…" : result ? `Rewrite again · v${variant + 1}` : "Rewrite this post"}
         </Button>
         {result ? (
           <Button type="button" variant="quiet" onClick={() => void copyRewrite()}>

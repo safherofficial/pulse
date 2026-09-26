@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { TopNav } from "@/components/top-nav";
-import { PulseCanvas } from "@/components/scene/PulseCanvas";
+import { PulseBeat } from "@/components/scene/PulseBeat";
 import { buttonVariants } from "@/components/ui/button";
 import { formatCompact, formatDwell, formatMaybe, formatPct } from "@/lib/xpulse/format";
 import { engagementRate, readRatio } from "@/lib/xpulse/metrics";
@@ -32,7 +32,7 @@ const PRICE_ROWS = [
     name: "XPulse",
     model: "Lifetime · on-chain",
     monthly: "—",
-    yearly: "0.15 SOL once",
+    yearly: "$10 once",
     focus: "Post-level opens, dwell, writing signals",
     ours: true,
   },
@@ -91,7 +91,7 @@ function Home() {
               Enter the chamber
             </Link>
             <Link to="/onboard" className={buttonVariants({ variant: "quiet" })}>
-              Unlock lifetime · 0.15 SOL
+              Unlock lifetime · $10
             </Link>
           </div>
           <dl className="mt-8 grid max-w-lg grid-cols-3 gap-3">
@@ -110,9 +110,9 @@ function Home() {
             <span className="font-mono text-xs tracking-widest text-accent">SAMPLE LINK · LIVE</span>
           </div>
           <div className="pointer-events-none absolute right-4 bottom-4 z-10 hidden rounded-md border border-line/60 bg-bg/70 px-3 py-1.5 font-mono text-[10px] tracking-widest text-muted backdrop-blur-md sm:block">
-            WRITING DNA · PERFORMANCE
+            SIGNAL BEAT · LIVE
           </div>
-          <PulseCanvas model={sampleModel} selectedPost={thread} mode="hero" />
+          <PulseBeat />
         </div>
       </section>
 
@@ -167,10 +167,10 @@ function Home() {
       <PriceCompare />
 
       <section className="panel p-6 sm:p-8">
-        <p className="kicker">0.15 SOL · once</p>
+        <p className="kicker">$10 · once · SOL/USDC</p>
         <h2 className="mt-3 max-w-2xl text-3xl">Lifetime access, bound to the wallet that paid.</h2>
         <p className="mt-3 max-w-2xl text-muted">
-          No renewal. The server reads the transfer from Solana. When the treasury has the 0.15 SOL and your
+          No renewal. The server reads the transfer from Solana. When the treasury receives $10 in SOL or USDC and your
           wallet signed it, that address stays open.
         </p>
         <Link to="/onboard" className={`${buttonVariants()} mt-6`}>
@@ -186,8 +186,8 @@ function Home() {
   );
 }
 
-/** Approximate USD for 0.15 SOL for the savings simulator (display only). */
-const XPULSE_YEAR_USD = 30;
+/** Approximate USD for $10 lifetime for the savings simulator (display only). */
+const XPULSE_YEAR_USD = 10;
 const MARKET_MAX_USD = 588;
 
 function formatUsd(n: number) {
@@ -220,12 +220,12 @@ function PriceCompare() {
           <h2 className="mt-3 max-w-2xl text-3xl">One payment. No subscription treadmill.</h2>
           <p className="mt-3 max-w-2xl text-muted">
             Drag the slider to the yearly amount you would spend on a typical X growth tool. XPulse is{" "}
-            <span className="text-fg">0.15 SOL once</span> (~{formatUsd(XPULSE_YEAR_USD)} at current display rate).
+            <span className="text-fg">$10 lifetime once</span> (~{formatUsd(XPULSE_YEAR_USD)} at current display rate).
             The gap is your year-one savings.
           </p>
         </div>
         <Link to="/onboard" className={buttonVariants()}>
-          Unlock · 0.15 SOL
+          Unlock · $10
         </Link>
       </div>
 
@@ -269,7 +269,7 @@ function PriceCompare() {
           <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-3">
             <p className="text-[11px] text-subtle uppercase">XPulse year one</p>
             <p className="mt-1 font-mono text-lg text-accent tabular-nums">
-              0.15 SOL · ~{formatUsd(XPULSE_YEAR_USD)}
+              $10 lifetime · ~{formatUsd(XPULSE_YEAR_USD)}
             </p>
           </div>
           <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-3">
@@ -351,7 +351,7 @@ function PriceCompare() {
               </table>
             </div>
             <p className="mt-3 text-xs text-subtle">
-              Competitor figures are public list prices (approx.) and can change. XPulse is fixed on-chain at 0.15
+              Competitor figures are public list prices (approx.) and can change. XPulse is $10 lifetime, paid in SOL (live quote) or USDC on Solana.
               SOL lifetime. USD display for the simulator is an estimate for comparison only.
             </p>
           </div>
