@@ -7,6 +7,7 @@ import { researchTokenIntel } from "@/lib/xpulse/api";
 import { generateFromToken } from "@/lib/xpulse/content-create";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import {
+  chainLabel,
   detectTokenInput,
   explorerUrl,
   fetchTokenOhlcv,
@@ -133,7 +134,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
       }
       const result = await researchToken(q);
       if (result.kind === "empty") {
-        setError("No matching Solana token found. Check the name or contract address.");
+        setError("No matching token found. Check the name, symbol, or contract address.");
       } else if (result.kind === "choices") {
         setHits(result.hits);
       } else {
@@ -147,7 +148,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
   }
 
   return (
-    <WorkspaceShell active="/tokens" kicker="Solana" title="Token intelligence">
+    <WorkspaceShell active="/tokens" kicker="Solana" title="Token intelligence · multi-chain">
       <section className="panel p-4 sm:p-5">
         <label className="block">
           <span className="kicker">Search</span>
@@ -162,7 +163,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
           />
         </label>
         <p className="mt-2 text-xs text-subtle">
-          Examples: BONK · SOL · paste a Solana contract address
+          Name, symbol, or contract — Solana, Ethereum, Base, BNB, Arbitrum, and more
         </p>
         <Button
           type="button"
@@ -201,6 +202,11 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-fg">
                       {h.name} <span className="text-muted">({h.symbol})</span>
+                      {"chain" in h && (h as { chain?: string }).chain ? (
+                        <span className="ml-2 font-mono text-[10px] text-accent">
+                          {chainLabel((h as { chain: string }).chain)}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="block truncate font-mono text-xs text-subtle">{h.address}</span>
                   </span>
@@ -313,7 +319,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
         }
         if (cancelled) return;
         if (!row) {
-          setError("Token not found or no Solana market pairs available for this address.");
+          setError("Contract address not recognized — no market pairs available for this address.");
           return;
         }
         setIntel(row);
@@ -398,6 +404,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                   {intel.identity.name}{" "}
                   <span className="text-muted">({intel.identity.symbol})</span>
                 </h2>
+                <p className="mt-1 text-sm text-accent">{chainLabel(intel.identity.chain)}</p>
                 <p className="mt-1 font-mono text-xs text-subtle break-all">
                   {intel.identity.address}
                 </p>
@@ -407,7 +414,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                   </Button>
                   <a
                     className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
-                    href={explorerUrl(intel.identity.address)}
+                    href={explorerUrl(intel.identity.address, intel.identity.chain)}
                     target="_blank"
                     rel="noreferrer"
                   >
