@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
+import { WalletPortfolio } from "@/components/chamber/WalletPortfolio";
 import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
@@ -207,6 +208,11 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
           ref={mainRef}
           className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8"
         >
+          {model.mode === "account" ? (
+            <div className="mt-4">
+              <WalletPortfolio />
+            </div>
+          ) : null}
           {selectedPost && view !== "library" ? (
             <FocusBanner post={selectedPost} onOpenLibrary={() => setView("library")} />
           ) : null}
