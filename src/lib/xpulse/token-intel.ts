@@ -351,3 +351,105 @@ export async function researchToken(input: string): Promise<
 export function explorerUrl(address: string): string {
   return `https://solscan.io/token/${encodeURIComponent(address)}`;
 }
+
+export type ViralToken = {
+  address: string;
+  name: string;
+  symbol: string;
+  logoUrl: string | null;
+  priceUsd: number | null;
+  priceChange24h: number | null;
+  volume24h: number | null;
+  liquidityUsd: number | null;
+  viralScore: number;
+  reason: string;
+};
+
+/**
+ * Rank Solana tokens that are moving (volume + change + liquidity floor).
+ * Free public market data only. No fabricated metrics.
+ */
+export async function fetchViralSolanaTokens(limit = 12): Promise<ViralToken[]> {
+  const searchQueries = ["SOL", "BONK", "JUP", "WIF", "RAY", "PYTH", "JITO", "ORCA"];
+  const pairBatches = await Promise.all(
+    searchQueries.map((q) =>
+      fetchJson<{ pairs?: DexPair[] }>(
+        `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`,
+      ),
+    ),
+  );
+
+  const pool: DexPair[] = [];
+  for (const batch of pairBatches) {
+    for (const p of batch?.pairs ?? []) {
+      if ((p.chainId ?? "").toLowerCase() === "solana") pool.push(p);
+    }
+  }
+
+  // Boosted tokens list (when available)
+  try {
+    const boosted = await fetchJson<Array<{ chainId?: string; tokenAddress?: string }>>(
+      "https://api.dexscreener.com/token-boosts/top/v1",
+    );
+    const solBoosts = (boosted ?? [])
+      .filter((r) => (r.chainId ?? "").toLowerCase() === "solana" && r.tokenAddress)
+      .slice(0, 8);
+    const extra = await Promise.all(
+      solBoosts.map((r) =>
+        fetchJson<{ pairs?: DexPair[] }>(
+          `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(r.tokenAddress!)}`,
+        ),
+      ),
+    );
+    for (const detail of extra) {
+      for (const p of detail?.pairs ?? []) {
+        if ((p.chainId ?? "").toLowerCase() === "solana") pool.push(p);
+      }
+    }
+  } catch {
+    /* optional source */
+  }
+
+  const byAddr = new Map<string, DexPair>();
+  for (const p of pool) {
+    const addr = p.baseToken?.address;
+    if (!addr) continue;
+    const prev = byAddr.get(addr);
+    if (!prev || (p.volume?.h24 ?? 0) > (prev.volume?.h24 ?? 0)) {
+      byAddr.set(addr, p);
+    }
+  }
+
+  const ranked: ViralToken[] = [];
+  for (const p of byAddr.values()) {
+    const vol = p.volume?.h24 ?? 0;
+    const liq = p.liquidity?.usd ?? 0;
+    const ch = p.priceChange?.h24 ?? 0;
+    if (liq < 5_000) continue;
+    const volScore = Math.min(50, Math.log10(Math.max(vol, 1)) * 8);
+    const moveScore = Math.min(30, Math.abs(ch) * 0.4);
+    const liqScore = Math.min(20, Math.log10(Math.max(liq, 1)) * 3);
+    const viralScore = Math.round(volScore + moveScore + liqScore);
+    const reasons: string[] = [];
+    if (vol > 500_000) reasons.push("high 24h volume");
+    else if (vol > 50_000) reasons.push("active volume");
+    if (Math.abs(ch) > 20) reasons.push("sharp 24h move");
+    else if (Math.abs(ch) > 8) reasons.push("notable 24h move");
+    if (liq > 200_000) reasons.push("deeper liquidity");
+    ranked.push({
+      address: p.baseToken?.address ?? "",
+      name: p.baseToken?.name ?? "Unknown",
+      symbol: (p.baseToken?.symbol ?? "—").toUpperCase(),
+      logoUrl: p.info?.imageUrl ?? null,
+      priceUsd: p.priceUsd != null ? Number(p.priceUsd) : null,
+      priceChange24h: ch,
+      volume24h: vol || null,
+      liquidityUsd: liq || null,
+      viralScore,
+      reason: reasons.length ? reasons.join(" · ") : "market activity",
+    });
+  }
+
+  ranked.sort((a, b) => b.viralScore - a.viralScore);
+  return ranked.filter((r) => r.address).slice(0, limit);
+}
