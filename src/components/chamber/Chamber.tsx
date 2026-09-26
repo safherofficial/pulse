@@ -4,9 +4,8 @@ import { BrandMark } from "@/components/brand-mark";
 import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
-import { beginXConnect, compareXUrls, importPost, syncPosts } from "@/lib/xpulse/api";
+import { compareXUrls } from "@/lib/xpulse/api";
 import {
-  extractPostId,
   formatCompact,
   formatDwell,
   formatFull,
@@ -17,8 +16,6 @@ import {
 import { engagementRate, publicMetricsEngagement, writingSignals } from "@/lib/xpulse/metrics";
 import { usePulseStore, type ChamberView } from "@/lib/xpulse/store";
 import type {
-  ImportInput,
-  PostType,
   PublicCompareResult,
   PublicXPost,
   PulseModel,
@@ -740,224 +737,59 @@ function LinkLibrary({
   model,
   focusId,
   onFocus,
-  onReload,
 }: {
   model: PulseModel;
   focusId: string | null;
   onFocus: (id: string) => void;
   onReload?: () => void;
 }) {
-  const [note, setNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-      <div className="panel p-5">
-        <p className="kicker">Link library</p>
-        <h2 className="mt-1 text-2xl tracking-tight">Choose what the chamber reads</h2>
-        <p className="mt-2 text-sm text-muted">
-          One link at a time. Selecting a post replaces the graph. It does not average the account.
-        </p>
-        {model.posts.length === 0 ? (
-          <EmptyState text="No links yet. Paste one above, sync from X, or add the numbers by hand." />
-        ) : (
-          <ul className="mt-4 grid gap-2">
-            {model.posts.map((post) => {
-              const on = focusId === post.id;
-              return (
-                <li key={post.id}>
-                  <button
-                    type="button"
-                    onClick={() => onFocus(post.id)}
-                    className={`lift-card flex w-full flex-col gap-1.5 rounded-lg border px-4 py-3.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-                      on ? "border-accent/70 bg-accent/10 text-fg" : "border-line bg-bg/40 text-fg"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[11px] tracking-wide text-subtle uppercase">
-                        {post.type} · {formatWhen(post.publishedAt)}
-                      </span>
-                      {on ? (
-                        <span className="rounded-full bg-accent/20 px-2 py-0.5 font-mono text-[10px] tracking-wider text-accent uppercase">
-                          Focus
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="line-clamp-3 text-sm leading-relaxed">{post.text}</span>
-                    <span className="font-mono text-xs text-muted tabular-nums">
-                      {formatCompact(post.metrics.impressions)} views · {formatPct(engagementRate(post.metrics))}{" "}
-                      engagement
+    <div className="panel p-5">
+      <p className="kicker">Link library</p>
+      <h2 className="mt-1 text-2xl tracking-tight">Choose what the chamber reads</h2>
+      <p className="mt-2 text-sm text-muted">
+        One link at a time. Selecting a post replaces the graph. It does not average the account.
+      </p>
+      {model.posts.length === 0 ? (
+        <EmptyState text="No links yet. Paste a post URL in the field above to analyze one." />
+      ) : (
+        <ul className="mt-4 grid gap-2">
+          {model.posts.map((post) => {
+            const on = focusId === post.id;
+            return (
+              <li key={post.id}>
+                <button
+                  type="button"
+                  onClick={() => onFocus(post.id)}
+                  className={`lift-card flex w-full flex-col gap-1.5 rounded-lg border px-4 py-3.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                    on ? "border-accent/70 bg-accent/10 text-fg" : "border-line bg-bg/40 text-fg"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-[11px] tracking-wide text-subtle uppercase">
+                      {post.type} · {formatWhen(post.publishedAt)}
                     </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      <div className="panel h-fit p-5">
-        <p className="kicker">Ingest</p>
-        <h2 className="mt-1 text-xl tracking-tight">Bring another link in</h2>
-        {model.mode === "account" ? (
-          <div className="mt-4 grid gap-3">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="quiet"
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true);
-                  void syncPosts()
-                    .then((result) => {
-                      setNote(result.ok ? `Synced ${result.imported} posts from X.` : "Could not sync from X.");
-                      if (result.ok) onReload?.();
-                    })
-                    .finally(() => setBusy(false));
-                }}
-              >
-                Sync from X
-              </Button>
-              <Button
-                variant="quiet"
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true);
-                  void beginXConnect()
-                    .then((result) => {
-                      if (result.ok && "url" in result && result.url) {
-                        window.location.href = result.url;
-                        return;
-                      }
-                      setNote("message" in result && result.message ? result.message : "Could not start X.");
-                    })
-                    .finally(() => setBusy(false));
-                }}
-              >
-                {model.xApiLinked ? "Reconnect X" : "Connect X API"}
-              </Button>
-            </div>
-            <ImportForm
-              busy={busy}
-              onSubmit={async (input) => {
-                setBusy(true);
-                const result = await importPost({ data: input });
-                setNote(result.message);
-                if (result.ok) onReload?.();
-                setBusy(false);
-              }}
-            />
-            {note ? <p className="text-sm text-muted">{note}</p> : null}
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-muted">This set is a rehearsal. It is not your account.</p>
-        )}
-      </div>
+                    {on ? (
+                      <span className="rounded-full bg-accent/20 px-2 py-0.5 font-mono text-[10px] tracking-wider text-accent uppercase">
+                        Focus
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="line-clamp-3 text-sm leading-relaxed">{post.text}</span>
+                  <span className="font-mono text-xs text-muted tabular-nums">
+                    {formatCompact(post.metrics.impressions)} views · {formatPct(engagementRate(post.metrics))}{" "}
+                    engagement
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {model.mode === "sample" ? (
+        <p className="mt-4 text-sm text-muted">This set is a rehearsal. It is not your account.</p>
+      ) : null}
     </div>
-  );
-}
-
-function ImportForm({ busy, onSubmit }: { busy: boolean; onSubmit: (input: ImportInput) => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const [xPostId, setXPostId] = useState("");
-  const [type, setType] = useState<PostType>("tweet");
-  const [text, setText] = useState("");
-  const [publishedAt, setPublishedAt] = useState("");
-  const [impressions, setImpressions] = useState("0");
-  const [likes, setLikes] = useState("0");
-  const [replies, setReplies] = useState("0");
-  const [reposts, setReposts] = useState("0");
-  const [bookmarks, setBookmarks] = useState("0");
-  const [profileClicks, setProfileClicks] = useState("0");
-  const [linkClicks, setLinkClicks] = useState("0");
-  const [detailExpands, setDetailExpands] = useState("0");
-  const [dwell, setDwell] = useState("");
-
-  if (!open) {
-    return (
-      <Button variant="ghost" onClick={() => setOpen(true)}>
-        Add numbers by hand
-      </Button>
-    );
-  }
-
-  const num = (value: string) => Math.max(0, Math.floor(Number(value) || 0));
-
-  return (
-    <form
-      className="grid gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void onSubmit({
-          xPostId: extractPostId(xPostId),
-          type,
-          text,
-          publishedAt: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
-          impressions: num(impressions),
-          likes: num(likes),
-          replies: num(replies),
-          reposts: num(reposts),
-          bookmarks: num(bookmarks),
-          profileClicks: num(profileClicks),
-          linkClicks: num(linkClicks),
-          detailExpands: num(detailExpands),
-          dwellMs: dwell.trim() === "" ? null : num(dwell) * 1000,
-        });
-      }}
-    >
-      <input
-        className={fieldClass}
-        placeholder="Post URL or id"
-        value={xPostId}
-        onChange={(event) => setXPostId(event.target.value)}
-        required
-      />
-      <select className={fieldClass} value={type} onChange={(event) => setType(event.target.value as PostType)}>
-        <option value="tweet">Post</option>
-        <option value="thread">Thread</option>
-        <option value="article">Article</option>
-      </select>
-      <textarea
-        className={`${fieldClass} h-24 py-2`}
-        placeholder="Text"
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        required
-      />
-      <input
-        className={fieldClass}
-        type="datetime-local"
-        value={publishedAt}
-        onChange={(event) => setPublishedAt(event.target.value)}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <Num label="Views" value={impressions} onChange={setImpressions} />
-        <Num label="Opens" value={detailExpands} onChange={setDetailExpands} />
-        <Num label="Likes" value={likes} onChange={setLikes} />
-        <Num label="Replies" value={replies} onChange={setReplies} />
-        <Num label="Reposts" value={reposts} onChange={setReposts} />
-        <Num label="Bookmarks" value={bookmarks} onChange={setBookmarks} />
-        <Num label="Profile clicks" value={profileClicks} onChange={setProfileClicks} />
-        <Num label="Link clicks" value={linkClicks} onChange={setLinkClicks} />
-      </div>
-      <input
-        className={fieldClass}
-        inputMode="numeric"
-        placeholder="Dwell seconds, if known"
-        value={dwell}
-        onChange={(event) => setDwell(event.target.value)}
-      />
-      <Button type="submit" disabled={busy}>
-        {busy ? "Saving…" : "Save this link"}
-      </Button>
-    </form>
-  );
-}
-
-function Num({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <label className="grid gap-1 text-xs text-muted">
-      {label}
-      <input className={fieldClass} inputMode="numeric" value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
   );
 }
 

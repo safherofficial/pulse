@@ -25,6 +25,50 @@ const MOVES = [
   ["03", "Keep the wallet", "Lifetime access is a one-time transfer. The wallet that paid is the key."],
 ] as const;
 
+/** Public list prices at time of write — used for a clear yearly comparison. */
+const PRICE_ROWS = [
+  {
+    name: "XPulse",
+    model: "Lifetime · on-chain",
+    monthly: "—",
+    yearly: "0.15 SOL once",
+    focus: "Post-level opens, dwell, writing signals",
+    ours: true,
+  },
+  {
+    name: "Typefully",
+    model: "Subscription",
+    monthly: "$15–29",
+    yearly: "$180–348",
+    focus: "Scheduling + basic analytics",
+    ours: false,
+  },
+  {
+    name: "Hypefury",
+    model: "Subscription",
+    monthly: "$19–49",
+    yearly: "$228–588",
+    focus: "Growth automation + queues",
+    ours: false,
+  },
+  {
+    name: "Tweet Hunter",
+    model: "Subscription",
+    monthly: "~$49",
+    yearly: "~$588",
+    focus: "Viral templates + CRM",
+    ours: false,
+  },
+  {
+    name: "Buffer",
+    model: "Subscription",
+    monthly: "$6–12+",
+    yearly: "$72–144+",
+    focus: "Cross-network scheduling",
+    ours: false,
+  },
+] as const;
+
 function Home() {
   const thread = sampleModel.posts[0]!;
   const article = sampleModel.posts[1]!;
@@ -116,11 +160,80 @@ function Home() {
         </dl>
       </section>
 
+      <section className="border-t border-line pt-12">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="kicker">Price · honest comparison</p>
+            <h2 className="mt-3 max-w-2xl text-3xl">One payment. No subscription treadmill.</h2>
+            <p className="mt-3 max-w-2xl text-muted">
+              Competitors bill every month for queues and calendars. XPulse is a reading chamber: pay{" "}
+              <span className="text-fg">0.15 SOL once</span>, keep the wallet that paid. Year-one cost stays
+              flat while SaaS stacks into hundreds of dollars.
+            </p>
+          </div>
+          <Link to="/onboard" className={buttonVariants()}>
+            Unlock · 0.15 SOL
+          </Link>
+        </div>
+
+        <div className="mt-8 overflow-x-auto rounded-xl border border-line">
+          <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-line bg-surface/80 font-mono text-[11px] tracking-widest text-subtle uppercase">
+                <th className="px-4 py-3 font-medium">Tool</th>
+                <th className="px-4 py-3 font-medium">Billing</th>
+                <th className="px-4 py-3 font-medium">Per month</th>
+                <th className="px-4 py-3 font-medium">Year one</th>
+                <th className="px-4 py-3 font-medium">Built for</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PRICE_ROWS.map((row) => (
+                <tr
+                  key={row.name}
+                  className={`border-b border-line/80 last:border-0 ${
+                    row.ours
+                      ? "bg-accent/10 shadow-[inset_3px_0_0_0_var(--color-accent)]"
+                      : "bg-bg/40"
+                  }`}
+                >
+                  <td className="px-4 py-3.5">
+                    <span className={`font-medium ${row.ours ? "text-accent" : "text-fg"}`}>{row.name}</span>
+                    {row.ours ? (
+                      <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 font-mono text-[10px] tracking-wider text-accent uppercase">
+                        You are here
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.model}</td>
+                  <td className={`px-4 py-3.5 font-mono tabular-nums ${row.ours ? "text-fg" : "text-muted"}`}>
+                    {row.monthly}
+                  </td>
+                  <td
+                    className={`px-4 py-3.5 font-mono tabular-nums ${
+                      row.ours ? "text-accent font-semibold" : "text-muted"
+                    }`}
+                  >
+                    {row.yearly}
+                  </td>
+                  <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.focus}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs text-subtle">
+          Competitor figures are public list prices (approx.) and can change. XPulse price is fixed on-chain at
+          0.15 SOL lifetime — no renewal, no seat tax.
+        </p>
+      </section>
+
       <section className="panel p-6 sm:p-8">
         <p className="kicker">0.15 SOL · once</p>
         <h2 className="mt-3 max-w-2xl text-3xl">Lifetime access, bound to the wallet that paid.</h2>
         <p className="mt-3 max-w-2xl text-muted">
-          No renewal. The server reads the transfer from Solana. When the treasury has the 0.15 SOL and your wallet signed it, that address stays open.
+          No renewal. The server reads the transfer from Solana. When the treasury has the 0.15 SOL and your
+          wallet signed it, that address stays open.
         </p>
         <Link to="/onboard" className={`${buttonVariants()} mt-6`}>
           Continue to payment
