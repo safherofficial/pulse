@@ -3155,3 +3155,44 @@ export async function runStartTrial(
     return fail(error);
   }
 }
+
+export async function runDeletePosts(userId: string, input: unknown) {
+  try {
+    await requireOpen(userId);
+    const ids = Array.isArray((input as { ids?: unknown })?.ids)
+      ? ((input as { ids: unknown[] }).ids.filter((id) => typeof id === "string") as string[])
+      : [];
+    if (!ids.length) {
+      throw new PulseError("Select at least one item to delete.");
+    }
+    const sql = await getSql();
+    await sql`
+      delete from xpulse_links
+      where user_id = ${userId}
+        and (
+          article_post_id = any(${ids}::text[])
+          or thread_post_id = any(${ids}::text[])
+        )
+    `;
+    await sql`
+      delete from xpulse_posts
+      where user_id = ${userId}
+        and id = any(${ids}::text[])
+    `;
+    return { ok: true as const, deleted: ids.length, message: "Selected items removed." };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function runClearPosts(userId: string) {
+  try {
+    await requireOpen(userId);
+    const sql = await getSql();
+    await sql`delete from xpulse_links where user_id = ${userId}`;
+    await sql`delete from xpulse_posts where user_id = ${userId}`;
+    return { ok: true as const, message: "History cleared." };
+  } catch (error) {
+    return fail(error);
+  }
+}
