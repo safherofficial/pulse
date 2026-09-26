@@ -16,7 +16,7 @@ function wait(ms: number) {
 }
 
 export const Route = createFileRoute("/pulse")({
-  head: () => ({ meta: [{ title: "Your chamber · XPulse" }] }),
+  head: () => ({ meta: [{ title: "Your Chamber · XPulse" }] }),
   component: PulsePage,
 });
 
