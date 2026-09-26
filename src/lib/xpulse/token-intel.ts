@@ -34,9 +34,12 @@ export type TokenMarket = {
   dexId: string | null;
   buys24h: number | null;
   sells24h: number | null;
-  /** Paid promotion / boost on public DEX listing pages when detectable. */
+  /** Any paid DexScreener activity (profile, boost, ad). */
   paidListing: boolean | null;
   paidListingDetail: string | null;
+  /** CheckDEX-style: Enhanced Token Info approved. */
+  dexPaid: boolean | null;
+  boostActive: number | null;
   viralScore: number | null;
   viralReasons: string[];
   updatedAt: string;
@@ -141,6 +144,7 @@ type DexPair = {
     socials?: Array<{ type?: string; url?: string }>;
   };
   pairCreatedAt?: number;
+  boosts?: { active?: number };
 };
 
 function pickBestPair(pairs: DexPair[]): DexPair | null {
@@ -174,7 +178,7 @@ function identityFromPair(pair: DexPair, addressHint?: string): TokenIdentity {
   };
 }
 
-function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: string | null } = { paid: null, detail: null }): TokenMarket {
+function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: string | null; report?: DexPaidReport } = { paid: null, detail: null }): TokenMarket {
   const price = pair.priceUsd != null ? Number(pair.priceUsd) : null;
   const vol = pair.volume?.h24 ?? 0;
   const liq = pair.liquidity?.usd ?? 0;
@@ -211,27 +215,86 @@ function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: str
     sells24h: pair.txns?.h24?.sells ?? null,
     paidListing: paid.paid,
     paidListingDetail: paid.detail,
+    dexPaid: paid.report?.dexPaid ?? null,
+    boostActive: paid.report?.boostActive ?? pair.boosts?.active ?? null,
     viralScore: Number.isFinite(viralScore) ? viralScore : null,
     viralReasons: reasons,
     updatedAt: new Date().toISOString(),
   };
 }
 
-/** Detect paid DexScreener profile / boost orders for a Solana token. */
-async function fetchPaidListing(address: string): Promise<{ paid: boolean | null; detail: string | null }> {
+/**
+ * CheckDEX-style verification using the public DexScreener orders endpoint.
+ * "DEX Paid" ≈ approved Enhanced Token Info (tokenProfile). Boosts/ads are separate signals.
+ */
+export type DexPaidReport = {
+  /** True when Enhanced Token Info (tokenProfile) is approved — same signal CheckDEX calls "DEX Paid". */
+  dexPaid: boolean | null;
+  boostActive: number | null;
+  orders: Array<{ type: string; status: string }>;
+  detail: string;
+};
+
+async function fetchPaidListing(
+  address: string,
+  activeBoosts?: number | null,
+): Promise<{ paid: boolean | null; detail: string | null; report: DexPaidReport }> {
+  const emptyReport = (detail: string, dexPaid: boolean | null = null): DexPaidReport => ({
+    dexPaid,
+    boostActive: activeBoosts ?? null,
+    orders: [],
+    detail,
+  });
   try {
-    const rows = await fetchJson<Array<{ type?: string; status?: string; paymentTimestamp?: number }>>(
-      `https://api.dexscreener.com/orders/v1/solana/${encodeURIComponent(address)}`,
+    const rows = await fetchJson<
+      Array<{ type?: string; status?: string; paymentTimestamp?: number }>
+    >(`https://api.dexscreener.com/orders/v1/solana/${encodeURIComponent(address)}`);
+    if (!Array.isArray(rows)) {
+      return {
+        paid: null,
+        detail: "Paid-listing status unavailable.",
+        report: emptyReport("Paid-listing status unavailable."),
+      };
+    }
+    const normalized = rows.map((r) => ({
+      type: String(r.type ?? "unknown"),
+      status: String(r.status ?? "unknown").toLowerCase(),
+    }));
+    const approvedProfile = normalized.some(
+      (r) =>
+        (r.type === "tokenProfile" || r.type === "communityTakeover") &&
+        (r.status === "approved" || r.status === "processing" || r.status === "on-hold"),
     );
-    if (!Array.isArray(rows)) return { paid: null, detail: null };
-    if (rows.length === 0) return { paid: false, detail: "No paid profile or boost orders found." };
-    const types = rows.map((r) => r.type || r.status || "order").filter(Boolean);
+    const hasAnyPaidOrder = normalized.length > 0;
+    const types = [...new Set(normalized.map((r) => r.type))];
+    const parts: string[] = [];
+    if (approvedProfile) {
+      parts.push("DEX Paid (Enhanced Token Info / profile approved)");
+    } else if (hasAnyPaidOrder) {
+      parts.push(`Orders present: ${types.join(", ")} — profile not yet approved as DEX Paid`);
+    } else {
+      parts.push("No paid DexScreener orders found");
+    }
+    if (activeBoosts != null && activeBoosts > 0) {
+      parts.push(`Active boosts: ${activeBoosts}`);
+    }
+    const dexPaid = approvedProfile ? true : hasAnyPaidOrder ? false : false;
     return {
-      paid: true,
-      detail: `Paid listing activity detected (${[...new Set(types)].join(", ")}).`,
+      paid: hasAnyPaidOrder || (activeBoosts != null && activeBoosts > 0) ? true : false,
+      detail: parts.join(". ") + ".",
+      report: {
+        dexPaid: approvedProfile,
+        boostActive: activeBoosts ?? null,
+        orders: normalized,
+        detail: parts.join(". ") + ".",
+      },
     };
   } catch {
-    return { paid: null, detail: "Paid-listing status unavailable." };
+    return {
+      paid: null,
+      detail: "Paid-listing status unavailable.",
+      report: emptyReport("Paid-listing status unavailable."),
+    };
   }
 }
 
@@ -399,12 +462,9 @@ export async function researchTokenByAddress(address: string): Promise<TokenInte
   clean = clean.split(/[/?#]/)[0]!.trim();
   if (!SOLANA_ADDRESS_RE.test(clean)) return null;
 
-  const [data, paid] = await Promise.all([
-    fetchJson<{ pairs?: DexPair[] }>(
-      `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(clean)}`,
-    ),
-    fetchPaidListing(clean),
-  ]);
+  const data = await fetchJson<{ pairs?: DexPair[] }>(
+    `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(clean)}`,
+  );
 
   let pairs = data?.pairs ?? [];
   // Fallback: search by address string if tokens endpoint is empty
@@ -422,8 +482,18 @@ export async function researchTokenByAddress(address: string): Promise<TokenInte
   const pair = pickBestPair(pairs);
   if (!pair) return null;
 
+  const paid = await fetchPaidListing(clean, pair.boosts?.active ?? null);
+
   const identity = identityFromPair(pair, clean);
-  const market = marketFromPair(pair, paid);
+  const boosts = pair.boosts?.active ?? null;
+  const paidWithBoost =
+    paid.report != null
+      ? {
+          ...paid,
+          report: { ...paid.report, boostActive: boosts ?? paid.report.boostActive },
+        }
+      : paid;
+  const market = marketFromPair(pair, paidWithBoost);
 
   let mentions: TokenMentionsReport = {
     totalFound: null,
@@ -576,4 +646,72 @@ export async function fetchViralSolanaTokens(limit = 12): Promise<ViralToken[]> 
 
   ranked.sort((a, b) => b.viralScore - a.viralScore);
   return ranked.filter((r) => r.address).slice(0, limit);
+}
+
+
+export type ChartTimeframe =
+  | "1m"
+  | "3m"
+  | "5m"
+  | "1h"
+  | "4h"
+  | "12h"
+  | "1M";
+
+export type OhlcvCandle = {
+  t: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number | null;
+};
+
+const TF_CONFIG: Record<
+  ChartTimeframe,
+  { geckoTf: "minute" | "hour" | "day"; aggregate: number; limit: number }
+> = {
+  "1m": { geckoTf: "minute", aggregate: 1, limit: 120 },
+  "3m": { geckoTf: "minute", aggregate: 3, limit: 100 },
+  "5m": { geckoTf: "minute", aggregate: 5, limit: 100 },
+  "1h": { geckoTf: "hour", aggregate: 1, limit: 72 },
+  "4h": { geckoTf: "hour", aggregate: 4, limit: 90 },
+  "12h": { geckoTf: "hour", aggregate: 12, limit: 60 },
+  "1M": { geckoTf: "day", aggregate: 1, limit: 60 },
+};
+
+/**
+ * OHLCV via GeckoTerminal public pool endpoint (free). Falls back to empty on rate limit.
+ */
+export async function fetchTokenOhlcv(
+  pairAddress: string | null,
+  timeframe: ChartTimeframe,
+): Promise<OhlcvCandle[]> {
+  if (!pairAddress) return [];
+  const cfg = TF_CONFIG[timeframe];
+  const url =
+    `https://api.geckoterminal.com/api/v2/networks/solana/pools/${encodeURIComponent(pairAddress)}` +
+    `/ohlcv/${cfg.geckoTf}?aggregate=${cfg.aggregate}&limit=${cfg.limit}&currency=usd&token=base`;
+  try {
+    const data = await fetchJson<{
+      data?: { attributes?: { ohlcv_list?: Array<[number, number, number, number, number, number]> } };
+    }>(url);
+    const list = data?.data?.attributes?.ohlcv_list ?? [];
+    return list
+      .map((row) => {
+        const [ts, open, high, low, close, volume] = row;
+        return {
+          t: ts * (ts < 1e12 ? 1000 : 1),
+          open,
+          high,
+          low,
+          close,
+          volume: volume ?? null,
+        };
+      })
+      .filter((c) => Number.isFinite(c.close) && c.close > 0)
+      .sort((a, b) => a.t - b.t);
+  } catch {
+    return [];
+  }
 }
