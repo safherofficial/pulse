@@ -27,21 +27,6 @@ export type XContentIntel = {
   updatedAt: string;
 };
 
-type FxUserPayload = {
-  user?: {
-    name?: string;
-    screen_name?: string;
-  };
-  tweets?: Array<{
-    text?: string;
-    likes?: number;
-    replies?: number;
-    retweets?: number;
-    views?: number | string;
-    created_at?: string;
-  }>;
-};
-
 function finite(n: unknown): number | null {
   if (typeof n === "number" && Number.isFinite(n)) return n;
   if (typeof n === "string" && n.trim()) {
@@ -187,23 +172,34 @@ export async function researchXContentIntel(
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8_000);
-    const res = await fetch(`https://api.fxtwitter.com/${encodeURIComponent(handle)}`, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    });
+    const res = await fetch(
+      `https://api.fxtwitter.com/2/profile/${encodeURIComponent(handle)}/statuses?count=20`,
+      {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      },
+    );
     clearTimeout(timer);
     if (!res.ok) {
       return empty("Public X sample temporarily unavailable for this profile.");
     }
-    const data = (await res.json()) as FxUserPayload;
-    const tweets = data.tweets ?? [];
+    const data = (await res.json()) as {
+      results?: Array<{
+        text?: string;
+        likes?: number;
+        replies?: number;
+        reposts?: number;
+        views?: number | string;
+      }>;
+    };
+    const tweets = data.results ?? [];
     const posts = tweets
       .filter((t) => t.text && t.text.trim().length > 0)
       .map((t) => ({
         text: t.text!.slice(0, 500),
         likes: finite(t.likes),
         replies: finite(t.replies),
-        reposts: finite(t.retweets),
+        reposts: finite(t.reposts),
         views: finite(t.views),
       }));
 

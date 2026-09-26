@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
-import { researchTokenIntel } from "@/lib/xpulse/api";
+import { researchTokenIntel, loadViralIntel } from "@/lib/xpulse/api";
 import {
   attachXPatterns,
   buildTokenFactSet,
@@ -13,7 +13,7 @@ import {
   type TokenFactSet,
 } from "@/lib/xpulse/content-create";
 import { researchXContentIntel } from "@/lib/xpulse/x-content-intel";
-import { researchViralIntel, type ViralIntel } from "@/lib/xpulse/viral-intel";
+import type { ViralIntel } from "@/lib/xpulse/viral-intel";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import type { GeneratedContent } from "@/lib/xpulse/content-create";
 import {
@@ -345,7 +345,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
         setVariant(0);
         setViral(null);
         setViralBusy(true);
-        void researchViralIntel(row)
+        void loadViralIntel({ data: row })
           .then((v) => {
             if (!cancelled) setViral(v);
           })
