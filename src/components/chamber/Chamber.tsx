@@ -1,10 +1,19 @@
 import { Link } from "@tanstack/react-router";
+import {
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  Cell,
+} from "recharts";
 import { useEffect, useRef, useState } from "react";
 import { BrandMark } from "@/components/brand-mark";
 import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
-import { compareXUrls, enrichAnalysis, rewriteEnriched } from "@/lib/xpulse/api";
+import { clearPosts, compareXUrls, deletePosts, enrichAnalysis, rewriteEnriched } from "@/lib/xpulse/api";
 import type { EnrichedAnalysis, EnrichedRewrite } from "@/lib/xpulse/enrich";
 import {
   formatCompact,
@@ -309,6 +318,10 @@ function OverviewPane({
             <Stat label="Dwell" value={formatDwell(metrics.dwellMs)} />
             <Stat label="Profile clicks" value={formatMaybe(metrics.profileClicks)} />
           </dl>
+          <div className="mt-6">
+            <p className="mb-2 font-mono text-[11px] tracking-wide text-subtle uppercase">Engagement mix</p>
+            <LinkMetricsChart post={post} />
+          </div>
         </div>
 
         <div className="panel p-5">
@@ -992,31 +1005,126 @@ function LinkLibrary({
   model,
   focusId,
   onFocus,
+  onReload,
 }: {
   model: PulseModel;
   focusId: string | null;
   onFocus: (id: string) => void;
   onReload?: () => void;
 }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selected.size === model.posts.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(model.posts.map((p) => p.id)));
+    }
+  }
+
+  async function removeSelected() {
+    if (!selected.size) return;
+    if (model.mode === "sample") {
+      setNote("Sample library cannot be edited. Unlock Your Chamber to manage real history.");
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    try {
+      await deletePosts({ data: { ids: [...selected] } });
+      setSelected(new Set());
+      onReload?.();
+      setNote("Selected items removed.");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Could not delete.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeAll() {
+    if (!model.posts.length) return;
+    if (model.mode === "sample") {
+      setNote("Sample library cannot be edited. Unlock Your Chamber to manage real history.");
+      return;
+    }
+    setBusy(true);
+    setNote(null);
+    try {
+      await clearPosts();
+      setSelected(new Set());
+      onReload?.();
+      setNote("History cleared.");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Could not clear history.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="panel p-5">
-      <p className="kicker">Link library</p>
-      <h2 className="mt-1 text-2xl tracking-tight">Choose what the chamber reads</h2>
+      <p className="kicker">History</p>
+      <h2 className="mt-1 text-2xl tracking-tight">Your links</h2>
       <p className="mt-2 text-sm text-muted">
-        One link at a time. Selecting a post replaces the graph. It does not average the account.
+        One link at a time drives the graph. Select items to remove them from history.
       </p>
+      {model.posts.length > 0 ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button type="button" variant="quiet" onClick={toggleAll} disabled={busy}>
+            {selected.size === model.posts.length ? "Deselect all" : "Select all"}
+          </Button>
+          <Button
+            type="button"
+            variant="quiet"
+            disabled={busy || selected.size === 0}
+            onClick={() => void removeSelected()}
+          >
+            Delete selected ({selected.size})
+          </Button>
+          <Button type="button" variant="quiet" disabled={busy} onClick={() => void removeAll()}>
+            Clear all
+          </Button>
+        </div>
+      ) : null}
+      {note ? (
+        <p className="mt-3 text-sm text-muted" role="status">
+          {note}
+        </p>
+      ) : null}
       {model.posts.length === 0 ? (
         <EmptyState text="No links yet. Paste a post URL in the field above to analyze one." />
       ) : (
         <ul className="mt-4 grid gap-2">
           {model.posts.map((post) => {
             const on = focusId === post.id;
+            const checked = selected.has(post.id);
             return (
-              <li key={post.id}>
+              <li key={post.id} className="flex items-stretch gap-2">
+                <label className="flex items-center px-1">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(post.id)}
+                    className="h-4 w-4 accent-[var(--color-accent)]"
+                    aria-label={`Select ${post.type}`}
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => onFocus(post.id)}
-                  className={`lift-card flex w-full flex-col gap-1.5 rounded-lg border px-4 py-3.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+                  className={`lift-card flex min-w-0 flex-1 flex-col gap-1.5 rounded-lg border px-4 py-3.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                     on ? "border-accent/70 bg-accent/10 text-fg" : "border-line bg-bg/40 text-fg"
                   }`}
                 >
@@ -1044,6 +1152,55 @@ function LinkLibrary({
       {model.mode === "sample" ? (
         <p className="mt-4 text-sm text-muted">This set is a rehearsal. It is not your account.</p>
       ) : null}
+    </div>
+  );
+}
+
+
+function LinkMetricsChart({ post }: { post: PulsePost }) {
+  const m = post.metrics;
+  const data = [
+    { name: "Likes", value: m.likes, fill: "var(--color-accent)" },
+    { name: "Replies", value: m.replies, fill: "var(--color-signal)" },
+    { name: "Reposts", value: m.reposts, fill: "var(--color-flare)" },
+    { name: "Saves", value: m.bookmarks, fill: "#7dd3fc" },
+    { name: "Profile", value: m.profileClicks || 0, fill: "#a78bfa" },
+  ].filter((d) => d.value > 0);
+  if (!data.length) {
+    return <p className="text-sm text-muted">No engagement breakdown available for this link.</p>;
+  }
+  return (
+    <div className="h-44 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+          <XAxis
+            dataKey="name"
+            tick={{ fill: "var(--color-subtle)", fontSize: 11 }}
+            axisLine={{ stroke: "var(--color-line)" }}
+            tickLine={false}
+          />
+          <YAxis
+            tick={{ fill: "var(--color-subtle)", fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            allowDecimals={false}
+          />
+          <Tooltip
+            cursor={{ fill: "color-mix(in srgb, var(--color-accent) 8%, transparent)" }}
+            contentStyle={{
+              background: "var(--color-surface)",
+              border: "1px solid var(--color-line)",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+          />
+          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+            {data.map((entry) => (
+              <Cell key={entry.name} fill={entry.fill} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }
