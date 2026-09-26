@@ -23,7 +23,7 @@ import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 
-import { ensureDbReady, getPglite } from "../db";
+import { ensureDbReady, getPglite, normalizeDatabaseUrl } from "../db";
 import { pgliteDialect } from "./pglite-dialect";
 
 void ensureDbReady();
@@ -122,7 +122,11 @@ const trustedOrigins: string[] = [
   ...LOCAL_DEV_ORIGINS,
 ];
 
-const databaseUrl = env("DATABASE_URL");
+const rawDatabaseUrl = env("DATABASE_URL");
+const databaseUrl =
+  rawDatabaseUrl && rawDatabaseUrl.trim()
+    ? normalizeDatabaseUrl(rawDatabaseUrl.trim())
+    : undefined;
 
 const database = databaseUrl
   ? new Pool({
