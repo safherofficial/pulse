@@ -4,7 +4,8 @@ import { BrandMark } from "@/components/brand-mark";
 import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
-import { compareXUrls } from "@/lib/xpulse/api";
+import { compareXUrls, enrichAnalysis, rewriteEnriched } from "@/lib/xpulse/api";
+import type { EnrichedAnalysis, EnrichedRewrite } from "@/lib/xpulse/enrich";
 import {
   formatCompact,
   formatDwell,
@@ -14,7 +15,7 @@ import {
   formatWhen,
 } from "@/lib/xpulse/format";
 import { engagementRate, publicMetricsEngagement, writingSignals } from "@/lib/xpulse/metrics";
-import { rewritePost, scoreDelta, suggestEdits, type RewriteResult } from "@/lib/xpulse/rewrite";
+import { scoreDelta, suggestEdits } from "@/lib/xpulse/rewrite";
 import { usePulseStore, type ChamberView } from "@/lib/xpulse/store";
 import type {
   PublicCompareResult,
@@ -319,7 +320,7 @@ function OverviewPane({
           </button>
         </div>
 
-        <RewriteCoach key={post.id} text={post.text} />
+        <RewriteCoach key={post.id} post={post} />
       </div>
 
       <div className="space-y-5">
@@ -349,17 +350,67 @@ function OverviewPane({
   );
 }
 
-function RewriteCoach({ text }: { text: string }) {
-  const suggestions = suggestEdits(text);
-  const fixes = suggestions.filter((s) => s.priority !== "keep");
-  const [result, setResult] = useState<RewriteResult | null>(null);
+function RewriteCoach({ post }: { post: PulsePost }) {
+  const localSuggestions = suggestEdits(post.text);
+  const [enrichment, setEnrichment] = useState<EnrichedAnalysis | null>(null);
+  const [enrichBusy, setEnrichBusy] = useState(false);
+  const [enrichError, setEnrichError] = useState<string | null>(null);
+  const [result, setResult] = useState<EnrichedRewrite | null>(null);
+  const [rewriteBusy, setRewriteBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    setEnrichBusy(true);
+    setEnrichError(null);
+    void enrichAnalysis({
+      data: {
+        text: post.text,
+        xPostId: post.xPostId,
+        metrics: {
+          impressions: post.metrics.impressions,
+          likes: post.metrics.likes,
+          replies: post.metrics.replies,
+          reposts: post.metrics.reposts,
+          bookmarks: post.metrics.bookmarks,
+          profileClicks: post.metrics.profileClicks,
+          linkClicks: post.metrics.linkClicks,
+          detailExpands: post.metrics.detailExpands,
+          dwellMs: post.metrics.dwellMs,
+        },
+      },
+    })
+      .then((payload) => {
+        if (!cancelled) setEnrichment(payload as EnrichedAnalysis);
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) {
+          setEnrichError(reason instanceof Error ? reason.message : "Enrichment unavailable.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEnrichBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [post.id, post.text, post.xPostId]);
+
+  const suggestions = enrichment?.suggestions ?? localSuggestions;
+  const fixes = suggestions.filter((s) => s.priority !== "keep");
   const delta = result ? scoreDelta(result.before, result.after) : null;
 
-  function runRewrite() {
-    setResult(rewritePost(text));
+  async function runRewrite() {
+    setRewriteBusy(true);
     setCopied(false);
+    try {
+      const payload = (await rewriteEnriched({ data: { text: post.text } })) as EnrichedRewrite;
+      setResult(payload);
+    } catch (reason) {
+      setEnrichError(reason instanceof Error ? reason.message : "Rewrite failed.");
+    } finally {
+      setRewriteBusy(false);
+    }
   }
 
   async function copyRewrite() {
@@ -375,11 +426,60 @@ function RewriteCoach({ text }: { text: string }) {
 
   return (
     <div className="panel p-5">
-      <p className="kicker">Coach</p>
+      <p className="kicker">Coach · public enrichment</p>
       <h2 className="mt-1 text-xl tracking-tight">Suggested edits</h2>
       <p className="mt-2 text-sm text-muted">
-        Ranked from the weakest writing signal on this post. Fix these first — then one-click rewrite.
+        Local viral signals plus free public APIs (LanguageTool, Datamuse, VxTwitter / FxTwitter mirrors).
       </p>
+
+      {enrichBusy ? (
+        <p className="mt-3 font-mono text-xs text-subtle skeleton">Pulling public enrichments…</p>
+      ) : null}
+      {enrichError ? (
+        <p className="mt-3 text-xs text-muted" role="status">
+          {enrichError} — local coach still works.
+        </p>
+      ) : null}
+
+      {enrichment?.viral ? (
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
+            <p className="text-[11px] text-subtle uppercase">Viral score</p>
+            <p className="mt-1 font-mono text-xl text-accent tabular-nums">{enrichment.viral.score}</p>
+          </div>
+          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
+            <p className="text-[11px] text-subtle uppercase">Eng. rate</p>
+            <p className="mt-1 font-mono text-xl text-fg tabular-nums">
+              {enrichment.viral.metrics.engagementRate == null
+                ? "—"
+                : `${enrichment.viral.metrics.engagementRate}%`}
+            </p>
+          </div>
+          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
+            <p className="text-[11px] text-subtle uppercase">LT issues</p>
+            <p className="mt-1 font-mono text-xl text-fg tabular-nums">{enrichment.languageTool.length}</p>
+          </div>
+          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
+            <p className="text-[11px] text-subtle uppercase">Sources</p>
+            <p className="mt-1 font-mono text-[11px] leading-snug text-muted">
+              {enrichment.sources.slice(0, 3).join(" · ")}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {enrichment?.viral?.detected?.length ? (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {enrichment.viral.detected.map((tag) => (
+            <li
+              key={tag}
+              className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 font-mono text-[10px] tracking-wide text-accent"
+            >
+              {tag}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {fixes.length === 0 ? (
         <p className="mt-4 text-sm text-accent">Signals are solid. A rewrite will only polish structure.</p>
@@ -411,9 +511,41 @@ function RewriteCoach({ text }: { text: string }) {
         </ul>
       )}
 
+      {enrichment?.languageTool?.length ? (
+        <div className="mt-4">
+          <p className="font-mono text-[11px] tracking-widest text-subtle uppercase">LanguageTool</p>
+          <ul className="mt-2 space-y-1.5">
+            {enrichment.languageTool.slice(0, 5).map((match, index) => (
+              <li key={`${match.ruleId}-${index}`} className="text-sm text-muted">
+                <span className="text-fg">{match.shortMessage || match.category}</span>
+                {" — "}
+                {match.message}
+                {match.replacements[0] ? (
+                  <span className="font-mono text-xs text-accent"> → {match.replacements[0]}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {enrichment?.vocabulary && Object.keys(enrichment.vocabulary).length > 0 ? (
+        <div className="mt-4">
+          <p className="font-mono text-[11px] tracking-widest text-subtle uppercase">Datamuse lexicon</p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {Object.entries(enrichment.vocabulary).map(([word, alts]) => (
+              <li key={word} className="rounded-md border border-line/70 bg-bg/40 px-2 py-1 text-xs text-muted">
+                <span className="text-fg">{word}</span>
+                {alts.length ? ` → ${alts.slice(0, 3).join(", ")}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="mt-5 flex flex-wrap gap-2">
-        <Button type="button" onClick={runRewrite}>
-          {result ? "Rewrite again" : "Rewrite this post"}
+        <Button type="button" disabled={rewriteBusy} onClick={() => void runRewrite()}>
+          {rewriteBusy ? "Rewriting…" : result ? "Rewrite again" : "Rewrite this post"}
         </Button>
         {result ? (
           <Button type="button" variant="quiet" onClick={() => void copyRewrite()}>
@@ -425,10 +557,15 @@ function RewriteCoach({ text }: { text: string }) {
       {result ? (
         <div className="mt-5 rounded-lg border border-accent/35 bg-accent/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-mono text-[11px] tracking-[0.14em] text-accent uppercase">Autonomous rewrite</p>
+            <p className="font-mono text-[11px] tracking-[0.14em] text-accent uppercase">
+              Autonomous rewrite · enriched
+            </p>
             {delta ? (
               <p className="font-mono text-xs text-muted tabular-nums">
                 Score {delta.avgBefore} → <span className="text-accent">{delta.avgAfter}</span>
+                {result.viral ? (
+                  <span className="ml-2">· viral {result.viral.score}</span>
+                ) : null}
               </p>
             ) : null}
           </div>
@@ -445,11 +582,16 @@ function RewriteCoach({ text }: { text: string }) {
               ))}
             </ul>
           ) : null}
+          {result.sources?.length ? (
+            <p className="mt-3 font-mono text-[10px] tracking-wide text-subtle">
+              Sources: {result.sources.join(" · ")}
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="mt-4 text-xs text-subtle">
-          One click rewrites the copy using your weakest signals — hook, specificity, structure, and stakes —
-          without sending the text to an external model.
+          One click runs LanguageTool + Datamuse vocabulary swaps, then the viral rewrite engine (hook,
+          specificity, structure, stakes).
         </p>
       )}
     </div>

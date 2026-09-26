@@ -392,3 +392,60 @@ export const importFromXUrl =
         );
       },
     );
+
+/** Enrich analysis via free public APIs (LanguageTool, Datamuse, VxTwitter, FxTwitter). */
+export const enrichAnalysis = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { enrichPostAnalysis } = await import("./enrich");
+    const payload = data as {
+      text?: string;
+      xPostId?: string | null;
+      metrics?: {
+        impressions?: number;
+        likes?: number;
+        replies?: number;
+        reposts?: number;
+        bookmarks?: number;
+        profileClicks?: number;
+        linkClicks?: number;
+        detailExpands?: number | null;
+        dwellMs?: number | null;
+        quotes?: number;
+      };
+    };
+    const text = typeof payload?.text === "string" ? payload.text : "";
+    if (!text.trim()) {
+      throw new Error("Text is required for enrichment.");
+    }
+    return enrichPostAnalysis({
+      text,
+      xPostId: payload.xPostId ?? null,
+      metrics: payload.metrics
+        ? {
+            impressions: Number(payload.metrics.impressions) || 0,
+            likes: Number(payload.metrics.likes) || 0,
+            replies: Number(payload.metrics.replies) || 0,
+            reposts: Number(payload.metrics.reposts) || 0,
+            bookmarks: Number(payload.metrics.bookmarks) || 0,
+            profileClicks: Number(payload.metrics.profileClicks) || 0,
+            linkClicks: Number(payload.metrics.linkClicks) || 0,
+            detailExpands: payload.metrics.detailExpands ?? null,
+            dwellMs: payload.metrics.dwellMs ?? null,
+            quotes: payload.metrics.quotes ?? 0,
+          }
+        : undefined,
+    });
+  });
+
+/** Rewrite with LanguageTool + Datamuse + local viral rewrite engine. */
+export const rewriteEnriched = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { enrichAndRewrite } = await import("./enrich");
+    const text = typeof (data as { text?: string })?.text === "string" ? (data as { text: string }).text : "";
+    if (!text.trim()) {
+      throw new Error("Text is required for rewrite.");
+    }
+    return enrichAndRewrite(text);
+  });
