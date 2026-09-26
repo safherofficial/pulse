@@ -7,11 +7,22 @@ import {
 
 const POLL_MS = 15_000;
 
-function formatUsd(n: number | null) {
-  if (n == null) return "Data unavailable";
+function formatUsd(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "Value unavailable";
   if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
   if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
   return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
+function formatSol(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "Balance unavailable";
+  if (n === 0) return "0 SOL";
+  return `${n.toLocaleString(undefined, { maximumFractionDigits: 6 })} SOL`;
+}
+
+function formatAmount(n: number | null | undefined) {
+  if (n == null || !Number.isFinite(n)) return "—";
+  return n.toLocaleString(undefined, { maximumFractionDigits: 6 });
 }
 
 const COLORS = [
@@ -38,10 +49,12 @@ export function WalletPortfolio() {
     inFlight.current = true;
     try {
       const row = await fetchWalletPortfolio(address);
+      // Only replace state with a coherent snapshot — never partial NaN fields
       setSnap(row);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load portfolio.");
+      // Keep previous valid snap visible; surface error without wiping balances
+      setError(e instanceof Error ? e.message : "Unable to retrieve wallet balance.");
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -146,12 +159,15 @@ export function WalletPortfolio() {
               value={formatUsd(snap.totalValueUsd)}
               accent
             />
+            <Stat label="SOL balance" value={formatSol(snap.solBalance)} />
             <Stat
-              label="SOL balance"
+              label="SOL in USD"
               value={
-                snap.solBalance != null
-                  ? `${snap.solBalance.toLocaleString(undefined, { maximumFractionDigits: 4 })} SOL`
-                  : "Data unavailable"
+                snap.solValueUsd != null && Number.isFinite(snap.solValueUsd)
+                  ? formatUsd(snap.solValueUsd)
+                  : snap.solBalance != null && Number.isFinite(snap.solBalance)
+                    ? "USD value unavailable"
+                    : "Value unavailable"
               }
             />
             <Stat
@@ -185,14 +201,15 @@ export function WalletPortfolio() {
                 <p className="text-sm text-muted">No holdings returned.</p>
               ) : (
                 <ul className="max-h-56 space-y-2 overflow-y-auto pr-1">
-                  {snap.solBalance != null ? (
+                  {snap.solBalance != null && Number.isFinite(snap.solBalance) ? (
                     <li className="flex items-center justify-between gap-2 rounded-md border border-line bg-surface-2/40 px-3 py-2 text-sm">
                       <span>SOL</span>
                       <span className="font-mono text-xs text-muted">
-                        {snap.solBalance.toLocaleString(undefined, {
-                          maximumFractionDigits: 4,
-                        })}{" "}
-                        · {formatUsd(snap.solValueUsd)}
+                        {formatSol(snap.solBalance)}
+                        {" · "}
+                        {snap.solValueUsd != null && Number.isFinite(snap.solValueUsd)
+                          ? formatUsd(snap.solValueUsd)
+                          : "USD value unavailable"}
                       </span>
                     </li>
                   ) : null}
@@ -206,10 +223,11 @@ export function WalletPortfolio() {
                         <span className="text-xs text-subtle">{a.name}</span>
                       </span>
                       <span className="shrink-0 font-mono text-xs text-muted">
-                        {a.amount.toLocaleString(undefined, {
-                          maximumFractionDigits: 4,
-                        })}{" "}
-                        · {formatUsd(a.valueUsd)}
+                        {formatAmount(a.amount)}
+                        {" · "}
+                        {a.valueUsd != null && Number.isFinite(a.valueUsd)
+                          ? formatUsd(a.valueUsd)
+                          : "Value unavailable"}
                       </span>
                     </li>
                   ))}
@@ -307,7 +325,7 @@ function AllocationDonut({
               {s.symbol}
             </span>
             <span className="font-mono text-xs text-muted">
-              {s.pct.toFixed(1)}% · {formatUsd(s.valueUsd)}
+              {Number.isFinite(s.pct) ? `${s.pct.toFixed(1)}%` : "—"} · {formatUsd(s.valueUsd)}
             </span>
           </li>
         ))}
