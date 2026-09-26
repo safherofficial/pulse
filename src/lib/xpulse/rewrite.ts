@@ -1,5 +1,5 @@
 import type { WritingSignals } from "./types";
-import { writingSignals } from "./metrics";
+import { writingSignals } from "./metrics.ts";
 
 const SIGNAL_LABELS: Record<keyof WritingSignals, string> = {
   hook: "Hook",
@@ -88,53 +88,37 @@ function mulberry32(seed: number) {
   };
 }
 
-const HOOK_FRAMES = [
-  (core: string) => `Nobody tells you this: ${core}`,
-  (core: string) => `Stop scrolling. ${capitalize(core)}`,
-  (core: string) => `Why does this keep happening? ${capitalize(core)}`,
-  (core: string) => `The hard truth: ${core}`,
-  (core: string) => `Most people miss this. ${capitalize(core)}`,
-  (core: string) => `3 minutes. One change. ${capitalize(core)}`,
-  (core: string) => `I learned this the expensive way: ${core}`,
-  (core: string) => `If you publish on X, read this. ${capitalize(core)}`,
-];
+/** Soft lead-ins that weaken openings — strip when promoting a sentence to hook. */
+const SOFT_LEAD = /^(i |we |today |just |so |hi |hello |hey |wanted to |want to |going to |gonna |i'm |i am |here is |here's |this is |check this |quick |btw |fyi )/i;
 
-const STAKES = [
-  "The cost of ignoring it compounds every week.",
-  "You lose reach you will not get back.",
-  "One weak hook wastes the whole post.",
-  "Your best idea dies in the first line.",
-  "Readers decide in under a second.",
-];
-
-const PROOF_BEATS = [
-  "One concrete change. Measurable in 7 days.",
-  "Track opens, not vanity views.",
-  "Ship the tighter version today.",
-  "Rewrite the first line before you rewrite the rest.",
-  "Cut 30%. Keep the claim that travels alone.",
-];
-
+/**
+ * Lightweight, meaning-preserving lexicon swaps.
+ * Prefer concrete alternatives that do not invent new claims.
+ * Avoid aggressive number injection that changes the author's intent.
+ */
 const VAGUE_MAP: Array<[RegExp, string[]]> = [
-  [/\ba lot of\b/gi, ["3× more", "dozens of", "far more"]],
-  [/\bmany\b/gi, ["dozens of", "hundreds of", "most"]],
-  [/\bsome\b/gi, ["a few", "2–3", "several"]],
-  [/\bbetter\b/gi, ["42% stronger", "sharper", "clearer"]],
-  [/\bmore\b/gi, ["2× more", "far more", "noticeably more"]],
-  [/\bgrowth\b/gi, ["growth in 7 days", "measurable lift", "reach lift"]],
-  [/\bquickly\b/gi, ["in 48 hours", "this week", "in 3 days"]],
-  [/\bsoon\b/gi, ["in 48 hours", "this week", "by Friday"]],
-  [/\boften\b/gi, ["3 times a week", "daily", "twice a week"]],
+  [/\ba lot of\b/gi, ["many", "dozens of", "far more"]],
+  [/\bmany\b/gi, ["dozens of", "most", "a large share of"]],
+  [/\bsome\b/gi, ["a few", "several", "a handful of"]],
+  [/\bbetter\b/gi, ["sharper", "clearer", "stronger"]],
+  [/\bmore\b/gi, ["far more", "noticeably more", "significantly more"]],
+  [/\bgrowth\b/gi, ["measurable lift", "reach lift", "progress"]],
+  [/\bquickly\b/gi, ["fast", "this week", "in days"]],
+  [/\bsoon\b/gi, ["this week", "shortly", "before long"]],
+  [/\boften\b/gi, ["regularly", "frequently", "again and again"]],
   [/\bgreat\b/gi, ["specific", "concrete", "proven"]],
   [/\bawesome\b/gi, ["effective", "high-signal", "repeatable"]],
   [/\bthing\b/gi, ["move", "lever", "change"]],
   [/\bstuff\b/gi, ["details", "signals", "proof"]],
   [/\bcontent\b/gi, ["posts", "threads", "writing"]],
-  [/\bengagement\b/gi, ["replies + reposts", "saves and replies", "real interactions"]],
+  [/\bengagement\b/gi, ["replies and reposts", "saves and replies", "real interactions"]],
   [/\bviral\b/gi, ["high-travel", "widely shared", "breakout"]],
   [/\bsuccess\b/gi, ["results", "outcomes", "wins"]],
   [/\boptimize\b/gi, ["tighten", "cut and sharpen", "refine"]],
   [/\bleverage\b/gi, ["use", "apply", "put to work"]],
+  [/\breally\b/gi, ["", "clearly", "truly"]],
+  [/\bvery\b/gi, ["", "genuinely", "markedly"]],
+  [/\bjust\b/gi, ["", "simply", "only"]],
 ];
 
 export function suggestEdits(text: string): EditSuggestion[] {
@@ -155,36 +139,104 @@ export function suggestEdits(text: string): EditSuggestion[] {
     .sort((a, b) => a.score - b.score);
 }
 
-function coreClaim(text: string, rand: () => number): string {
-  const parts = sentences(text);
-  const first = stripTrailingPunct(parts[0] ?? text);
-  let core = first
-    .replace(/^(i |we |today |just |so |hi |hello |hey )/i, "")
-    .replace(/^(wanted to |want to |going to |gonna )/i, "");
-  const w = words(core);
-  if (w.length > 16) core = w.slice(0, 14).join(" ");
-  if (w.length < 4 && parts[1]) {
-    core = stripTrailingPunct(parts[1]).split(/\s+/).slice(0, 14).join(" ");
-  }
-  if (!core) core = "your first line decides if anyone stays";
-  if (rand() > 0.55 && words(core).length > 8) {
-    core = words(core).slice(0, 8 + Math.floor(rand() * 4)).join(" ");
-  }
-  return core.charAt(0).toLowerCase() + core.slice(1);
+/**
+ * Score how strong a sentence is as an opening hook.
+ * Higher = better candidate to lead the rewritten post.
+ * Purely derived from the original sentence — no external templates.
+ */
+function hookPotential(sentence: string): number {
+  const w = words(sentence);
+  const len = w.length;
+  let score = 40;
+  if (len >= 4 && len <= 18) score += 22;
+  else if (len > 18 && len <= 26) score += 8;
+  else if (len < 4) score -= 15;
+  if (/[?]/.test(sentence)) score += 18;
+  if (/[!—:]/.test(sentence)) score += 8;
+  if (hasNumber(sentence)) score += 12;
+  if (/\b(why|how|what if|nobody|most people|secret|mistake|truth|stop|never|always)\b/i.test(sentence))
+    score += 14;
+  if (SOFT_LEAD.test(sentence)) score -= 20;
+  if (/^(i think|i feel|in my opinion|maybe|perhaps)\b/i.test(sentence)) score -= 12;
+  return score;
 }
 
-function applyVagueSwaps(text: string, rand: () => number, intensity: number): { text: string; notes: string[] } {
+/**
+ * Clean a sentence for use as hook or body line:
+ * - strip soft lead-ins when promoting to hook
+ * - normalize trailing punctuation
+ * - lightly capitalize
+ */
+function polishLine(raw: string, asHook: boolean): string {
+  let s = stripTrailingPunct(raw.trim());
+  if (asHook) {
+    s = s.replace(SOFT_LEAD, "");
+  }
+  s = s.replace(/^(and |but |so |then |also |plus )/i, "");
+  s = capitalize(s);
+  if (!/[.!?]$/.test(s) && words(s).length > 3) s += ".";
+  return s;
+}
+
+/**
+ * Split over-long sentences into shorter beats while keeping original words.
+ */
+function splitLongSentence(sentence: string, maxWords = 18): string[] {
+  const w = words(sentence);
+  if (w.length <= maxWords) return [sentence];
+
+  // Prefer natural break points (commas, "and", "but", "so", "because")
+  const breakRe = /, |\band\b|\bbut\b|\bso\b|\bbecause\b|\bwhich\b|\bthat\b/i;
+  const parts: string[] = [];
+  let remaining = sentence;
+
+  while (words(remaining).length > maxWords) {
+    const match = remaining.match(breakRe);
+    if (!match || match.index === undefined || match.index < 8) {
+      // Hard split near the middle
+      const mid = Math.floor(words(remaining).length / 2);
+      const left = words(remaining).slice(0, mid).join(" ");
+      const right = words(remaining).slice(mid).join(" ");
+      parts.push(left);
+      remaining = right;
+      break;
+    }
+    const cut = match.index + match[0].length;
+    const left = remaining.slice(0, match.index).trim();
+    if (words(left).length >= 4) {
+      parts.push(left);
+      remaining = remaining.slice(cut).trim();
+    } else {
+      remaining = remaining.slice(cut).trim();
+    }
+  }
+  if (remaining.trim()) parts.push(remaining.trim());
+  return parts.filter((p) => words(p).length >= 3);
+}
+
+function applyVagueSwaps(
+  text: string,
+  rand: () => number,
+  intensity: number,
+): { text: string; notes: string[] } {
   let out = text;
   const notes: string[] = [];
   let swaps = 0;
+  const maxSwaps = Math.max(1, 1 + intensity);
+
   for (const [re, alts] of VAGUE_MAP) {
-    if (swaps >= 2 + intensity) break;
+    if (swaps >= maxSwaps) break;
     if (!re.test(out)) continue;
     re.lastIndex = 0;
     const pick = alts[Math.floor(rand() * alts.length)]!;
+    // Empty pick means "delete the intensifier"
     out = out.replace(re, (matched) => {
-      if (swaps >= 2 + intensity) return matched;
+      if (swaps >= maxSwaps) return matched;
       swaps += 1;
+      if (!pick) {
+        notes.push(`removed weak intensifier "${matched}"`);
+        return "";
+      }
       const replacement =
         matched[0] && matched[0] === matched[0].toUpperCase()
           ? pick.charAt(0).toUpperCase() + pick.slice(1)
@@ -193,80 +245,158 @@ function applyVagueSwaps(text: string, rand: () => number, intensity: number): {
       return replacement;
     });
   }
+  // Clean double spaces left by deletions
+  out = out.replace(/\s{2,}/g, " ").trim();
   return { text: out, notes };
 }
 
-function buildVariant(text: string, variant: number): { text: string; applied: string[] } {
-  const rand = mulberry32(variant * 9973 + 13);
-  const intensity = Math.min(4, Math.floor(variant / 2));
-  const applied: string[] = [];
-  const claim = coreClaim(text, rand);
-
-  const hookFn = HOOK_FRAMES[(variant + Math.floor(rand() * 3)) % HOOK_FRAMES.length]!;
-  let hook = stripTrailingPunct(hookFn(claim));
-  if (words(hook).length > 20) hook = words(hook).slice(0, 18).join(" ");
-  if (!/[!?.]$/.test(hook)) hook += ".";
-  applied.push(`Hook frame #${(variant % HOOK_FRAMES.length) + 1}`);
-
-  const originalParts = sentences(text).slice(1);
-  let bodyParts = originalParts
-    .map((p) => capitalize(stripTrailingPunct(p)))
-    .filter((p) => words(p).length >= 4)
-    .slice(0, 2 + (intensity > 2 ? 1 : 0));
-
-  if (bodyParts.length === 0) {
-    bodyParts = [
-      "Opens and dwell beat vanity impressions every time.",
-      "Write for the person who almost scrolled past.",
-    ];
+/**
+ * Extract atomic content units from the original post.
+ * Keeps the author's ideas intact; later stages only reorder and polish.
+ */
+function extractUnits(text: string): string[] {
+  const raw = sentences(text);
+  const units: string[] = [];
+  for (const s of raw) {
+    const cleaned = stripTrailingPunct(s).trim();
+    if (words(cleaned).length < 3) continue;
+    // Further split very long units so structure can improve
+    const pieces = splitLongSentence(cleaned, 22);
+    for (const p of pieces) {
+      if (words(p).length >= 3) units.push(p);
+    }
   }
-
-  if (!hasNumber(hook + " " + bodyParts.join(" "))) {
-    const nums = ["7 days", "48 hours", "1 line", "3 beats", "30%"];
-    const n = nums[Math.floor(rand() * nums.length)]!;
-    bodyParts[0] = `${bodyParts[0]!.replace(/\.$/, "")} — start with ${n}.`;
-    applied.push(`Added concrete marker (${n})`);
-  }
-
-  const joinedBody = bodyParts.join(" ");
-  const swapped = applyVagueSwaps(joinedBody, rand, intensity);
-  bodyParts = sentences(swapped.text);
-  applied.push(...swapped.notes.map((n) => `Lexicon: ${n}`));
-
-  const stake = STAKES[(variant + Math.floor(rand() * STAKES.length)) % STAKES.length]!;
-  const proof = PROOF_BEATS[(variant * 3 + Math.floor(rand() * PROOF_BEATS.length)) % PROOF_BEATS.length]!;
-
-  const lines = [capitalize(hook)];
-  for (const part of bodyParts) {
-    let line = capitalize(stripTrailingPunct(part));
-    if (words(line).length > 22) line = words(line).slice(0, 18).join(" ");
-    if (!/[.!?]$/.test(line)) line += ".";
-    lines.push(line);
-  }
-  lines.push(stake);
-  applied.push("Raised stakes");
-  if (intensity >= 1 || rand() > 0.35) {
-    lines.push(proof);
-    applied.push("Closed with a concrete next step");
-  }
-
-  if (intensity >= 2 && words(lines[0]!).length > 14) {
-    lines[0] = `${words(lines[0]!).slice(0, 12).join(" ")}.`;
-    applied.push("Compressed lead for shareability");
-  }
-
-  return { text: lines.join("\n\n"), applied: [...new Set(applied)] };
+  return units.length > 0 ? units : [text.trim()];
 }
 
+/**
+ * Build one rewrite variant.
+ *
+ * Design goals (aligned with professional rewrite APIs):
+ * - Preserve original meaning and factual content
+ * - Change structure: promote strongest claim to front, one idea per line
+ * - Improve clarity, readability, specificity via light polishing
+ * - Never inject unrelated template sentences
+ * - Variants explore different lead sentences and tightening intensity
+ */
+function buildVariant(text: string, variant: number): { text: string; applied: string[] } {
+  const rand = mulberry32(variant * 9973 + 13);
+  const intensity = Math.min(3, Math.floor(variant / 2));
+  const applied: string[] = [];
+
+  const units = extractUnits(text);
+  if (units.length === 0) {
+    return { text: text.trim(), applied: [] };
+  }
+
+  // Rank units by hook potential
+  const ranked = units
+    .map((u, idx) => ({ u, idx, score: hookPotential(u) }))
+    .sort((a, b) => b.score - a.score);
+
+  // Variant picks which strong unit becomes the new opening
+  const leadIndex = Math.min(ranked.length - 1, variant % Math.min(3, ranked.length));
+  const lead = ranked[leadIndex]!;
+  const usedIdx = new Set<number>([lead.idx]);
+
+  const hookLine = polishLine(lead.u, true);
+  applied.push(
+    lead.idx === 0
+      ? "Tightened existing opening"
+      : `Promoted strongest claim (originally position ${lead.idx + 1}) to hook`,
+  );
+
+  // Remaining body units in original relative order, lightly polished
+  const bodyUnits = units
+    .map((u, idx) => ({ u, idx }))
+    .filter((x) => !usedIdx.has(x.idx))
+    .map((x) => polishLine(x.u, false));
+
+  // Apply vague-word swaps on the whole draft for specificity/clarity
+  let draftLines = [hookLine, ...bodyUnits];
+  const joinedForSwap = draftLines.join(" ");
+  const swapped = applyVagueSwaps(joinedForSwap, rand, intensity);
+  if (swapped.notes.length) {
+    applied.push(...swapped.notes.map((n) => `Lexicon: ${n}`));
+    // Re-split after swaps (they may have changed spacing)
+    draftLines = sentences(swapped.text).map((s) => polishLine(s, false));
+    // Ensure first line is still treated as the hook
+    if (draftLines.length > 0) {
+      draftLines[0] = polishLine(draftLines[0]!, true);
+    }
+  }
+
+  // Drop near-duplicates and very weak residual lines
+  const seen = new Set<string>();
+  const finalLines: string[] = [];
+  for (const line of draftLines) {
+    const key = words(line)
+      .slice(0, 6)
+      .join(" ")
+      .toLowerCase();
+    if (seen.has(key)) continue;
+    if (words(line).length < 3) continue;
+    seen.add(key);
+    // Cap individual line length for shareability
+    if (words(line).length > 24) {
+      finalLines.push(words(line).slice(0, 20).join(" ") + ".");
+      applied.push("Compressed a long line for shareability");
+    } else {
+      finalLines.push(line);
+    }
+  }
+
+  // Ensure we still have substance; fall back to original cleaned if everything was filtered
+  if (finalLines.length === 0) {
+    return {
+      text: units.map((u) => polishLine(u, false)).join("\n\n"),
+      applied: ["Normalized structure and line breaks"],
+    };
+  }
+
+  // Structure: blank line between beats improves readability & structure scores
+  const structured = finalLines.join("\n\n");
+  applied.push("Reordered for hook-first structure + line breaks");
+
+  // Light intensity pass: drop the weakest trailing line if too long overall
+  if (intensity >= 2 && finalLines.length > 4) {
+    const trimmed = finalLines.slice(0, -1).join("\n\n");
+    if (words(trimmed).length >= 12) {
+      applied.push("Cut weakest trailing beat for tighter focus");
+      return { text: trimmed, applied: [...new Set(applied)] };
+    }
+  }
+
+  return { text: structured, applied: [...new Set(applied)] };
+}
+
+/**
+ * Content-preserving rewrite engine.
+ *
+ * Tries several structural variants (different lead sentences + intensity)
+ * and returns the one that most improves the average writing-signal score
+ * while staying faithful to the original ideas.
+ */
 export function rewritePost(text: string, variant = 0): RewriteResult {
   const source = text.trim();
+  if (!source) {
+    return {
+      text: "",
+      applied: [],
+      before: writingSignals(""),
+      after: writingSignals(""),
+      variant,
+    };
+  }
+
   const before = writingSignals(source);
   const baseline = avgScore(before);
 
   let best: RewriteResult | null = null;
 
-  for (let offset = 0; offset < 8; offset += 1) {
-    const seed = variant + offset * 17;
+  // Explore a small set of structural variants; stop early when we clearly improve
+  for (let offset = 0; offset < 6; offset += 1) {
+    const seed = variant + offset * 11;
     const built = buildVariant(source, seed);
     const after = writingSignals(built.text);
     const score = avgScore(after);
@@ -278,45 +408,35 @@ export function rewritePost(text: string, variant = 0): RewriteResult {
       variant: seed,
     };
     if (!best || score > avgScore(best.after)) best = candidate;
-    if (score > baseline + 2 && offset === 0) break;
-    if (score > baseline + 0.75 && offset <= 3) break;
+    // Early exit on clear win
+    if (score > baseline + 1.5 && offset <= 1) break;
+    if (score > baseline + 0.5 && offset <= 3) break;
   }
 
-  if (best && avgScore(best.after) <= baseline) {
-    const claim = coreClaim(source, mulberry32(variant + 99));
-    const forced = [
-      `Nobody tells you this: ${claim}.`,
-      "Opens and dwell beat vanity impressions.",
-      "Rewrite the first line before anything else.",
-      STAKES[variant % STAKES.length]!,
-      PROOF_BEATS[variant % PROOF_BEATS.length]!,
-    ].join("\n\n");
-    const after = writingSignals(forced);
-    if (avgScore(after) >= avgScore(best.after)) {
-      best = {
-        text: forced,
-        applied: ["Forced high-signal structure", "Hook + stakes + next step"],
-        before,
-        after,
-        variant,
-      };
-    }
-  }
-
-  return (
-    best ?? {
-      text: source,
-      applied: [],
+  // Safety: if no improvement, return a minimal structural polish of the original
+  if (!best || avgScore(best.after) < baseline - 0.5) {
+    const units = extractUnits(source);
+    const polished = units.map((u, i) => polishLine(u, i === 0)).join("\n\n");
+    const after = writingSignals(polished);
+    best = {
+      text: polished,
+      applied: ["Minimal structural polish — original sense fully preserved"],
       before,
-      after: before,
+      after,
       variant,
-    }
-  );
+    };
+  }
+
+  return best;
 }
 
 export function scoreDelta(before: WritingSignals, after: WritingSignals) {
   const keys = Object.keys(before) as (keyof WritingSignals)[];
-  const deltas = keys.map((k) => ({ signal: k, label: SIGNAL_LABELS[k], delta: after[k] - before[k] }));
+  const deltas = keys.map((k) => ({
+    signal: k,
+    label: SIGNAL_LABELS[k],
+    delta: after[k] - before[k],
+  }));
   const avgBefore = Math.round(avgScore(before));
   const avgAfter = Math.round(avgScore(after));
   return { deltas, avgBefore, avgAfter };
