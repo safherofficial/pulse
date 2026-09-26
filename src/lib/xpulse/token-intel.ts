@@ -24,11 +24,21 @@ export type TokenMarket = {
   priceChange6h: number | null;
   priceChange1h: number | null;
   volume24h: number | null;
+  volume6h: number | null;
+  volume1h: number | null;
   liquidityUsd: number | null;
   fdv: number | null;
   marketCap: number | null;
   pairAddress: string | null;
+  pairUrl: string | null;
   dexId: string | null;
+  buys24h: number | null;
+  sells24h: number | null;
+  /** Paid promotion / boost on public DEX listing pages when detectable. */
+  paidListing: boolean | null;
+  paidListingDetail: string | null;
+  viralScore: number | null;
+  viralReasons: string[];
   updatedAt: string;
 };
 
@@ -110,12 +120,18 @@ export function detectTokenInput(input: string): "address" | "name" {
 type DexPair = {
   chainId?: string;
   dexId?: string;
+  url?: string;
   pairAddress?: string;
   baseToken?: { address?: string; name?: string; symbol?: string };
   quoteToken?: { address?: string; name?: string; symbol?: string };
   priceUsd?: string;
-  priceChange?: { h1?: number; h6?: number; h24?: number };
-  volume?: { h24?: number };
+  priceChange?: { h1?: number; h6?: number; h24?: number; m5?: number };
+  volume?: { h24?: number; h6?: number; h1?: number; m5?: number };
+  txns?: {
+    h24?: { buys?: number; sells?: number };
+    h6?: { buys?: number; sells?: number };
+    h1?: { buys?: number; sells?: number };
+  };
   liquidity?: { usd?: number };
   fdv?: number;
   marketCap?: number;
@@ -158,21 +174,65 @@ function identityFromPair(pair: DexPair, addressHint?: string): TokenIdentity {
   };
 }
 
-function marketFromPair(pair: DexPair): TokenMarket {
+function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: string | null } = { paid: null, detail: null }): TokenMarket {
   const price = pair.priceUsd != null ? Number(pair.priceUsd) : null;
+  const vol = pair.volume?.h24 ?? 0;
+  const liq = pair.liquidity?.usd ?? 0;
+  const ch = pair.priceChange?.h24 ?? 0;
+  const buys = pair.txns?.h24?.buys ?? 0;
+  const sells = pair.txns?.h24?.sells ?? 0;
+  const reasons: string[] = [];
+  const volScore = Math.min(50, Math.log10(Math.max(vol, 1)) * 8);
+  const moveScore = Math.min(30, Math.abs(ch) * 0.4);
+  const liqScore = Math.min(20, Math.log10(Math.max(liq, 1)) * 3);
+  const viralScore = Math.round(volScore + moveScore + liqScore);
+  if (vol > 500_000) reasons.push("high 24h volume");
+  else if (vol > 50_000) reasons.push("active volume");
+  if (Math.abs(ch) > 20) reasons.push("sharp 24h move");
+  else if (Math.abs(ch) > 8) reasons.push("notable 24h move");
+  if (liq > 200_000) reasons.push("deeper liquidity");
+  if (buys + sells > 500) reasons.push("heavy 24h trade count");
+  if (paid.paid) reasons.push("paid DEX profile/boost");
   return {
     priceUsd: Number.isFinite(price) ? price : null,
     priceChange24h: pair.priceChange?.h24 ?? null,
     priceChange6h: pair.priceChange?.h6 ?? null,
     priceChange1h: pair.priceChange?.h1 ?? null,
     volume24h: pair.volume?.h24 ?? null,
+    volume6h: pair.volume?.h6 ?? null,
+    volume1h: pair.volume?.h1 ?? null,
     liquidityUsd: pair.liquidity?.usd ?? null,
     fdv: pair.fdv ?? null,
     marketCap: pair.marketCap ?? null,
     pairAddress: pair.pairAddress ?? null,
+    pairUrl: pair.url ?? null,
     dexId: pair.dexId ?? null,
+    buys24h: pair.txns?.h24?.buys ?? null,
+    sells24h: pair.txns?.h24?.sells ?? null,
+    paidListing: paid.paid,
+    paidListingDetail: paid.detail,
+    viralScore: Number.isFinite(viralScore) ? viralScore : null,
+    viralReasons: reasons,
     updatedAt: new Date().toISOString(),
   };
+}
+
+/** Detect paid DexScreener profile / boost orders for a Solana token. */
+async function fetchPaidListing(address: string): Promise<{ paid: boolean | null; detail: string | null }> {
+  try {
+    const rows = await fetchJson<Array<{ type?: string; status?: string; paymentTimestamp?: number }>>(
+      `https://api.dexscreener.com/orders/v1/solana/${encodeURIComponent(address)}`,
+    );
+    if (!Array.isArray(rows)) return { paid: null, detail: null };
+    if (rows.length === 0) return { paid: false, detail: "No paid profile or boost orders found." };
+    const types = rows.map((r) => r.type || r.status || "order").filter(Boolean);
+    return {
+      paid: true,
+      detail: `Paid listing activity detected (${[...new Set(types)].join(", ")}).`,
+    };
+  } catch {
+    return { paid: null, detail: "Paid-listing status unavailable." };
+  }
 }
 
 function analyzeToken(identity: TokenIdentity, market: TokenMarket): TokenAnalysis {
@@ -329,16 +389,59 @@ export async function searchTokensByName(query: string): Promise<TokenSearchHit[
 }
 
 export async function researchTokenByAddress(address: string): Promise<TokenIntel | null> {
-  const clean = address.trim();
+  let clean = address.trim();
+  try {
+    clean = decodeURIComponent(clean);
+  } catch {
+    /* keep raw */
+  }
+  // Strip accidental path noise
+  clean = clean.split(/[/?#]/)[0]!.trim();
   if (!SOLANA_ADDRESS_RE.test(clean)) return null;
-  const data = await fetchJson<{ pairs?: DexPair[] }>(
-    `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(clean)}`,
-  );
-  const pair = pickBestPair(data?.pairs ?? []);
+
+  const [data, paid] = await Promise.all([
+    fetchJson<{ pairs?: DexPair[] }>(
+      `https://api.dexscreener.com/latest/dex/tokens/${encodeURIComponent(clean)}`,
+    ),
+    fetchPaidListing(clean),
+  ]);
+
+  let pairs = data?.pairs ?? [];
+  // Fallback: search by address string if tokens endpoint is empty
+  if (!pairs.length) {
+    const fallback = await fetchJson<{ pairs?: DexPair[] }>(
+      `https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(clean)}`,
+    );
+    pairs = (fallback?.pairs ?? []).filter(
+      (p) =>
+        (p.chainId ?? "").toLowerCase() === "solana" &&
+        (p.baseToken?.address === clean || p.quoteToken?.address === clean),
+    );
+  }
+
+  const pair = pickBestPair(pairs);
   if (!pair) return null;
+
   const identity = identityFromPair(pair, clean);
-  const market = marketFromPair(pair);
-  const mentions = await fetchTokenMentions(identity);
+  const market = marketFromPair(pair, paid);
+
+  let mentions: TokenMentionsReport = {
+    totalFound: null,
+    items: [],
+    note: "Public mention feed not loaded.",
+    updatedAt: new Date().toISOString(),
+  };
+  try {
+    mentions = await fetchTokenMentions(identity);
+  } catch {
+    mentions = {
+      totalFound: null,
+      items: [],
+      note: "Public mention feed temporarily unavailable.",
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   return {
     identity,
     market,
