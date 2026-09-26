@@ -14,6 +14,7 @@ import {
   formatWhen,
 } from "@/lib/xpulse/format";
 import { engagementRate, publicMetricsEngagement, writingSignals } from "@/lib/xpulse/metrics";
+import { rewritePost, scoreDelta, suggestEdits, type RewriteResult } from "@/lib/xpulse/rewrite";
 import { usePulseStore, type ChamberView } from "@/lib/xpulse/store";
 import type {
   PublicCompareResult,
@@ -317,6 +318,8 @@ function OverviewPane({
             Choose another link →
           </button>
         </div>
+
+        <RewriteCoach key={post.id} text={post.text} />
       </div>
 
       <div className="space-y-5">
@@ -342,6 +345,113 @@ function OverviewPane({
           </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function RewriteCoach({ text }: { text: string }) {
+  const suggestions = suggestEdits(text);
+  const fixes = suggestions.filter((s) => s.priority !== "keep");
+  const [result, setResult] = useState<RewriteResult | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const delta = result ? scoreDelta(result.before, result.after) : null;
+
+  function runRewrite() {
+    setResult(rewritePost(text));
+    setCopied(false);
+  }
+
+  async function copyRewrite() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result.text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="panel p-5">
+      <p className="kicker">Coach</p>
+      <h2 className="mt-1 text-xl tracking-tight">Suggested edits</h2>
+      <p className="mt-2 text-sm text-muted">
+        Ranked from the weakest writing signal on this post. Fix these first — then one-click rewrite.
+      </p>
+
+      {fixes.length === 0 ? (
+        <p className="mt-4 text-sm text-accent">Signals are solid. A rewrite will only polish structure.</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {fixes.map((item) => (
+            <li
+              key={item.signal}
+              className={`rounded-lg border px-3 py-3 ${
+                item.priority === "fix"
+                  ? "border-danger/40 bg-danger/5"
+                  : "border-line/70 bg-bg/40"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-fg">{item.label}</span>
+                <span
+                  className={`font-mono text-xs tabular-nums ${
+                    item.priority === "fix" ? "text-danger" : "text-muted"
+                  }`}
+                >
+                  {item.score}
+                  <span className="ml-2 uppercase tracking-wider opacity-70">{item.priority}</span>
+                </span>
+              </div>
+              <p className="mt-1.5 text-sm text-muted">{item.action}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Button type="button" onClick={runRewrite}>
+          {result ? "Rewrite again" : "Rewrite this post"}
+        </Button>
+        {result ? (
+          <Button type="button" variant="quiet" onClick={() => void copyRewrite()}>
+            {copied ? "Copied" : "Copy rewrite"}
+          </Button>
+        ) : null}
+      </div>
+
+      {result ? (
+        <div className="mt-5 rounded-lg border border-accent/35 bg-accent/5 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-mono text-[11px] tracking-[0.14em] text-accent uppercase">Autonomous rewrite</p>
+            {delta ? (
+              <p className="font-mono text-xs text-muted tabular-nums">
+                Score {delta.avgBefore} → <span className="text-accent">{delta.avgAfter}</span>
+              </p>
+            ) : null}
+          </div>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-fg">{result.text}</p>
+          {result.applied.length > 0 ? (
+            <ul className="mt-3 flex flex-wrap gap-1.5">
+              {result.applied.map((note) => (
+                <li
+                  key={note}
+                  className="rounded-full border border-line/80 bg-bg/50 px-2.5 py-0.5 font-mono text-[10px] tracking-wide text-muted"
+                >
+                  {note}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-4 text-xs text-subtle">
+          One click rewrites the copy using your weakest signals — hook, specificity, structure, and stakes —
+          without sending the text to an external model.
+        </p>
+      )}
     </div>
   );
 }
