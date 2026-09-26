@@ -250,6 +250,18 @@
   }
 }
 
+.animate-in {
+  animation: rise-in 320ms ease both;
+}
+
+.panel {
+  transition: border-color 200ms ease, background-color 200ms ease, opacity 200ms ease;
+}
+
+button, a {
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease, opacity 150ms ease;
+}
+
 @keyframes pulse-soft {
   50% {
     opacity: 0.5;
