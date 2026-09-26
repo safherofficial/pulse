@@ -15,7 +15,7 @@ import { Route as OnboardRouteImport } from './routes/onboard'
 import { Route as PulseRouteImport } from './routes/pulse'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as TokensRouteImport } from './routes/tokens'
-import { Route as TokensAddressRouteImport } from './routes/tokens.$address'
+import { Route as TokenAddressRouteImport } from './routes/token.$address'
 import { Route as ResearchRouteImport } from './routes/research'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as AnalyzeRouteImport } from './routes/analyze'
@@ -52,9 +52,9 @@ const TokensRoute = TokensRouteImport.update({
   path: '/tokens',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TokensAddressRoute = TokensAddressRouteImport.update({
-  id: '/tokens/$address',
-  path: '/tokens/$address',
+const TokenAddressRoute = TokenAddressRouteImport.update({
+  id: '/token/$address',
+  path: '/token/$address',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResearchRoute = ResearchRouteImport.update({
@@ -90,7 +90,7 @@ export interface FileRoutesByFullPath {
   '/pulse': typeof PulseRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
-  '/tokens/$address': typeof TokensAddressRoute
+  '/token/$address': typeof TokenAddressRoute
   '/research': typeof ResearchRoute
   '/create': typeof CreateRoute
   '/analyze': typeof AnalyzeRoute
@@ -104,7 +104,7 @@ export interface FileRoutesByTo {
   '/pulse': typeof PulseRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
-  '/tokens/$address': typeof TokensAddressRoute
+  '/token/$address': typeof TokenAddressRoute
   '/research': typeof ResearchRoute
   '/create': typeof CreateRoute
   '/analyze': typeof AnalyzeRoute
@@ -119,7 +119,7 @@ export interface FileRoutesById {
   '/pulse': typeof PulseRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
-  '/tokens/$address': typeof TokensAddressRoute
+  '/token/$address': typeof TokenAddressRoute
   '/research': typeof ResearchRoute
   '/create': typeof CreateRoute
   '/analyze': typeof AnalyzeRoute
@@ -135,7 +135,7 @@ export interface FileRouteTypes {
     | '/pulse'
     | '/studio'
     | '/tokens'
-    | '/tokens/$address'
+    | '/token/$address'
     | '/research'
     | '/create'
     | '/analyze'
@@ -149,7 +149,7 @@ export interface FileRouteTypes {
     | '/pulse'
     | '/studio'
     | '/tokens'
-    | '/tokens/$address'
+    | '/token/$address'
     | '/research'
     | '/create'
     | '/analyze'
@@ -163,7 +163,7 @@ export interface FileRouteTypes {
     | '/pulse'
     | '/studio'
     | '/tokens'
-    | '/tokens/$address'
+    | '/token/$address'
     | '/research'
     | '/create'
     | '/analyze'
@@ -178,7 +178,7 @@ export interface RootRouteChildren {
   PulseRoute: typeof PulseRoute
   StudioRoute: typeof StudioRoute
   TokensRoute: typeof TokensRoute
-  TokensAddressRoute: typeof TokensAddressRoute
+  TokenAddressRoute: typeof TokenAddressRoute
   ResearchRoute: typeof ResearchRoute
   CreateRoute: typeof CreateRoute
   AnalyzeRoute: typeof AnalyzeRoute
@@ -230,11 +230,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TokensRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tokens/$address': {
-      id: '/tokens/$address'
-      path: '/tokens/$address'
-      fullPath: '/tokens/$address'
-      preLoaderRoute: typeof TokensAddressRouteImport
+    '/token/$address': {
+      id: '/token/$address'
+      path: '/token/$address'
+      fullPath: '/token/$address'
+      preLoaderRoute: typeof TokenAddressRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/research': {
@@ -282,7 +282,7 @@ const rootRouteChildren: RootRouteChildren = {
   PulseRoute: PulseRoute,
   StudioRoute: StudioRoute,
   TokensRoute: TokensRoute,
-  TokensAddressRoute: TokensAddressRoute,
+  TokenAddressRoute: TokenAddressRoute,
   ResearchRoute: ResearchRoute,
   CreateRoute: CreateRoute,
   AnalyzeRoute: AnalyzeRoute,
