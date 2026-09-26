@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { TopNav } from "@/components/top-nav";
 import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { buttonVariants } from "@/components/ui/button";
@@ -99,7 +100,7 @@ function Home() {
             <Fact label="Article dwell" value={formatDwell(article.metrics.dwellMs)} />
           </dl>
         </div>
-        <div className="hud-corners panel rise rise-2 h-80 overflow-hidden sm:h-[32rem]">
+        <div className="hud-corners panel relative rise rise-2 h-[22rem] overflow-hidden sm:h-[34rem]">
           <span className="corner corner-tl" />
           <span className="corner corner-tr" />
           <span className="corner corner-bl" />
@@ -107,6 +108,9 @@ function Home() {
           <div className="pointer-events-none absolute top-4 left-4 z-10 flex items-center gap-2">
             <span className="status-dot" />
             <span className="font-mono text-xs tracking-widest text-accent">SAMPLE LINK · LIVE</span>
+          </div>
+          <div className="pointer-events-none absolute right-4 bottom-4 z-10 hidden rounded-md border border-line/60 bg-bg/70 px-3 py-1.5 font-mono text-[10px] tracking-widest text-muted backdrop-blur-md sm:block">
+            WRITING DNA · PERFORMANCE
           </div>
           <PulseCanvas model={sampleModel} selectedPost={thread} mode="hero" />
         </div>
@@ -160,73 +164,7 @@ function Home() {
         </dl>
       </section>
 
-      <section className="border-t border-line pt-12">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="kicker">Price · honest comparison</p>
-            <h2 className="mt-3 max-w-2xl text-3xl">One payment. No subscription treadmill.</h2>
-            <p className="mt-3 max-w-2xl text-muted">
-              Competitors bill every month for queues and calendars. XPulse is a reading chamber: pay{" "}
-              <span className="text-fg">0.15 SOL once</span>, keep the wallet that paid. Year-one cost stays
-              flat while SaaS stacks into hundreds of dollars.
-            </p>
-          </div>
-          <Link to="/onboard" className={buttonVariants()}>
-            Unlock · 0.15 SOL
-          </Link>
-        </div>
-
-        <div className="mt-8 overflow-x-auto rounded-xl border border-line">
-          <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
-            <thead>
-              <tr className="border-b border-line bg-surface/80 font-mono text-[11px] tracking-widest text-subtle uppercase">
-                <th className="px-4 py-3 font-medium">Tool</th>
-                <th className="px-4 py-3 font-medium">Billing</th>
-                <th className="px-4 py-3 font-medium">Per month</th>
-                <th className="px-4 py-3 font-medium">Year one</th>
-                <th className="px-4 py-3 font-medium">Built for</th>
-              </tr>
-            </thead>
-            <tbody>
-              {PRICE_ROWS.map((row) => (
-                <tr
-                  key={row.name}
-                  className={`border-b border-line/80 last:border-0 ${
-                    row.ours
-                      ? "bg-accent/10 shadow-[inset_3px_0_0_0_var(--color-accent)]"
-                      : "bg-bg/40"
-                  }`}
-                >
-                  <td className="px-4 py-3.5">
-                    <span className={`font-medium ${row.ours ? "text-accent" : "text-fg"}`}>{row.name}</span>
-                    {row.ours ? (
-                      <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 font-mono text-[10px] tracking-wider text-accent uppercase">
-                        You are here
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.model}</td>
-                  <td className={`px-4 py-3.5 font-mono tabular-nums ${row.ours ? "text-fg" : "text-muted"}`}>
-                    {row.monthly}
-                  </td>
-                  <td
-                    className={`px-4 py-3.5 font-mono tabular-nums ${
-                      row.ours ? "text-accent font-semibold" : "text-muted"
-                    }`}
-                  >
-                    {row.yearly}
-                  </td>
-                  <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.focus}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-xs text-subtle">
-          Competitor figures are public list prices (approx.) and can change. XPulse price is fixed on-chain at
-          0.15 SOL lifetime — no renewal, no seat tax.
-        </p>
-      </section>
+      <PriceCompare />
 
       <section className="panel p-6 sm:p-8">
         <p className="kicker">0.15 SOL · once</p>
@@ -245,6 +183,181 @@ function Home() {
         <span>Not affiliated with X or Solana.</span>
       </footer>
     </main>
+  );
+}
+
+/** Approximate USD for 0.15 SOL for the savings simulator (display only). */
+const XPULSE_YEAR_USD = 30;
+const MARKET_MAX_USD = 588;
+
+function formatUsd(n: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function PriceCompare() {
+  const [open, setOpen] = useState(false);
+  const [annualSpend, setAnnualSpend] = useState(240);
+
+  const savings = useMemo(
+    () => Math.max(0, annualSpend - XPULSE_YEAR_USD),
+    [annualSpend],
+  );
+  const pct = useMemo(() => {
+    if (annualSpend <= 0) return 0;
+    return Math.round((savings / annualSpend) * 100);
+  }, [annualSpend, savings]);
+  const sliderPct = ((annualSpend - XPULSE_YEAR_USD) / (MARKET_MAX_USD - XPULSE_YEAR_USD)) * 100;
+
+  return (
+    <section className="border-t border-line pt-12">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="kicker">Price · honest comparison</p>
+          <h2 className="mt-3 max-w-2xl text-3xl">One payment. No subscription treadmill.</h2>
+          <p className="mt-3 max-w-2xl text-muted">
+            Drag the slider to the yearly amount you would spend on a typical X growth tool. XPulse is{" "}
+            <span className="text-fg">0.15 SOL once</span> (~{formatUsd(XPULSE_YEAR_USD)} at current display rate).
+            The gap is your year-one savings.
+          </p>
+        </div>
+        <Link to="/onboard" className={buttonVariants()}>
+          Unlock · 0.15 SOL
+        </Link>
+      </div>
+
+      <div className="panel mt-8 overflow-hidden p-5 sm:p-7">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="font-mono text-[11px] tracking-[0.16em] text-subtle uppercase">Your annual SaaS budget</p>
+            <p className="mt-1 font-mono text-4xl tabular-nums text-fg sm:text-5xl">{formatUsd(annualSpend)}</p>
+          </div>
+          <div className="text-right">
+            <p className="font-mono text-[11px] tracking-[0.16em] text-subtle uppercase">You save with XPulse</p>
+            <p className="mt-1 font-mono text-4xl tabular-nums text-accent sm:text-5xl">{formatUsd(savings)}</p>
+            <p className="mt-1 font-mono text-xs text-muted">{pct}% of that budget · year one</p>
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <div className="relative h-3 rounded-full bg-line/80">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-accent/40 via-accent to-signal transition-[width] duration-75"
+              style={{ width: `${sliderPct}%` }}
+            />
+            <input
+              type="range"
+              min={XPULSE_YEAR_USD}
+              max={MARKET_MAX_USD}
+              step={6}
+              value={annualSpend}
+              onChange={(e) => setAnnualSpend(Number(e.target.value))}
+              aria-label="Annual subscription budget"
+              className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent accent-[var(--color-accent)]"
+            />
+          </div>
+          <div className="mt-2 flex justify-between font-mono text-[11px] tracking-wide text-subtle uppercase">
+            <span>XPulse · {formatUsd(XPULSE_YEAR_USD)}</span>
+            <span>Market high · {formatUsd(MARKET_MAX_USD)}</span>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-3">
+            <p className="text-[11px] text-subtle uppercase">XPulse year one</p>
+            <p className="mt-1 font-mono text-lg text-accent tabular-nums">
+              0.15 SOL · ~{formatUsd(XPULSE_YEAR_USD)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-3">
+            <p className="text-[11px] text-subtle uppercase">Your slider</p>
+            <p className="mt-1 font-mono text-lg text-fg tabular-nums">{formatUsd(annualSpend)} / yr</p>
+          </div>
+          <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-3">
+            <p className="text-[11px] text-subtle uppercase">Delta</p>
+            <p className="mt-1 font-mono text-lg text-signal tabular-nums">{formatUsd(savings)} saved</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="tap flex w-full items-center justify-between rounded-xl border border-line bg-surface/60 px-4 py-3 text-left text-sm hover:border-accent/40"
+          aria-expanded={open}
+        >
+          <span className="font-medium text-fg">{open ? "Hide full comparison table" : "Show full comparison table"}</span>
+          <span
+            className={`font-mono text-accent transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+            aria-hidden
+          >
+            ↓
+          </span>
+        </button>
+
+        <div
+          className="grid transition-[grid-template-rows] duration-300 ease-out"
+          style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
+        >
+          <div className="overflow-hidden">
+            <div className="mt-3 overflow-x-auto rounded-xl border border-line">
+              <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line bg-surface/80 font-mono text-[11px] tracking-widest text-subtle uppercase">
+                    <th className="px-4 py-3 font-medium">Tool</th>
+                    <th className="px-4 py-3 font-medium">Billing</th>
+                    <th className="px-4 py-3 font-medium">Per month</th>
+                    <th className="px-4 py-3 font-medium">Year one</th>
+                    <th className="px-4 py-3 font-medium">Built for</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PRICE_ROWS.map((row) => (
+                    <tr
+                      key={row.name}
+                      className={`border-b border-line/80 last:border-0 ${
+                        row.ours
+                          ? "bg-accent/10 shadow-[inset_3px_0_0_0_var(--color-accent)]"
+                          : "bg-bg/40"
+                      }`}
+                    >
+                      <td className="px-4 py-3.5">
+                        <span className={`font-medium ${row.ours ? "text-accent" : "text-fg"}`}>{row.name}</span>
+                        {row.ours ? (
+                          <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 font-mono text-[10px] tracking-wider text-accent uppercase">
+                            You are here
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.model}</td>
+                      <td className={`px-4 py-3.5 font-mono tabular-nums ${row.ours ? "text-fg" : "text-muted"}`}>
+                        {row.monthly}
+                      </td>
+                      <td
+                        className={`px-4 py-3.5 font-mono tabular-nums ${
+                          row.ours ? "text-accent font-semibold" : "text-muted"
+                        }`}
+                      >
+                        {row.yearly}
+                      </td>
+                      <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.focus}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-xs text-subtle">
+              Competitor figures are public list prices (approx.) and can change. XPulse is fixed on-chain at 0.15
+              SOL lifetime. USD display for the simulator is an estimate for comparison only.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
