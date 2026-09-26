@@ -58,7 +58,11 @@ function TokensPage() {
   }, []);
 
   function openToken(address: string) {
-    void navigate({ to: "/tokens/$address", params: { address } });
+    // Dedicated token page (registered in routeTree)
+    void navigate({
+      to: "/tokens/$address",
+      params: { address },
+    });
   }
 
   async function runSearch(value?: string) {
