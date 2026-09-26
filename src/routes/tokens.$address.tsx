@@ -14,7 +14,11 @@ import {
 
 export const Route = createFileRoute("/tokens/$address")({
   head: ({ params }) => ({
-    meta: [{ title: `Token · ${params.address.slice(0, 8)}… · XPulse` }],
+    meta: [
+      {
+        title: `Token · ${(params.address ?? "…").slice(0, 8)}… · XPulse`,
+      },
+    ],
   }),
   component: TokenDetailPage,
 });
@@ -34,6 +38,11 @@ function formatPrice(n: number | null) {
   return `$${n.toExponential(2)}`;
 }
 
+function formatPct(n: number | null) {
+  if (n == null) return "Data unavailable";
+  return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
 function kindLabel(kind: TokenMention["kind"]) {
   switch (kind) {
     case "official":
@@ -50,7 +59,15 @@ function kindLabel(kind: TokenMention["kind"]) {
 }
 
 function TokenDetailPage() {
-  const { address } = Route.useParams();
+  const params = Route.useParams();
+  const rawAddress = params.address ?? "";
+  let address = rawAddress;
+  try {
+    address = decodeURIComponent(rawAddress);
+  } catch {
+    /* keep */
+  }
+
   const [intel, setIntel] = useState<TokenIntel | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,25 +76,40 @@ function TokenDetailPage() {
 
   useEffect(() => {
     let cancelled = false;
+    if (!address) {
+      setBusy(false);
+      setError("Missing token address.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setIntel(null);
     setContent(null);
+
     void researchTokenByAddress(address)
       .then((row) => {
         if (cancelled) return;
         if (!row) {
-          setError("Token not found or market data unavailable.");
+          setError(
+            "Token not found or no Solana market pairs available for this address.",
+          );
           return;
         }
         setIntel(row);
       })
-      .catch(() => {
-        if (!cancelled) setError("Some data is temporarily unavailable. Try again shortly.");
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Some data is temporarily unavailable. Try again shortly.",
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
       });
+
     return () => {
       cancelled = true;
     };
@@ -109,13 +141,17 @@ function TokenDetailPage() {
       {busy ? (
         <section className="panel p-6">
           <p className="kicker">Loading</p>
-          <p className="mt-2 text-sm text-muted">Fetching market data and public signals…</p>
+          <p className="mt-2 text-sm text-muted">
+            Fetching market data, DEX listing status, and public signals…
+          </p>
+          <p className="mt-2 break-all font-mono text-xs text-subtle">{address}</p>
         </section>
       ) : null}
 
       {error ? (
         <section className="panel p-6">
           <p className="text-sm text-danger">{error}</p>
+          <p className="mt-2 break-all font-mono text-xs text-subtle">{address}</p>
           <Link to="/tokens" className="mt-4 inline-block text-sm text-accent">
             Back to search
           </Link>
@@ -142,7 +178,9 @@ function TokenDetailPage() {
                   {intel.identity.name}{" "}
                   <span className="text-muted">({intel.identity.symbol})</span>
                 </h2>
-                <p className="mt-1 font-mono text-xs text-subtle break-all">{intel.identity.address}</p>
+                <p className="mt-1 font-mono text-xs text-subtle break-all">
+                  {intel.identity.address}
+                </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Button type="button" variant="quiet" onClick={copyCa}>
                     {copied ? "Copied" : "Copy CA"}
@@ -155,6 +193,16 @@ function TokenDetailPage() {
                   >
                     Open explorer
                   </a>
+                  {intel.market.pairUrl ? (
+                    <a
+                      className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
+                      href={intel.market.pairUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open pair
+                    </a>
+                  ) : null}
                   {intel.identity.website ? (
                     <a
                       className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
@@ -189,16 +237,22 @@ function TokenDetailPage() {
             <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 ["Price", formatPrice(intel.market.priceUsd)],
-                [
-                  "24h",
-                  intel.market.priceChange24h != null
-                    ? `${intel.market.priceChange24h >= 0 ? "+" : ""}${intel.market.priceChange24h.toFixed(1)}%`
-                    : "Data unavailable",
-                ],
+                ["24h change", formatPct(intel.market.priceChange24h)],
+                ["6h change", formatPct(intel.market.priceChange6h)],
+                ["1h change", formatPct(intel.market.priceChange1h)],
                 ["Liquidity", formatUsd(intel.market.liquidityUsd)],
                 ["24h volume", formatUsd(intel.market.volume24h)],
+                ["6h volume", formatUsd(intel.market.volume6h)],
+                ["1h volume", formatUsd(intel.market.volume1h)],
                 ["Market cap", formatUsd(intel.market.marketCap)],
                 ["FDV", formatUsd(intel.market.fdv)],
+                [
+                  "24h buys / sells",
+                  intel.market.buys24h != null || intel.market.sells24h != null
+                    ? `${intel.market.buys24h ?? "—"} / ${intel.market.sells24h ?? "—"}`
+                    : "Data unavailable",
+                ],
+                ["DEX", intel.market.dexId ? intel.market.dexId.toUpperCase() : "Data unavailable"],
               ].map(([label, value]) => (
                 <div key={label} className="rounded-md border border-line bg-surface-2/50 px-3 py-3">
                   <p className="text-xs text-subtle">{label}</p>
@@ -213,6 +267,79 @@ function TokenDetailPage() {
                 <MiniSpark points={intel.chart.map((p) => p.price)} />
               </div>
             ) : null}
+          </section>
+
+          <section className="panel space-y-3 p-4 sm:p-5">
+            <p className="kicker">DEX listing payment</p>
+            <h2 className="text-xl">Paid promotion on public DEX listings</h2>
+            {intel.market.paidListing === true ? (
+              <p className="rounded-md border border-signal/40 bg-signal/10 px-4 py-3 text-sm text-fg">
+                <span className="font-medium text-signal">Yes — paid activity detected.</span>
+                <span className="mt-1 block text-muted">
+                  {intel.market.paidListingDetail ??
+                    "This token has paid profile/boost orders on public listing data."}
+                </span>
+              </p>
+            ) : intel.market.paidListing === false ? (
+              <p className="rounded-md border border-line bg-surface-2/50 px-4 py-3 text-sm text-muted">
+                <span className="font-medium text-fg">No paid listing detected.</span>
+                <span className="mt-1 block">
+                  No paid profile or boost orders found in public listing data for this address.
+                </span>
+              </p>
+            ) : (
+              <p className="rounded-md border border-line bg-surface-2/50 px-4 py-3 text-sm text-muted">
+                Paid-listing status unavailable right now.
+              </p>
+            )}
+            <p className="text-xs text-subtle">
+              This reflects public listing promotion signals only — not whether the token itself charges
+              fees, and not financial advice.
+            </p>
+          </section>
+
+          <section className="panel space-y-3 p-4 sm:p-5">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="kicker">Virality signals</p>
+                <h2 className="text-xl">Activity ranking factors</h2>
+              </div>
+              <p className="font-mono text-2xl text-accent tabular-nums">
+                {intel.market.viralScore != null ? intel.market.viralScore : "—"}
+                <span className="text-sm text-muted"> / score</span>
+              </p>
+            </div>
+            {intel.market.viralReasons.length ? (
+              <ul className="space-y-1 text-sm text-muted">
+                {intel.market.viralReasons.map((r) => (
+                  <li key={r}>• {r}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">No strong virality factors from the current snapshot.</p>
+            )}
+            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <MetricChip
+                label="Volume weight"
+                value={
+                  intel.market.volume24h != null
+                    ? formatUsd(intel.market.volume24h)
+                    : "unavailable"
+                }
+              />
+              <MetricChip
+                label="Move 24h"
+                value={formatPct(intel.market.priceChange24h)}
+              />
+              <MetricChip
+                label="Liquidity"
+                value={
+                  intel.market.liquidityUsd != null
+                    ? formatUsd(intel.market.liquidityUsd)
+                    : "unavailable"
+                }
+              />
+            </div>
           </section>
 
           <section className="panel space-y-4 p-4 sm:p-5">
@@ -249,13 +376,10 @@ function TokenDetailPage() {
               </p>
             </div>
             <p className="text-sm text-muted">{intel.mentions.note}</p>
-
             {intel.mentions.items.length === 0 ? (
               <p className="rounded-md border border-dashed border-line px-4 py-6 text-sm text-muted">
-                No verified public mention feed for this token at the moment. When an official X
-                account or notable public posts are available, they appear here. KOL / politician /
-                verified labels are applied only when the author handle is matched against known
-                public identities — never fabricated.
+                No verified public mention feed for this token at the moment. Official links and
+                market data above remain the source of truth.
               </p>
             ) : (
               <ul className="space-y-3">
@@ -266,8 +390,7 @@ function TokenDetailPage() {
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm text-fg">
-                        {m.author}{" "}
-                        <span className="text-muted">@{m.handle}</span>
+                        {m.author} <span className="text-muted">@{m.handle}</span>
                       </span>
                       {m.verified ? (
                         <span className="rounded-full bg-accent/15 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent">
@@ -277,9 +400,6 @@ function TokenDetailPage() {
                       <span className="rounded-full bg-line px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-subtle">
                         {kindLabel(m.kind)}
                       </span>
-                      {m.likes != null ? (
-                        <span className="font-mono text-xs text-subtle">{m.likes} likes</span>
-                      ) : null}
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-fg/90">{m.text}</p>
                     <a
@@ -342,6 +462,15 @@ function Block({ title, body }: { title: string; body: string }) {
     <div>
       <p className="text-sm text-fg">{title}</p>
       <p className="mt-1 text-sm text-muted">{body}</p>
+    </div>
+  );
+}
+
+function MetricChip({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-line bg-surface-2/40 px-3 py-2">
+      <p className="text-[11px] text-subtle">{label}</p>
+      <p className="mt-0.5 font-mono text-sm text-fg">{value}</p>
     </div>
   );
 }
