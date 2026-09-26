@@ -125,41 +125,116 @@ function applyAnglePrefix(text: string, angle: ContentAngle): string {
   return text;
 }
 
+function extractFacts(draft: string): string[] {
+  const lines = draft
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const facts: string[] = [];
+  for (const line of lines) {
+    if (/\d/.test(line) || /\$|%|volume|liquidity|mcap|holders|chain|price/i.test(line)) {
+      facts.push(line.replace(/^[-•*]\s*/, ""));
+    }
+  }
+  return facts.slice(0, 12);
+}
+
+function hasEnoughResearch(draft: string): boolean {
+  const facts = extractFacts(draft);
+  const words = draft.trim().split(/\s+/).length;
+  return facts.length >= 2 || words >= 40;
+}
+
 export function generateFromDraft(
   draft: string,
   kind: ContentKind,
   angleId?: string,
   variant = 0,
 ): GeneratedContent {
-  const angles = suggestAngles(draft);
+  const cleaned = draft.trim();
+  const angles = suggestAngles(cleaned);
   const angle = angles.find((a) => a.id === angleId) ?? angles[0]!;
-  const seeded = applyAnglePrefix(draft.trim(), angle);
+  const facts = extractFacts(cleaned);
+
+  if (!cleaned) {
+    const score = scoreContent("", kind);
+    return {
+      kind,
+      angle,
+      text: "More research is required before creating a reliable analysis.",
+      score,
+      applied: ["Blocked: empty research input"],
+    };
+  }
+
+  if (!hasEnoughResearch(cleaned) && kind !== "post") {
+    const score = scoreContent(cleaned, kind);
+    return {
+      kind,
+      angle,
+      text: "More research is required before creating a reliable analysis.\n\nAdd concrete facts, numbers, or verified events from your research step, then generate again.",
+      score,
+      applied: ["Blocked: insufficient research density"],
+    };
+  }
+
+  const seeded = applyAnglePrefix(cleaned, angle);
   const rewritten = rewritePost(seeded, variant);
   let text = rewritten.text;
 
+  if (kind === "post") {
+    // One focused idea grounded in research
+    const lead = facts[0] ?? text.split(/\n+/)[0] ?? text;
+    const body = text.replace(lead, "").trim() || facts.slice(1, 3).join(" ");
+    text = [lead, body].filter(Boolean).join("\n\n").slice(0, 1200);
+  }
+
   if (kind === "thread") {
-    // Ensure multi-beat structure
-    const parts = text.split(/\n\n+/).filter(Boolean);
-    if (parts.length < 3) {
-      const extra = rewritePost(draft, variant + 3).text.split(/\n\n+/);
-      text = [...parts, ...extra.slice(1, 3)].join("\n\n");
+    const beats: string[] = [];
+    beats.push(`Hook: ${facts[0] ?? text.split(/\n+/)[0] ?? "What the data shows"}`);
+    beats.push(`Context: ${facts[1] ?? "Here is the setup behind the number."}`);
+    for (const f of facts.slice(2, 6)) beats.push(f);
+    if (facts.length) {
+      beats.push(`Insight: ${facts[Math.min(2, facts.length - 1)]}`);
+      beats.push("Implication: why this is worth attention now — without hype.");
     }
-    text = text
-      .split(/\n\n+/)
-      .map((p, i) => `${i + 1}/ ${p.replace(/^\d+\/\s*/, "")}`)
-      .join("\n\n");
+    beats.push("Summary: stick to the measured facts above; treat everything else as open.");
+    const rewrittenBeats = beats.map((b, i) => {
+      const r = rewritePost(b, variant + i);
+      return `${i + 1}/ ${r.text.replace(/^\d+\/\s*/, "").split(/\n+/)[0]}`;
+    });
+    text = rewrittenBeats.join("\n\n");
   }
 
   if (kind === "article") {
-    const body = text.split(/\n\n+/);
-    text = [
-      body[0] ?? "Untitled",
+    const title = facts[0] ?? cleaned.split(/\n+/)[0] ?? "Research note";
+    const sections = [
+      title,
       "",
-      body.slice(1).join("\n\n") || draft,
+      "Subtitle: What the available data actually shows.",
       "",
-      "—",
-      "This piece is informational. Claims without primary sources are omitted.",
-    ].join("\n");
+      "Introduction",
+      rewritePost(cleaned.slice(0, 400), variant).text,
+      "",
+      "Context",
+      facts[1] ?? "Context is limited to what the research step returned.",
+      "",
+      "Data",
+      ...(facts.length ? facts.map((f) => `• ${f}`) : ["• Data unavailable beyond the draft notes."]),
+      "",
+      "Analysis",
+      rewritePost(facts.slice(0, 5).join(". ") || cleaned, variant + 2).text,
+      "",
+      "Key findings",
+      ...(facts.slice(0, 4).map((f) => `• ${f}`) || ["• Insufficient findings."]),
+      "",
+      "Implications",
+      "Read the numbers in context. Missing fields stay unavailable — no estimates were added.",
+      "",
+      "Conclusion",
+      "This article only uses facts present in the research input. It is informational, not advice.",
+    ];
+    text = sections.join("\n");
   }
 
   const score = scoreContent(text, kind);
@@ -171,6 +246,7 @@ export function generateFromDraft(
     applied: [
       ...rewritten.applied,
       `Angle: ${angle.label}`,
+      `Facts used: ${facts.length}`,
       `Content score ${score.total}/100`,
     ],
   };
