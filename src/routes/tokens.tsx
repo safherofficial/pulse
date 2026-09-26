@@ -4,8 +4,15 @@ import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
 import { researchTokenIntel } from "@/lib/xpulse/api";
-import { generateFromToken } from "@/lib/xpulse/content-create";
+import {
+  buildTokenFactSet,
+  generateFromFactSet,
+  regenerateFromFactSet,
+  type RegenMode,
+  type TokenFactSet,
+} from "@/lib/xpulse/content-create";
 import type { ContentKind } from "@/lib/xpulse/content-score";
+import type { GeneratedContent } from "@/lib/xpulse/content-create";
 import {
   chainLabel,
   detectTokenInput,
@@ -295,7 +302,10 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [content, setContent] = useState<ReturnType<typeof generateFromToken> | null>(null);
+  const [content, setContent] = useState<GeneratedContent | null>(null);
+  const [factSet, setFactSet] = useState<TokenFactSet | null>(null);
+  const [variant, setVariant] = useState(0);
+  const [regenMode, setRegenMode] = useState<RegenMode>("default");
 
   useEffect(() => {
     let cancelled = false;
@@ -349,7 +359,18 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
 
   function createContent(kind: ContentKind) {
     if (!intel) return;
-    setContent(generateFromToken(intel, kind));
+    const facts = factSet ?? buildTokenFactSet(intel);
+    setFactSet(facts);
+    const next = generateFromFactSet(facts, kind, regenMode, variant);
+    setContent(next);
+    setVariant((v) => v + 1);
+  }
+
+  function regenerate() {
+    if (!content || !factSet) return;
+    const next = regenerateFromFactSet(factSet, content.kind, regenMode, variant);
+    setContent(next);
+    setVariant((v) => v + 1);
   }
 
   return (
@@ -538,13 +559,17 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 <p className="text-xs text-subtle">DEX Paid (Enhanced Token Info)</p>
                 <p className="mt-1 text-lg font-medium text-fg">
                   {intel.market.dexPaid === true
-                    ? "Yes"
+                    ? "PAID"
                     : intel.market.dexPaid === false
-                      ? "No"
-                      : "Unavailable"}
+                      ? "NOT PAID"
+                      : "UNKNOWN"}
                 </p>
                 <p className="mt-1 text-xs text-muted">
-                  Approved token profile order on DexScreener public orders API.
+                  {intel.market.dexPaid === true
+                    ? "Enhanced Token Info approved."
+                    : intel.market.dexPaid === false
+                      ? "No approved profile order found."
+                      : "Could not verify paid status from public listing data."}
                 </p>
               </div>
               <div className="rounded-md border border-line bg-surface-2/50 px-4 py-3">
@@ -651,34 +676,81 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             )}
           </section>
 
-          <section className="panel p-4 sm:p-5">
+          <section className="panel space-y-3 p-4 sm:p-5 animate-in">
             <p className="kicker">Create content from this research</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <p className="text-sm text-muted">
+              Facts are locked from the research above. Regeneration rewrites structure and
+              language only — numbers stay the same.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["default", "Default"],
+                  ["stronger_hook", "Stronger hook"],
+                  ["more_professional", "More professional"],
+                  ["more_viral", "More viral"],
+                  ["more_technical", "More technical"],
+                  ["more_human", "More human"],
+                  ["more_concise", "More concise"],
+                  ["more_data", "More data-driven"],
+                  ["more_story", "More story"],
+                  ["different_angle", "Different angle"],
+                ] as [RegenMode, string][]
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setRegenMode(id)}
+                  className={`h-8 rounded-md px-2.5 text-xs transition ${
+                    regenMode === id
+                      ? "border border-accent/40 bg-accent/15 text-accent"
+                      : "border border-line text-muted hover:text-fg"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2">
               {(["post", "thread", "article"] as ContentKind[]).map((k) => (
                 <Button key={k} type="button" variant="quiet" onClick={() => createContent(k)}>
-                  {k === "post" ? "Post" : k === "thread" ? "Thread" : "Article"}
+                  {k === "post" ? "Generate post" : k === "thread" ? "Generate thread" : "Generate article"}
                 </Button>
               ))}
+              {content ? (
+                <Button type="button" onClick={regenerate}>
+                  Regenerate (unlimited)
+                </Button>
+              ) : null}
             </div>
           </section>
 
           {content ? (
-            <section className="space-y-4">
+            <section className="space-y-4 animate-in">
               <div className="panel p-4 sm:p-5">
                 <p className="kicker">
-                  {content.kind} · {content.angle.label}
+                  {content.kind} · {content.angle.label} · {regenMode}
                 </p>
                 <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
                   {content.text}
                 </pre>
-                <Button
-                  type="button"
-                  className="mt-4"
-                  variant="quiet"
-                  onClick={() => void navigator.clipboard.writeText(content.text)}
-                >
-                  Copy
-                </Button>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    onClick={() => void navigator.clipboard.writeText(content.text)}
+                  >
+                    Copy
+                  </Button>
+                  <Button type="button" variant="quiet" onClick={regenerate}>
+                    Regenerate
+                  </Button>
+                </div>
+                <ul className="mt-3 space-y-1 text-xs text-subtle">
+                  {content.applied.map((a) => (
+                    <li key={a}>• {a}</li>
+                  ))}
+                </ul>
               </div>
               <ScoreCard report={content.score} />
             </section>
