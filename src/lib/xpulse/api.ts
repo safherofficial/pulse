@@ -465,3 +465,10 @@ export const clearPosts = createServerFn({ method: "POST" })
     const { runClearPosts } = await import("./data.server");
     return runClearPosts(context.userId);
   });
+
+export const researchTokenIntel = createServerFn({ method: "POST" })
+  .validator((data: unknown) => data as { address: string })
+  .handler(async ({ data }) => {
+    const { researchTokenByAddress } = await import("./token-intel");
+    return researchTokenByAddress(data.address);
+  });
