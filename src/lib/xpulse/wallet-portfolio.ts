@@ -4,7 +4,11 @@
  */
 
 const TIMEOUT_MS = 10_000;
-const RPC = "https://api.mainnet-beta.solana.com";
+const RPCS = [
+  "https://api.mainnet-beta.solana.com",
+  "https://solana-rpc.publicnode.com",
+  "https://rpc.ankr.com/solana",
+];
 
 export type PortfolioAsset = {
   mint: string;
@@ -30,23 +34,27 @@ export type PortfolioSnapshot = {
 };
 
 async function rpc<T>(method: string, params: unknown[]): Promise<T | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(RPC, {
-      method: "POST",
-      signal: controller.signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { result?: T };
-    return json.result ?? null;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
+  for (const endpoint of RPCS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+      if (!res.ok) continue;
+      const json = (await res.json()) as { result?: T; error?: unknown };
+      if (json.error) continue;
+      if (json.result !== undefined) return json.result;
+    } catch {
+      /* try next */
+    } finally {
+      clearTimeout(timer);
+    }
   }
+  return null;
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -94,8 +102,9 @@ async function priceForMints(
     { price: number | null; symbol: string; name: string; logo: string | null }
   >();
   if (!mints.length) return out;
-  // Batch up to 30
   const chunk = mints.slice(0, 30);
+
+  // Primary: market pairs
   const data = await fetchJson<{ pairs?: Array<{
     baseToken?: { address?: string; symbol?: string; name?: string };
     priceUsd?: string;
@@ -116,6 +125,28 @@ async function priceForMints(
       name: best?.baseToken?.name ?? "Token",
       logo: best?.info?.imageUrl ?? null,
     });
+  }
+
+  // Fallback: Jupiter public price for mints still missing price
+  const missing = chunk.filter((m) => out.get(m)?.price == null);
+  if (missing.length) {
+    const jup = await fetchJson<{
+      data?: Record<string, { price?: number }>;
+    }>(`https://api.jup.ag/price/v2?ids=${missing.join(",")}`);
+    if (jup?.data) {
+      for (const mint of missing) {
+        const px = jup.data[mint]?.price;
+        const prev = out.get(mint) ?? {
+          price: null,
+          symbol: mint.slice(0, 4),
+          name: "Token",
+          logo: null,
+        };
+        if (typeof px === "number" && Number.isFinite(px)) {
+          out.set(mint, { ...prev, price: px });
+        }
+      }
+    }
   }
   return out;
 }
