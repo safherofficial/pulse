@@ -313,39 +313,6 @@ export async function threadifyDraftCopy(text: string): Promise<ImproveResult> {
   const { buildPublishThread } = await import("./thread-builder");
   return buildPublishThread(text);
 }
-      "Turn the draft into a publish-ready X thread.",
-      "5 to 7 tweets, numbered 1/ 2/ 3/.",
-      "Tweet 1 is the hook. Middle tweets each carry one proof or turn. Last tweet is the close or question.",
-      "Each tweet under 270 characters. No outline labels. Keep all real facts and links.",
-      "Output only the thread.",
-    ].join(" "),
-    text,
-  );
-  const packed = packThread(live?.text ?? text);
-  const polished = await polish(packed);
-  const after = scoreContent(polished.text, "thread");
-
-  return {
-    kind: "thread",
-    angle: {
-      id: "story",
-      label: "Thread",
-      focus: "One idea per tweet, numbered, under 280.",
-      why: "A thread that reads as posts, not as an outline.",
-    },
-    text: polished.text,
-    score: after,
-    before,
-    after,
-    source: live?.source ?? "local",
-    applied: [
-      `Writer: ${live?.source ?? "local thread packer"}`,
-      `Score ${before.total} → ${after.total}`,
-      ...polished.notes,
-      ...after.improvements.slice(0, 3),
-    ],
-  };
-}
 
 export async function strongerHookCopy(text: string, kind: ContentKind): Promise<ImproveResult> {
   const before = scoreContent(text, kind);
