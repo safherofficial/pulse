@@ -62,14 +62,6 @@ function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNaviga
         Tokens
       </Link>
       <Link
-        to="/create"
-        className={item}
-        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
-        onClick={onNavigate}
-      >
-        Create
-      </Link>
-      <Link
         to="/analyze"
         className={item}
         activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
