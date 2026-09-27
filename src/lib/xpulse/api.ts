@@ -208,3 +208,21 @@ export const loadViralIntel = createServerFn({ method: "POST" })
     const { runViralIntel } = await import("./viral-intel-run");
     return runViralIntel(data);
   });
+export const writeTokenContent = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { writeTokenCopy } = await import("./content-llm");
+    const payload = data as {
+      facts?: import("./content-create").TokenFactSet;
+      kind?: import("./content-score").ContentKind;
+      mode?: import("./content-create").RegenMode;
+      variant?: number;
+    };
+    if (!payload?.facts?.identity?.address) {
+      throw new Error("Token fact set is required.");
+    }
+    const kind = payload.kind === "thread" || payload.kind === "article" ? payload.kind : "post";
+    const mode = payload.mode ?? "default";
+    const variant = Number(payload.variant ?? 0) || 0;
+    return writeTokenCopy(payload.facts, kind, mode, variant);
+  });
