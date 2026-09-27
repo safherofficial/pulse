@@ -5,6 +5,9 @@
  * Lifetime payment remains Solana-only and is unrelated to analysis chain.
  */
 
+import { interpretDexOrdersHttp, type DexPaidVerdict } from "./dex-paid";
+import { fetchTokenMentions } from "./token-mentions";
+
 const TIMEOUT_MS = 8_000;
 
 export type TokenIdentity = {
@@ -76,6 +79,8 @@ export type TokenMentionsReport = {
   items: TokenMention[];
   note: string;
   updatedAt: string;
+  /** available = posts, empty = source responded with nothing, unavailable = source failed */
+  availability: "available" | "empty" | "unavailable";
 };
 
 export type TokenIntel = {
@@ -245,7 +250,7 @@ function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: str
   else if (Math.abs(ch) > 8) reasons.push("notable 24h move");
   if (liq > 200_000) reasons.push("deeper liquidity");
   if (buys + sells > 500) reasons.push("heavy 24h trade count");
-  if (paid.paid) reasons.push("paid DEX profile/boost");
+  if (paid.report?.dexPaid === true) reasons.push("approved DEX profile");
   return {
     priceUsd: Number.isFinite(price) ? price : null,
     priceChange24h: pair.priceChange?.h24 ?? null,
@@ -273,96 +278,79 @@ function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: str
 }
 
 /**
- * CheckDEX-style verification using the public DexScreener orders endpoint.
- * "DEX Paid" ≈ approved Enhanced Token Info (tokenProfile). Boosts/ads are separate signals.
+ * Public DexScreener orders feed.
+ * DEX Paid = approved tokenProfile or communityTakeover.
+ * Boosts stay on boostActive and never become DEX Paid.
  */
 export type DexPaidReport = {
-  /** True when Enhanced Token Info (tokenProfile) is approved — same signal CheckDEX calls "DEX Paid". */
   dexPaid: boolean | null;
   boostActive: number | null;
   orders: Array<{ type: string; status: string }>;
   detail: string;
 };
 
+function verdictToReport(verdict: DexPaidVerdict): {
+  paid: boolean | null;
+  detail: string | null;
+  report: DexPaidReport;
+} {
+  return {
+    paid: verdict.paidListing,
+    detail: verdict.detail,
+    report: {
+      dexPaid: verdict.dexPaid,
+      boostActive: verdict.boostActive,
+      orders: verdict.orders,
+      detail: verdict.detail,
+    },
+  };
+}
+
 async function fetchPaidListing(
   address: string,
   activeBoosts?: number | null,
   chainId: string = "solana",
 ): Promise<{ paid: boolean | null; detail: string | null; report: DexPaidReport }> {
-  const emptyReport = (detail: string, dexPaid: boolean | null = null): DexPaidReport => ({
-    dexPaid,
-    boostActive: activeBoosts ?? null,
-    orders: [],
-    detail,
-  });
+  const chain = chainId.trim().toLowerCase();
+  const chainSupported = Boolean(chain && chain !== "unknown");
+  const pairBoosts =
+    typeof activeBoosts === "number" && Number.isFinite(activeBoosts) ? activeBoosts : null;
+  if (!address.trim() || !chainSupported) {
+    return verdictToReport(
+      interpretDexOrdersHttp({ status: 0, body: null, pairBoosts, chainSupported }),
+    );
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const rows = await fetchJson<
-      Array<{ type?: string; status?: string; paymentTimestamp?: number }>
-    >(`https://api.dexscreener.com/orders/v1/${encodeURIComponent(chainId)}/${encodeURIComponent(address)}`);
-    if (!Array.isArray(rows)) {
-      return {
-        paid: null,
-        detail: "Paid-listing status unavailable.",
-        report: emptyReport("Paid-listing status unavailable."),
-      };
-    }
-    const normalized = rows.map((r) => ({
-      type: String(r.type ?? "unknown"),
-      status: String(r.status ?? "unknown").toLowerCase(),
-    }));
-    const approvedProfile = normalized.some(
-      (r) =>
-        (r.type === "tokenProfile" || r.type === "communityTakeover") &&
-        (r.status === "approved"),
+    const res = await fetch(
+      `https://api.dexscreener.com/orders/v1/${encodeURIComponent(chain)}/${encodeURIComponent(address)}`,
+      { signal: controller.signal, headers: { Accept: "application/json" } },
     );
-    const pendingProfile = normalized.some(
-      (r) =>
-        (r.type === "tokenProfile" || r.type === "communityTakeover") &&
-        (r.status === "processing" || r.status === "on-hold" || r.status === "pending"),
+    let body: unknown = null;
+    const text = await res.text();
+    if (text) {
+      try {
+        body = JSON.parse(text) as unknown;
+      } catch {
+        body = null;
+      }
+    }
+    return verdictToReport(
+      interpretDexOrdersHttp({
+        status: res.status,
+        body: res.ok ? body : null,
+        pairBoosts,
+        chainSupported: true,
+      }),
     );
-    const types = [...new Set(normalized.map((r) => r.type))];
-    const parts: string[] = [];
-
-    // Explicit three-state model: true = PAID, false = NOT PAID, null = UNKNOWN
-    // Empty successful response → NOT PAID (verified absence of orders)
-    // API failure → UNKNOWN (handled in catch / non-array)
-    let dexPaid: boolean | null = false;
-    if (approvedProfile) {
-      dexPaid = true;
-      parts.push("DEX Paid — Enhanced Token Info approved");
-    } else if (pendingProfile) {
-      dexPaid = null; // not verified paid yet
-      parts.push("Profile order present but not approved — status unknown until approved");
-    } else if (normalized.length > 0) {
-      dexPaid = false;
-      parts.push(`Orders found (${types.join(", ")}) but not an approved token profile — DEX Paid: No`);
-    } else {
-      dexPaid = false;
-      parts.push("DEX Paid: No — no paid orders returned for this token");
-    }
-    if (activeBoosts != null && activeBoosts > 0) {
-      parts.push(`Active boosts: ${activeBoosts} (boost ≠ profile paid)`);
-    }
-
-    const anyActivity =
-      normalized.length > 0 || (activeBoosts != null && activeBoosts > 0);
-
-    return {
-      paid: anyActivity ? true : false,
-      detail: parts.join(". ") + ".",
-      report: {
-        dexPaid,
-        boostActive: activeBoosts ?? null,
-        orders: normalized,
-        detail: parts.join(". ") + ".",
-      },
-    };
   } catch {
-    return {
-      paid: null,
-      detail: "DEX Paid status unknown — listing data temporarily unavailable.",
-      report: emptyReport("DEX Paid status unknown — listing data temporarily unavailable.", null),
-    };
+    return verdictToReport(
+      interpretDexOrdersHttp({ status: 0, body: null, pairBoosts, chainSupported: true }),
+    );
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -400,7 +388,7 @@ function analyzeToken(identity: TokenIdentity, market: TokenMarket): TokenAnalys
     }
   }
 
-  let liquidity =
+  const liquidity =
     liq == null
       ? "Liquidity data unavailable."
       : liq < 25_000
@@ -411,7 +399,7 @@ function analyzeToken(identity: TokenIdentity, market: TokenMarket): TokenAnalys
             ? "Liquidity is moderate. Reasonable for mid-size activity, still sensitive to large flows."
             : "Liquidity is comparatively deep for this market tier.";
 
-  let activity =
+  const activity =
     vol == null
       ? "Volume data unavailable."
       : vol < 10_000
@@ -560,9 +548,10 @@ export async function researchTokenByAddress(
   if (!pair) return null;
 
   const chainId = (pair.chainId ?? "unknown").toLowerCase();
-  const paid = await fetchPaidListing(clean, pair.boosts?.active ?? null, chainId);
+  const tokenAddress = pair.baseToken?.address || clean;
+  const paid = await fetchPaidListing(tokenAddress, pair.boosts?.active ?? null, chainId);
 
-  const identity = identityFromPair(pair, clean);
+  const identity = identityFromPair(pair, tokenAddress);
   const boosts = pair.boosts?.active ?? null;
   const paidWithBoost =
     paid.report != null
@@ -576,8 +565,9 @@ export async function researchTokenByAddress(
   let mentions: TokenMentionsReport = {
     totalFound: null,
     items: [],
-    note: "Public mention feed not loaded.",
+    note: "Public X signals are temporarily unavailable.",
     updatedAt: new Date().toISOString(),
+    availability: "unavailable",
   };
   try {
     mentions = await fetchTokenMentions(identity);
@@ -585,8 +575,9 @@ export async function researchTokenByAddress(
     mentions = {
       totalFound: null,
       items: [],
-      note: "Public mention feed temporarily unavailable.",
+      note: "Public X signals are temporarily unavailable.",
       updatedAt: new Date().toISOString(),
+      availability: "unavailable",
     };
   }
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { researchTokenIntel, loadViralIntel, writeTokenContent } from "@/lib/xpulse/api";
 import {
   attachXPatterns,
@@ -452,7 +453,12 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
 
       {intel ? (
         <>
-          <section className="panel animate-in p-4 sm:p-5">
+          <CollapsibleSection
+            kicker="Token overview"
+            title="Market data"
+            defaultOpen
+            contentClassName="space-y-0"
+          >
             <div className="flex flex-wrap items-start gap-4">
               {intel.identity.logoUrl ? (
                 <img
@@ -581,18 +587,30 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 </div>
               ))}
             </div>
+          </CollapsibleSection>
 
-            <div className="mt-6">
-              <PriceChartPanel
-                pairAddress={intel.market.pairAddress}
-                fallback={intel.chart.map((p) => ({ t: p.t, close: p.price }))}
-              />
-            </div>
-          </section>
+          <CollapsibleSection kicker="Price chart" title="Market path" defaultOpen>
+            <PriceChartPanel
+              embedded
+              pairAddress={intel.market.pairAddress}
+              fallback={intel.chart.map((p) => ({ t: p.t, close: p.price }))}
+            />
+          </CollapsibleSection>
 
-          <section className="panel animate-in space-y-3 p-4 sm:p-5">
-            <p className="kicker">DEX Paid check</p>
-            <h2 className="text-xl">Same public signal as CheckDEX</h2>
+          <CollapsibleSection
+            kicker="DEX Paid check"
+            title="Public DEX listing signal"
+            defaultOpen
+            badge={
+              <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[10px] tracking-wide text-subtle uppercase">
+                {intel.market.dexPaid === true
+                  ? "Paid"
+                  : intel.market.dexPaid === false
+                    ? "Not paid"
+                    : "Unknown"}
+              </span>
+            }
+          >
             <div className="grid gap-3 sm:grid-cols-2">
               <div
                 className={`rounded-md border px-4 py-3 ${
@@ -622,26 +640,31 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 <p className="mt-1 text-lg font-medium text-fg">
                   {intel.market.boostActive != null ? intel.market.boostActive : "—"}
                 </p>
-                <p className="mt-1 text-xs text-muted">Live boost count when exposed on the pair.</p>
+                <p className="mt-1 text-xs text-muted">
+                  {intel.market.boostActive != null
+                    ? "Current public boost count. Not the same as DEX Paid."
+                    : "Boost count unavailable. This is not zero."}
+                </p>
               </div>
             </div>
             <p className="text-sm text-muted">
               {intel.market.paidListingDetail ?? "Paid-listing detail unavailable."}
             </p>
-            <p className="text-xs text-subtle">Marketing signal only — not a quality or safety rating.</p>
-          </section>
+            <p className="text-xs text-subtle">
+              Reads the public orders feed for an approved token profile or community takeover —
+              the same public signal CheckDEX surfaces. Not a CheckDEX API. Marketing signal only.
+            </p>
+          </CollapsibleSection>
 
-          <section className="panel space-y-3 p-4 sm:p-5">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <p className="kicker">Virality signals</p>
-                <h2 className="text-xl">Activity ranking factors</h2>
-              </div>
-              <p className="font-mono text-2xl text-accent tabular-nums">
+          <CollapsibleSection
+            kicker="Virality signals"
+            title="Activity ranking factors"
+            badge={
+              <span className="font-mono text-sm text-accent tabular-nums">
                 {intel.market.viralScore != null ? intel.market.viralScore : "—"}
-                <span className="text-sm text-muted"> / score</span>
-              </p>
-            </div>
+              </span>
+            }
+          >
             {intel.market.viralReasons.length ? (
               <ul className="space-y-1 text-sm text-muted">
                 {intel.market.viralReasons.map((r) => (
@@ -651,10 +674,9 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             ) : (
               <p className="text-sm text-muted">No strong virality factors from the current snapshot.</p>
             )}
-          </section>
+          </CollapsibleSection>
 
-          <section className="panel space-y-4 p-4 sm:p-5">
-            <p className="kicker">Analysis</p>
+          <CollapsibleSection kicker="Analysis" title="Structure, liquidity, and risks">
             <Block title="Snapshot" body={intel.analysis.snapshot} />
             <Block title="Market structure" body={intel.analysis.marketStructure} />
             <Block title="Liquidity" body={intel.analysis.liquidity} />
@@ -668,18 +690,18 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 ))}
               </ul>
             </div>
-          </section>
+          </CollapsibleSection>
 
-          <section className="panel animate-in space-y-4 p-4 sm:p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="kicker">Viral intelligence</p>
-                <h2 className="mt-1 text-xl">Trending / relevant posts</h2>
-              </div>
-              <span className="rounded-md border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent">
+          <CollapsibleSection
+            kicker="Viral intelligence"
+            title="Trending / relevant posts"
+            defaultOpen
+            badge={
+              <span className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] font-medium tracking-wide text-accent uppercase">
                 X only
               </span>
-            </div>
+            }
+          >
             {viralBusy && !viral ? (
               <p className="text-sm text-muted">Loading X trending signals…</p>
             ) : null}
@@ -720,24 +742,29 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             ) : !viralBusy ? (
               <p className="text-sm text-muted">Viral intelligence unavailable.</p>
             ) : null}
-          </section>
+          </CollapsibleSection>
 
-          <section className="panel space-y-4 p-4 sm:p-5">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <div>
-                <p className="kicker">X mentions & notable accounts</p>
-                <h2 className="mt-1 text-xl">Public social signals</h2>
-              </div>
-              <p className="font-mono text-xs text-subtle">
-                {intel.mentions.totalFound != null
-                  ? `${intel.mentions.totalFound} public post(s) surfaced`
-                  : "Mention count unavailable"}
-              </p>
-            </div>
+          <CollapsibleSection
+            kicker="X mentions & notable accounts"
+            title="Public social signals"
+            badge={
+              <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
+                {intel.mentions.availability === "unavailable"
+                  ? "Unavailable"
+                  : intel.mentions.availability === "empty"
+                    ? "None"
+                    : `${intel.mentions.totalFound ?? intel.mentions.items.length}`}
+              </span>
+            }
+          >
             <p className="text-sm text-muted">{intel.mentions.note}</p>
-            {intel.mentions.items.length === 0 ? (
+            {intel.mentions.availability === "unavailable" ? (
               <p className="rounded-md border border-dashed border-line px-4 py-6 text-sm text-muted">
-                No verified public mention feed for this token at the moment.
+                Public X signals are temporarily unavailable.
+              </p>
+            ) : intel.mentions.items.length === 0 ? (
+              <p className="rounded-md border border-dashed border-line px-4 py-6 text-sm text-muted">
+                No verified public X mentions found for this token right now.
               </p>
             ) : (
               <ul className="space-y-3">
@@ -755,6 +782,20 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                       </span>
                     </div>
                     <p className="mt-2 text-sm leading-relaxed text-fg/90">{m.text}</p>
+                    {m.likes != null || m.at ? (
+                      <p className="mt-2 font-mono text-[11px] text-subtle">
+                        {m.likes != null ? `${m.likes.toLocaleString()} likes` : null}
+                        {m.likes != null && m.at ? " · " : null}
+                        {m.at
+                          ? new Date(m.at).toLocaleString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : null}
+                      </p>
+                    ) : null}
                     <a
                       href={m.url}
                       target="_blank"
@@ -767,10 +808,9 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 ))}
               </ul>
             )}
-          </section>
+          </CollapsibleSection>
 
-          <section className="panel animate-in space-y-3 p-4 sm:p-5">
-            <p className="kicker">Create content from this research</p>
+          <CollapsibleSection kicker="Create content from this research" title="Write from locked facts">
             <p className="text-sm text-muted">
               Facts are locked from the research above. Regeneration rewrites structure and language
               only — numbers stay the same.
@@ -816,37 +856,36 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 </Button>
               ) : null}
             </div>
-          </section>
+          </CollapsibleSection>
 
           {content ? (
-            <section className="animate-in space-y-4">
-              <div className="panel p-4 sm:p-5">
-                <p className="kicker">
-                  {content.kind} · {content.angle.label} · {regenMode}
-                </p>
-                <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
-                  {content.text}
-                </pre>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="quiet"
-                    onClick={() => void navigator.clipboard.writeText(content.text)}
-                  >
-                    Copy
-                  </Button>
-                  <Button type="button" variant="quiet" onClick={() => void regenerate()}>
-                    Regenerate
-                  </Button>
-                </div>
-                <ul className="mt-3 space-y-1 text-xs text-subtle">
-                  {content.applied.map((a) => (
-                    <li key={a}>• {a}</li>
-                  ))}
-                </ul>
+            <CollapsibleSection
+              kicker={`${content.kind} · ${content.angle.label} · ${regenMode}`}
+              title="Generated content"
+              defaultOpen
+            >
+              <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
+                {content.text}
+              </pre>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="quiet"
+                  onClick={() => void navigator.clipboard.writeText(content.text)}
+                >
+                  Copy
+                </Button>
+                <Button type="button" variant="quiet" onClick={() => void regenerate()}>
+                  Regenerate
+                </Button>
               </div>
+              <ul className="space-y-1 text-xs text-subtle">
+                {content.applied.map((a) => (
+                  <li key={a}>• {a}</li>
+                ))}
+              </ul>
               <ScoreCard report={content.score} />
-            </section>
+            </CollapsibleSection>
           ) : null}
         </>
       ) : null}
@@ -876,9 +915,11 @@ const TIMEFRAMES: { id: ChartTimeframe; label: string }[] = [
 function PriceChartPanel({
   pairAddress,
   fallback,
+  embedded = false,
 }: {
   pairAddress: string | null;
   fallback: Array<{ t: number; close: number }>;
+  embedded?: boolean;
 }) {
   const [tf, setTf] = useState<ChartTimeframe>("1h");
   const [candles, setCandles] = useState<OhlcvCandle[]>([]);
@@ -919,7 +960,11 @@ function PriceChartPanel({
   return (
     <div className="animate-in">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="kicker">Price chart</p>
+        {embedded ? (
+          <span className="text-xs text-subtle">Timeframe</span>
+        ) : (
+          <p className="kicker">Price chart</p>
+        )}
         <div className="flex flex-wrap gap-1">
           {TIMEFRAMES.map((x) => (
             <button

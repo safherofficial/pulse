@@ -229,7 +229,7 @@ async function resolveIntel(text: string): Promise<{ intel: TokenIntel | null; n
   for (const name of unique([...tickers, ...fallbackNames]).slice(0, 3)) {
     try {
       const result = await researchToken(name.startsWith("$") ? name.slice(1) : name);
-      if (result.kind === "hit") {
+      if (result.kind === "single") {
         notes.push(`DexScreener match for ${result.intel.identity.symbol}`);
         return { intel: result.intel, notes };
       }

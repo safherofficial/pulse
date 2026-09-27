@@ -1,5 +1,6 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { ScrollToTop } from "@/components/scroll-to-top";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
@@ -36,6 +37,7 @@ export const Route = createRootRoute({
       <body>
         <PreviewHostBridge />
         <Outlet />
+        <ScrollToTop />
         <Scripts />
       </body>
     </html>
