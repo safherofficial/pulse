@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  classifyTrend,
-  isTokenMention,
-  parseCompactCount,
-  parseYoutubeAgeHours,
-  rollupAttention,
-  type PlatformMention,
-} from "./viral-intel.ts";
+import { isTokenMention, type ViralPost } from "./viral-intel.ts";
+import { rankXPosts } from "./viral-collect.ts";
 
 test("token mention filter rejects shared words and keeps tickers", () => {
   assert.equal(isTokenMention("Flyers send Bonk to the Phantoms", "BONK", "Bonk"), false);
@@ -18,44 +12,37 @@ test("token mention filter rejects shared words and keeps tickers", () => {
   assert.equal(isTokenMention("BONKUSDT breaks the range", "BONK", "Bonk"), true);
 });
 
-test("youtube age stays inside a real 24h window", () => {
-  assert.equal(parseYoutubeAgeHours("8 hours ago"), 8);
-  assert.equal(parseYoutubeAgeHours("Streamed 19 hours ago"), 19);
-  assert.equal(parseYoutubeAgeHours("22 minutes ago"), 22 / 60);
-  assert.equal(parseYoutubeAgeHours("1 day ago"), 24);
-  assert.ok((parseYoutubeAgeHours("1 day ago") ?? 0) >= 24);
-  assert.equal(parseYoutubeAgeHours(null), null);
-  assert.equal(parseCompactCount("1,837 views"), 1837);
-  assert.equal(parseCompactCount("1.2K views"), 1200);
-});
-
-test("unavailable platforms are not counted as zero", () => {
-  const platforms: PlatformMention[] = [
+test("X ranking returns only X posts and labels strong posts as trending", () => {
+  const posts: ViralPost[] = [
     {
       platform: "x",
-      label: "X",
-      mentions24h: null,
-      reliability: "unavailable",
-      note: null,
+      author: "@alpha",
+      text: "Large X signal",
+      url: "https://x.com/alpha/status/1",
+      likes: 250000,
+      views: 2_000_000,
+      replies: 18000,
+      createdAt: new Date().toISOString(),
+      score: null,
+      signal: "relevant",
     },
     {
-      platform: "youtube",
-      label: "YouTube",
-      mentions24h: 4,
-      reliability: "partial",
-      note: null,
+      platform: "x",
+      author: "@beta",
+      text: "Relevant X post",
+      url: "https://x.com/beta/status/2",
+      likes: 15,
+      views: 200,
+      replies: 1,
+      createdAt: new Date(Date.now() - 72 * 3600_000).toISOString(),
+      score: null,
+      signal: "relevant",
     },
   ];
-  const rolled = rollupAttention(platforms, 2);
-  assert.equal(rolled.totalMentions24h, 4);
-  assert.equal(rolled.totalReliability, "partial");
-  assert.equal(rolled.activity, "low");
-});
 
-test("trend classification requires measurable rates", () => {
-  assert.equal(classifyTrend(null, 1, 10, 6), "UNKNOWN");
-  assert.equal(classifyTrend(8, 1, 8, 6), "SPIKING");
-  assert.equal(classifyTrend(2, 1, 12, 6), "STABLE");
-  assert.equal(classifyTrend(0, 1, 12, 6), "COOLING");
-  assert.equal(classifyTrend(0, 1, 0, 6), "STABLE");
+  const ranked = rankXPosts(posts);
+  assert.equal(ranked[0]?.platform, "x");
+  assert.equal(ranked[0]?.signal, "trending");
+  assert.equal(ranked[1]?.signal, "relevant");
+  assert.ok((ranked[0]?.score ?? 0) > (ranked[1]?.score ?? 0));
 });
