@@ -15,6 +15,7 @@ import { researchXContentIntel } from "@/lib/xpulse/x-content-intel";
 import { analyzeTokenIntel, type MarketStance, type RugPullRisk } from "@/lib/xpulse/market-state";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import type { GeneratedContent } from "@/lib/xpulse/content-create";
+import { EDITOR_HANDOFF_KEY, type EditorHandoff } from "@/lib/xpulse/editor/pipeline";
 import {
   chainLabel,
   detectTokenInput,
@@ -34,7 +35,7 @@ import {
 type TokensSearch = { ca?: string };
 
 export const Route = createFileRoute("/tokens")({
-  head: () => ({ meta: [{ title: "Token intelligence · XPulse" }] }),
+  head: () => ({ meta: [{ title: "Token · XPulse" }] }),
   validateSearch: (search: Record<string, unknown>): TokensSearch => ({
     ca: typeof search.ca === "string" && search.ca.length > 0 ? search.ca : undefined,
   }),
@@ -172,7 +173,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
   }
 
   return (
-    <WorkspaceShell active="/tokens" kicker="Solana" title="Token intelligence · multi-chain">
+    <WorkspaceShell active="/tokens" kicker="Solana" title="Token · multi-chain">
       <section className="panel p-4 sm:p-5">
         <label className="block">
           <span className="kicker">Search</span>
@@ -308,6 +309,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
 }
 
 function TokenDetailView({ address: rawAddress }: { address: string }) {
+  const navigate = useNavigate();
   let address = rawAddress;
   try {
     address = decodeURIComponent(rawAddress);
@@ -717,6 +719,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             );
           })()}
 
+          {/* Viral Intelligence is the X-only mention list. It is not the removed workspace. */}
           <CollapsibleSection
             kicker="Viral Intelligence"
             title="Who is talking about this token on X"
@@ -850,6 +853,31 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                   onClick={() => void navigator.clipboard.writeText(content.text)}
                 >
                   Copy
+                </Button>
+                <Button
+                  type="button"
+                  variant="quiet"
+                  onClick={() => {
+                    if (!intel) return;
+                    const diagnosis = intel.diagnosis ?? null;
+                    const payload: EditorHandoff = {
+                      text: content.text,
+                      kind: content.kind,
+                      token: {
+                        symbol: intel.identity.symbol,
+                        name: intel.identity.name,
+                        address: intel.identity.address,
+                        state: diagnosis?.state ?? null,
+                        headline: diagnosis?.headline ?? null,
+                        rugLine: diagnosis?.rugLine ?? null,
+                      },
+                      at: new Date().toISOString(),
+                    };
+                    sessionStorage.setItem(EDITOR_HANDOFF_KEY, JSON.stringify(payload));
+                    void navigate({ to: "/analyze" });
+                  }}
+                >
+                  Open in Analyze
                 </Button>
                 <Button type="button" variant="quiet" onClick={() => void regenerate()}>
                   Regenerate

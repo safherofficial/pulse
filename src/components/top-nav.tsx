@@ -46,20 +46,12 @@ function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNaviga
       aria-label="Primary"
     >
       <Link
-        to="/research"
-        className={item}
-        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
-        onClick={onNavigate}
-      >
-        Research
-      </Link>
-      <Link
         to="/tokens"
         className={item}
         activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
         onClick={onNavigate}
       >
-        Tokens
+        Token
       </Link>
       <Link
         to="/analyze"
@@ -96,7 +88,7 @@ function AuthSlot({ onNavigate, stacked }: { onNavigate: () => void; stacked: bo
         className="inline-flex h-11 items-center px-3 text-sm text-fg"
         onClick={onNavigate}
       >
-        Your chamber
+        Your Chamber
       </Link>
       <UserButton />
     </div>

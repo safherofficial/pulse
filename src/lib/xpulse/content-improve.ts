@@ -217,7 +217,7 @@ function fromComposition(result: CompositionResult, source: string): ImproveResu
     ],
   };
 }
-  export async function improveDraftCopy(text: string, kind: ContentKind): Promise<ImproveResult> {
+export async function improveDraftCopy(text: string, kind: ContentKind): Promise<ImproveResult> {
   const logic = await loadLogic();
   const local = optimizeContent({ text, kind, mode: "SCORE_IMPROVE", logic });
   const before = local.before;
@@ -301,4 +301,56 @@ export async function strongerHookCopy(text: string, kind: ContentKind): Promise
     }
   }
   return chosen;
+}
+
+/** True only when a keyed provider is configured. Public cascades are not treated as configured. */
+export function hasConfiguredWriter(): boolean {
+  return providers().some((provider) => Boolean(provider.key));
+}
+
+export async function polishDraft(text: string): Promise<{ text: string; notes: string[] }> {
+  return polish(text);
+}
+
+/**
+ * One writer call against Groq, OpenRouter, or Gemini when a key exists.
+ * Does not walk the public Pollinations or LLM7 cascade.
+ */
+export async function rewriteWithConfiguredModel(input: {
+  text: string;
+  mode: string;
+  kind: ContentKind;
+  language: string;
+  plan: string[];
+}): Promise<{ text: string; source: string } | null> {
+  const keyed = providers().filter((provider) => provider.key);
+  if (!keyed.length) return null;
+  const messages: ChatMessage[] = [
+    {
+      role: "system",
+      content: [
+        "You are the writer stage of an editorial pipeline. A critic will reject you if you invent or flip facts.",
+        "Keep the author's language, names, tickers, mentions, hashtags, URLs, emoji, and numbers.",
+        "Do not add a statistic, quote, source, partnership, price, or market-cap figure.",
+        "Do not turn a bearish, severe, or collapsed read into a bullish one.",
+        "Do not add a CTA, emoji, or hashtag unless the draft already uses that device.",
+        "Banned: exciting opportunity, great potential, could explode, high potential, to the moon, this changes everything, the future is here, here's why, as an AI.",
+        input.kind === "thread"
+          ? "If the mode asks for a thread, number existing beats as 1/ 2/ 3/. Do not add a new beat."
+          : input.kind === "article"
+            ? "If the mode asks for an article, use the draft's own sentences as the sections."
+            : "If the mode asks for a post, keep it one publishable post.",
+        "Output only the rewritten text.",
+      ].join(" "),
+    },
+    {
+      role: "user",
+      content: `Mode: ${input.mode}\nKind: ${input.kind}\nLanguage: ${input.language}\nPlan:\n${input.plan.join("\n")}\n\nDRAFT:\n${input.text}`,
+    },
+  ];
+  for (const provider of keyed) {
+    const raw = await chatComplete(provider, messages, 0.3);
+    if (raw && raw.length >= 20) return { text: stripFence(raw), source: provider.id };
+  }
+  return null;
 }

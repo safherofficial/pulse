@@ -122,7 +122,7 @@ export function WalletPortfolio() {
     <section className="panel animate-in space-y-5 p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="kicker">Wallet intelligence</p>
+          <p className="kicker">Wallet</p>
           <h2 className="mt-1 text-xl tracking-tight">Connected portfolio</h2>
           {wallet ? (
             <p className="mt-1 break-all font-mono text-xs text-subtle">{wallet}</p>

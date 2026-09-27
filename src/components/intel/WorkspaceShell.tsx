@@ -3,9 +3,7 @@ import { TopNav } from "@/components/top-nav";
 import { cn } from "@/lib/cn";
 
 const NAV = [
-  { to: "/", label: "Home" },
-  { to: "/research", label: "Research" },
-  { to: "/tokens", label: "Tokens" },
+  { to: "/tokens", label: "Token" },
   { to: "/analyze", label: "Analyze" },
   { to: "/pulse", label: "Your Chamber" },
 ] as const;

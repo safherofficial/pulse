@@ -8,7 +8,7 @@ export const Route = createFileRoute("/")({
 
 const PILLARS = [
   {
-    kicker: "Intelligence",
+    kicker: "Mentions",
     title: "See who is talking",
     body: "Public X mentions for a token: the account, the post, and the link. Official, KOL, verified, or just an account — classified from the data you already have.",
   },
@@ -48,7 +48,7 @@ function Home() {
             Turn X signals into better content.
           </h1>
           <p className="mt-5 max-w-xl text-base text-muted sm:text-lg">
-            XPulse puts public X mentions, token intelligence, content analysis, and generation in one workflow.
+            XPulse puts public X mentions, the live market tape, content analysis, and generation in one workflow.
             You see who is talking, what the market is doing, and you write from that — not from a blank page.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -70,7 +70,7 @@ function Home() {
           <ol className="mt-5 grid gap-3">
             {[
               ["Viral Intelligence", "Public X mentions and notable accounts. X only."],
-              ["Token intelligence", "Price, market cap, liquidity, and listing signals from the pair."],
+              ["Market tape", "Price, market cap, liquidity, and listing signals from the pair."],
               ["Generated content", "A post that can say the price and a compact market cap — only when those numbers exist."],
             ].map(([title, copy]) => (
               <li key={title} className="rounded-lg border border-line bg-surface-2/40 px-4 py-3">

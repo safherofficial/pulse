@@ -1,5 +1,5 @@
 /**
- * X content intelligence — extract editorial patterns from publicly available posts.
+ * Editorial patterns from publicly available posts.
  * Never invent metrics. Never copy source text into generated content.
  * UI must not expose provider names.
  */

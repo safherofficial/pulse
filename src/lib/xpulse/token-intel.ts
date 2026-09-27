@@ -1,5 +1,5 @@
 /**
- * Multi-chain token intelligence — free public market data only.
+ * Multi-chain token research — free public market data only.
  * Never invent missing fields; mark them unavailable.
  * UI must not expose provider names.
  * Lifetime payment remains Solana-only and is unrelated to analysis chain.

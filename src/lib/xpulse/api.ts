@@ -250,3 +250,17 @@ export const strongerHookDraft = createServerFn({ method: "POST" })
     const kind = payload.kind === "thread" || payload.kind === "article" ? payload.kind : "post";
     return strongerHookCopy(text, kind);
   });
+
+export const runEditor = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { executeEditor } = await import("./editor/server");
+    const payload = data as { text?: string; url?: string; mode?: unknown; kind?: string };
+    const kind = payload?.kind === "thread" || payload?.kind === "article" || payload?.kind === "post" ? payload.kind : null;
+    return executeEditor({
+      text: typeof payload?.text === "string" ? payload.text : "",
+      url: typeof payload?.url === "string" ? payload.url : "",
+      mode: payload?.mode,
+      kind,
+    });
+  });
