@@ -1,6 +1,6 @@
 /**
  * Multi-dimension content score for X posts / threads / articles.
- * Does not promise impressions. Scores potential based on structural signals.
+ * Does not promise impressions. Scores structural + craft potential.
  */
 
 import { writingSignals } from "./metrics";
@@ -25,7 +25,7 @@ export type ContentScoreReport = {
 };
 
 const AI_SLACK =
-  /\b(in today's rapidly evolving|it's important to note|significant milestone|the future is here|game[- ]?changer|revolutionary|buckle up|delve into|landscape of|leverage synergies|unlock the potential)\b/gi;
+  /\b(in today's rapidly evolving|it's important to note|significant milestone|the future is here|game[- ]?changer|revolutionary|buckle up|delve into|landscape of|leverage synergies|unlock the potential|as an ai|in conclusion)\b/gi;
 
 function words(text: string) {
   return text.trim().split(/\s+/).filter(Boolean);
@@ -46,22 +46,37 @@ function clamp(n: number) {
   return Math.max(0, Math.min(100, Math.round(n)));
 }
 
+function threadBeats(text: string): string[] {
+  const numbered = text
+    .split(/\n\s*\n/)
+    .map((b) => b.replace(/^\s*\d+\s*[/.)-]\s*/, "").trim())
+    .filter(Boolean);
+  if (numbered.length >= 3) return numbered;
+  return text
+    .split(/\n+/)
+    .map((b) => b.replace(/^\s*\d+\s*[/.)-]\s*/, "").trim())
+    .filter(Boolean);
+}
+
 export function scoreContent(text: string, kind: ContentKind = "post"): ContentScoreReport {
   const clean = text.trim();
   const signals = writingSignals(clean);
   const w = words(clean);
   const sents = sentences(clean);
-  const hook = firstLine(clean);
+  const hook = firstLine(clean).replace(/^\s*\d+\s*[/.)-]\s*/, "");
   const hookWords = words(hook).length;
   const dims: ScoreDimension[] = [];
+  const concrete = (clean.match(/\b\d+(?:[.,]\d+)?%?\b/g) ?? []).length;
+  const urls = (clean.match(/https?:\/\/\S+/gi) ?? []).length;
+  const numbered = (clean.match(/^\s*\d+\s*[/.)-]/gm) ?? []).length;
 
-  // Hook / stop-scroll
   let hookScore = signals.hook;
-  if (hookWords >= 4 && hookWords <= 16) hookScore = Math.max(hookScore, 72);
+  if (hookWords >= 4 && hookWords <= 16) hookScore = Math.max(hookScore, 74);
   if (/[?]/.test(hook)) hookScore = Math.min(100, hookScore + 6);
-  if (/\b(nobody|most people|stop|why|the hard truth|secret)\b/i.test(hook)) {
+  if (/\b(nobody|most people|stop|why|the hard truth|look|watch)\b/i.test(hook)) {
     hookScore = Math.min(100, hookScore + 4);
   }
+  if (/^(hook|context|insight|summary|introduction):/i.test(hook)) hookScore -= 22;
   dims.push({
     key: "hook",
     label: "Hook strength",
@@ -78,20 +93,18 @@ export function scoreContent(text: string, kind: ContentKind = "post"): ContentS
     key: "clarity",
     label: "Clarity",
     score: clamp(signals.clarity),
-    note:
-      signals.clarity >= 70
-        ? "Sentences stay readable."
-        : "Tighten long lines; one idea per beat.",
+    note: signals.clarity >= 70 ? "Sentences stay readable." : "Tighten long lines; one idea per beat.",
   });
 
   dims.push({
     key: "density",
     label: "Information density",
     score: clamp(
-      40 +
-        Math.min(30, (clean.match(/\b\d+(?:[.,]\d+)?%?\b/g) ?? []).length * 10) +
-        Math.min(20, sents.length * 3) -
-        (w.length > 120 && kind === "post" ? 15 : 0),
+      38 +
+        Math.min(32, concrete * 9) +
+        Math.min(16, sents.length * 2) +
+        Math.min(8, urls * 4) -
+        (w.length > 140 && kind === "post" ? 14 : 0),
     ),
     note: "Concrete numbers and distinct beats raise density without fluff.",
   });
@@ -103,7 +116,7 @@ export function scoreContent(text: string, kind: ContentKind = "post"): ContentS
     note:
       signals.curiosity >= 65
         ? "Opens a gap the next line can close."
-        : "Add a contrast, cost, or unanswered ‘why’.",
+        : "Add a contrast, cost, or unanswered why.",
   });
 
   dims.push({
@@ -140,16 +153,42 @@ export function scoreContent(text: string, kind: ContentKind = "post"): ContentS
     note: "Short lines and breaks help on mobile.",
   });
 
+  if (kind === "thread") {
+    const beats = threadBeats(clean);
+    const long = beats.filter((b) => b.length > 280).length;
+    const short = beats.filter((b) => b.length < 40).length;
+    const labels = beats.filter((b) => /^(hook|context|insight|summary|implication):/i.test(b)).length;
+    const threadScore = clamp(
+      38 +
+        Math.min(28, beats.length * 5) +
+        (numbered >= 3 ? 14 : 0) +
+        (beats.length >= 4 && beats.length <= 8 ? 12 : 0) -
+        long * 10 -
+        short * 6 -
+        labels * 12,
+    );
+    dims.push({
+      key: "thread_craft",
+      label: "Thread craft",
+      score: threadScore,
+      note:
+        labels > 0
+          ? "Drop outline labels (Hook:/Context:). Write real tweets."
+          : long > 0
+            ? "One or more tweets run past 280 characters."
+            : beats.length < 4
+              ? "Needs more beats: setup → proof → turn → close."
+              : "Numbered beats with a usable length range.",
+    });
+  }
+
   const aiHits = (clean.match(AI_SLACK) ?? []).length;
   const humanScore = clamp(92 - aiHits * 18 - (/\b(leverage|synergy|holistic)\b/gi.test(clean) ? 8 : 0));
   dims.push({
     key: "human",
     label: "Human voice",
     score: humanScore,
-    note:
-      aiHits > 0
-        ? "Generic AI phrasing detected — rewrite in concrete language."
-        : "Voice stays direct.",
+    note: aiHits > 0 ? "Generic AI phrasing detected — rewrite in concrete language." : "Voice stays direct.",
   });
 
   const hashtagCount = (clean.match(/(^|\s)#\w+/g) ?? []).length;
@@ -163,15 +202,10 @@ export function scoreContent(text: string, kind: ContentKind = "post"): ContentS
     key: "anti_spam",
     label: "Anti-spam / credibility",
     score: spamScore,
-    note:
-      spamScore < 70
-        ? "Engagement-bait or hashtag overload hurts real attention."
-        : "Avoids obvious bait patterns.",
+    note: spamScore < 70 ? "Engagement-bait or hashtag overload hurts real attention." : "Avoids obvious bait patterns.",
   });
 
-  const total = clamp(
-    dims.reduce((sum, d) => sum + d.score, 0) / Math.max(1, dims.length),
-  );
+  const total = clamp(dims.reduce((sum, d) => sum + d.score, 0) / Math.max(1, dims.length));
 
   const working = dims
     .filter((d) => d.score >= 72)
@@ -185,15 +219,13 @@ export function scoreContent(text: string, kind: ContentKind = "post"): ContentS
 
   const improvements: string[] = [];
   if (hookWords > 20) improvements.push("Cut the opening to under 16 words — lead with the claim.");
-  if (signals.specificity < 60)
-    improvements.push("Replace one vague word with a number, timeframe, or named outcome.");
+  if (signals.specificity < 60) improvements.push("Replace one vague word with a number, timeframe, or named outcome.");
   if (signals.structure < 60) improvements.push("Break into short beats with blank lines between ideas.");
   if (aiHits > 0) improvements.push("Remove template AI phrases; write the observation you actually mean.");
   if (spamScore < 70) improvements.push("Drop hashtag spam and bait CTAs — invite a real reply instead.");
-  if (kind === "thread" && sents.length < 4)
-    improvements.push("Add progression: setup → tension → evidence → payoff.");
-  if (!improvements.length)
-    improvements.push("Polish one quotable line and verify every claim is grounded.");
+  if (kind === "thread" && numbered < 3) improvements.push("Number the tweets 1/ 2/ 3/ so the thread is publish-ready.");
+  if (kind === "thread" && sents.length < 4) improvements.push("Add progression: setup → tension → evidence → payoff.");
+  if (!improvements.length) improvements.push("Polish one quotable line and verify every claim is grounded.");
 
   return {
     total,
