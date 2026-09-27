@@ -1,385 +1,123 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
 import { TopNav } from "@/components/top-nav";
-import { PulseBeat } from "@/components/scene/PulseBeat";
 import { buttonVariants } from "@/components/ui/button";
-import { formatCompact, formatDwell, formatMaybe, formatPct } from "@/lib/xpulse/format";
-import { engagementRate, readRatio } from "@/lib/xpulse/metrics";
-import { sampleModel } from "@/lib/xpulse/sample";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const READINGS = [
-  ["Detail expands", "People who actually opened the post, not just people who scrolled past it."],
-  ["Engagement rate", "Likes, replies, reposts, bookmarks, profile clicks, and link clicks, divided by impressions."],
-  ["Profile visits", "Profile clicks that came from that single post."],
-  ["Dwell", "Time spent in the piece when X reports it. Threads usually do not have it."],
-  ["Thread vs article", "Link a launch thread to the X Article it was meant to sell."],
-  ["Heatmap", "Weekday by hour. The sample is follower activity. Your account infers it from publish time and opens."],
-] as const;
-
-const MOVES = [
-  ["01", "Analyze for X", "Drafts and public posts scored for attention — not engagement bait. Built for devs, community, and token narratives."],
-  ["02", "Research Solana", "Look up any token by name or contract. Market structure, liquidity, risks — then turn research into publish-ready copy."],
-  ["03", "Your Chamber", "Your links and stats in one place. Charts, history, and rewrite tools without averaging the whole account."],
-] as const;
-
-/** Public list prices at time of write — used for a clear yearly comparison. */
-const PRICE_ROWS = [
+const PILLARS = [
   {
-    name: "XPulse",
-    model: "Lifetime · on-chain",
-    monthly: "—",
-    yearly: "$10 once",
-    focus: "Post-level opens, dwell, writing signals",
-    ours: true,
+    kicker: "Intelligence",
+    title: "See who is talking",
+    body: "Public X mentions for a token: the account, the post, and the link. Official, KOL, verified, or just an account — classified from the data you already have.",
   },
   {
-    name: "Typefully",
-    model: "Subscription",
-    monthly: "$15–29",
-    yearly: "$180–348",
-    focus: "Scheduling + basic analytics",
-    ours: false,
+    kicker: "Analysis",
+    title: "Read the piece, then the pair",
+    body: "Score a draft. Compare two public X posts. Break down what is stronger without inventing metrics that were never returned.",
   },
   {
-    name: "Hypefury",
-    model: "Subscription",
-    monthly: "$19–49",
-    yearly: "$228–588",
-    focus: "Growth automation + queues",
-    ours: false,
+    kicker: "Creation",
+    title: "Write from the live tape",
+    body: "Generate a post, thread, or article with the token’s real price and market cap woven in. Regeneration changes the writing, not the numbers.",
   },
   {
-    name: "Tweet Hunter",
-    model: "Subscription",
-    monthly: "~$49",
-    yearly: "~$588",
-    focus: "Viral templates + CRM",
-    ours: false,
-  },
-  {
-    name: "Buffer",
-    model: "Subscription",
-    monthly: "$6–12+",
-    yearly: "$72–144+",
-    focus: "Cross-network scheduling",
-    ours: false,
+    kicker: "Chamber",
+    title: "Your X workspace",
+    body: "Wallet, saved activity, and creator tools in one place. Compare, rewrite, and keep the work attached to the address that owns it.",
   },
 ] as const;
 
-function WatchHowItWorks({ variant = "button" }: { variant?: "button" | "card" } = {}) {
-  const [open, setOpen] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [scene, setScene] = useState(0);
-  const timerRef = useRef<number | null>(null);
-
-  const scenes = [
-    {
-      title: "One intelligence workspace",
-      body: "Too many tabs. Too much noise. Research tokens, read your wallet, and ship X content from one place.",
-    },
-    {
-      title: "Token research",
-      body: "Search by name, symbol, or contract — multi-chain. Market structure, liquidity, volume, charts when available.",
-    },
-    {
-      title: "Wallet intelligence",
-      body: "Connect your Solana wallet. Live balances, portfolio value, and allocation in Your Chamber.",
-    },
-    {
-      title: "Research → insight",
-      body: "Collect real data first. Analysis only uses what the research step actually returned.",
-    },
-    {
-      title: "Content from data",
-      body: "Generate posts, threads, and articles locked to a fact set — regenerate writing, not the numbers.",
-    },
-    {
-      title: "Score and improve",
-      body: "Content Score shows what works and what is weak. Improve before you publish.",
-    },
-    {
-      title: "Research deeper. Create smarter.",
-      body: "From data to publish-ready output — without engagement bait or invented metrics.",
-    },
-  ] as const;
-
-  useEffect(() => {
-    if (!open || !playing) {
-      if (timerRef.current != null) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-    timerRef.current = window.setInterval(() => {
-      setScene((s) => {
-        if (s >= scenes.length - 1) {
-          setPlaying(false);
-          return s;
-        }
-        return s + 1;
-      });
-    }, 4500);
-    return () => {
-      if (timerRef.current != null) {
-        window.clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [open, playing, scenes.length]);
-
-  function openPlayer() {
-    setOpen(true);
-    setScene(0);
-    setPlaying(false);
-  }
-
-  function closePlayer() {
-    setOpen(false);
-    setPlaying(false);
-    setScene(0);
-  }
-
-  const progress = ((scene + 1) / scenes.length) * 100;
-
-  const trigger =
-    variant === "card" ? (
-      <button
-        type="button"
-        onClick={openPlayer}
-        className="group relative w-full overflow-hidden rounded-xl border border-line text-left transition hover:border-accent/50"
-      >
-        <div className="relative aspect-[21/9] bg-gradient-to-br from-surface-2 via-bg to-surface sm:aspect-[2.4/1]">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_40%,rgba(56,189,248,0.12),transparent_55%)]" />
-          <div className="absolute inset-0 flex flex-col justify-end p-5 sm:p-7">
-            <p className="font-mono text-[10px] tracking-[0.2em] text-accent uppercase">
-              Product tour · ~45s
-            </p>
-            <h3 className="mt-2 text-xl text-fg sm:text-2xl">Watch how it works</h3>
-            <p className="mt-1 max-w-lg text-sm text-muted">
-              Token research → wallet → content intelligence → score → publish-ready.
-            </p>
-          </div>
-          <span className="absolute right-5 top-1/2 flex h-14 w-14 -translate-y-1/2 items-center justify-center rounded-full border border-accent/50 bg-accent/20 text-xl text-accent transition group-hover:scale-105 sm:right-8">
-            ▶
-          </span>
-        </div>
-      </button>
-    ) : (
-      <button
-        type="button"
-        onClick={openPlayer}
-        className={buttonVariants({ variant: "quiet" })}
-      >
-        ▶ Watch how it works
-      </button>
-    );
-
-  return (
-    <>
-      {trigger}
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 grid place-items-center bg-bg/85 p-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-          aria-label="How XPulse works"
-          onClick={closePlayer}
-        >
-          <div
-            className="panel animate-in w-full max-w-lg overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="relative aspect-video border-b border-line bg-gradient-to-br from-surface-2 via-bg to-surface">
-              <div className="absolute inset-0 flex flex-col justify-end p-5">
-                <p className="font-mono text-[10px] tracking-[0.2em] text-accent uppercase">
-                  Scene {scene + 1} / {scenes.length}
-                </p>
-                <h2 className="mt-2 text-xl text-fg sm:text-2xl">{scenes[scene]!.title}</h2>
-                <p className="mt-2 max-w-md text-sm text-muted">{scenes[scene]!.body}</p>
-              </div>
-              {!playing && scene === 0 ? (
-                <button
-                  type="button"
-                  className="absolute inset-0 grid place-items-center bg-bg/40 transition hover:bg-bg/20"
-                  onClick={() => setPlaying(true)}
-                  aria-label="Play intro"
-                >
-                  <span className="flex h-16 w-16 items-center justify-center rounded-full border border-accent/50 bg-accent/20 text-2xl text-accent">
-                    ▶
-                  </span>
-                </button>
-              ) : null}
-            </div>
-
-            <div className="h-1 w-full bg-line">
-              <div
-                className="h-full bg-accent transition-all duration-500"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 p-4">
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
-                  onClick={() => setPlaying((p) => !p)}
-                >
-                  {playing ? "Pause" : "Play"}
-                </button>
-                <button
-                  type="button"
-                  className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
-                  onClick={() => setScene((s) => Math.max(0, s - 1))}
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
-                  onClick={() => setScene((s) => Math.min(scenes.length - 1, s + 1))}
-                >
-                  Next
-                </button>
-              </div>
-              <button
-                type="button"
-                className="h-9 rounded-md border border-line px-3 text-xs text-muted transition hover:text-fg"
-                onClick={closePlayer}
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2 border-t border-line px-4 py-3">
-              <Link to="/tokens" className={buttonVariants()} onClick={closePlayer}>
-                Analyze a token
-              </Link>
-              <Link
-                to="/pulse"
-                className={buttonVariants({ variant: "quiet" })}
-                onClick={closePlayer}
-              >
-                Open Your Chamber
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </>
-  );
-}
+const STEPS = [
+  ["01", "Look up a token", "Search by name or contract. Market structure comes from the live pair, or it stays unavailable."],
+  ["02", "Read X", "Viral Intelligence shows who is talking about that token on X, and what they said."],
+  ["03", "Generate", "Posts, threads, and articles pick up the current price and a compact market cap when those fields exist."],
+  ["04", "Sharpen", "Score the draft or compare it with a stronger public post before you publish."],
+] as const;
 
 function Home() {
-  const thread = sampleModel.posts[0]!;
-  const article = sampleModel.posts[1]!;
-
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-16 px-4 py-5 sm:px-6 sm:py-7">
+    <main className="mx-auto flex max-w-6xl flex-col gap-16 px-4 py-5 sm:gap-20 sm:px-6 sm:py-7">
       <TopNav />
-      <section className="panel p-4 sm:p-5">
-        <p className="kicker">What do you want to do?</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {[
-            ["/tokens", "Push my token"],
-            ["/tokens", "Search any CA"],
-            ["/research", "Research a topic"],
-            ["/analyze", "Improve a draft"],
-            ["/pulse", "Your Chamber"],
-          ].map(([to, label]) => (
-            <Link
-              key={label}
-              to={to}
-              className="inline-flex h-11 items-center rounded-md border border-line bg-surface-2/50 px-4 text-sm text-fg transition hover:border-accent/50 hover:text-accent"
-            >
-              {label}
+
+      <section className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-12">
+        <div>
+          <p className="kicker">For people who publish on X</p>
+          <h1 className="mt-4 max-w-3xl text-[2.4rem] leading-[1.05] sm:text-6xl">
+            Turn X signals into better content.
+          </h1>
+          <p className="mt-5 max-w-xl text-base text-muted sm:text-lg">
+            XPulse puts public X mentions, token intelligence, content analysis, and generation in one workflow.
+            You see who is talking, what the market is doing, and you write from that — not from a blank page.
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <Link to="/login" className={`${buttonVariants()} w-full justify-center sm:w-auto`}>
+              Start 7-day trial
             </Link>
+            <a href="#how" className={`${buttonVariants({ variant: "quiet" })} w-full justify-center sm:w-auto`}>
+              See how it works
+            </a>
+          </div>
+          <p className="mt-4 max-w-md text-sm text-subtle">
+            Enter with a Solana wallet. The 7-day Pro trial starts on that address. Lifetime access is $10, paid once in SOL or USDC.
+          </p>
+        </div>
+
+        <aside className="panel p-5 sm:p-6" aria-label="What XPulse shows">
+          <p className="kicker">On a token</p>
+          <h2 className="mt-3 text-2xl">Who is talking, and what the tape says.</h2>
+          <ol className="mt-5 grid gap-3">
+            {[
+              ["Viral Intelligence", "Public X mentions and notable accounts. X only."],
+              ["Token intelligence", "Price, market cap, liquidity, and listing signals from the pair."],
+              ["Generated content", "A post that can say the price and a compact market cap — only when those numbers exist."],
+            ].map(([title, copy]) => (
+              <li key={title} className="rounded-lg border border-line bg-surface-2/40 px-4 py-3">
+                <p className="text-sm text-fg">{title}</p>
+                <p className="mt-1 text-sm text-muted">{copy}</p>
+              </li>
+            ))}
+          </ol>
+          <Link to="/tokens" className="mt-5 inline-flex text-sm text-accent hover:underline">
+            Open token research
+          </Link>
+        </aside>
+      </section>
+
+      <section>
+        <p className="kicker">Why it matters</p>
+        <h2 className="mt-3 max-w-2xl text-3xl">Research and writing stop living in different tabs.</h2>
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          {[
+            ["Discover", "Find the token and the public X posts that actually mention it."],
+            ["Understand", "Keep price and market cap attached to the story you are about to tell."],
+            ["Publish", "Generate, score, and compare before the post goes live."],
+          ].map(([title, copy]) => (
+            <article key={title} className="border-t border-line pt-4">
+              <h3 className="text-lg">{title}</h3>
+              <p className="mt-2 text-sm text-muted">{copy}</p>
+            </article>
           ))}
         </div>
       </section>
-      <section className="grid items-center gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-12">
-        <div className="rise">
-          <p className="kicker">Web3 intelligence · X content workstation</p>
-          <h1 className="mt-4 max-w-xl text-4xl leading-tight sm:text-6xl">
-            Research deeper.
-            <br />
-            Create smarter.
-          </h1>
-          <p className="mt-5 max-w-xl text-lg text-muted">
-            Research multi-chain tokens, read your wallet, turn real data into professional X posts,
-            threads and articles — then score and improve before you publish.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link to="/tokens" className={buttonVariants()}>
-              Analyze a token
-            </Link>
-            <Link to="/analyze" className={buttonVariants({ variant: "quiet" })}>
-              Improve a draft
-            </Link>
-            <Link to="/pulse" className={buttonVariants({ variant: "quiet" })}>
-              Open Your Chamber
-            </Link>
-            <WatchHowItWorks />
-          </div>
-          <dl className="mt-8 grid max-w-lg grid-cols-3 gap-3">
-            <Fact label="Sample views" value={formatCompact(thread.metrics.impressions)} />
-            <Fact label="Article opens" value={formatCompact(article.metrics.detailExpands ?? 0)} />
-            <Fact label="Article dwell" value={formatDwell(article.metrics.dwellMs)} />
-          </dl>
-        </div>
-        <div className="hud-corners panel relative rise rise-2 h-[22rem] overflow-hidden sm:h-[34rem]">
-          <span className="corner corner-tl" />
-          <span className="corner corner-tr" />
-          <span className="corner corner-bl" />
-          <span className="corner corner-br" />
-          <div className="pointer-events-none absolute top-4 left-4 z-10 flex items-center gap-2">
-            <span className="status-dot" />
-            <span className="font-mono text-xs tracking-widest text-accent">SAMPLE LINK · LIVE</span>
-          </div>
-          <div className="pointer-events-none absolute right-4 bottom-4 z-10 hidden rounded-md border border-line/60 bg-bg/70 px-3 py-1.5 font-mono text-[10px] tracking-widest text-muted backdrop-blur-md sm:block">
-            SIGNAL BEAT · LIVE
-          </div>
-          <PulseBeat />
-        </div>
-      </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {MOVES.map(([index, title, copy], i) => (
-          <article key={index} className={`panel lift-card rise p-5 ${i === 1 ? "rise-2" : ""} ${i === 2 ? "rise-3" : ""}`}>
-            <p className="font-mono text-xs text-accent">{index}</p>
-            <h2 className="mt-3 text-xl">{title}</h2>
-            <p className="mt-2 text-sm text-muted">{copy}</p>
+      <section className="grid gap-4 md:grid-cols-2">
+        {PILLARS.map((item) => (
+          <article key={item.kicker} className="panel p-5 sm:p-6">
+            <p className="kicker">{item.kicker}</p>
+            <h2 className="mt-3 text-2xl">{item.title}</h2>
+            <p className="mt-2 text-sm text-muted">{item.body}</p>
           </article>
         ))}
       </section>
 
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="kicker">See the product</p>
-            <h2 className="mt-2 text-2xl tracking-tight sm:text-3xl">Watch how it works</h2>
-          </div>
-        </div>
-        <WatchHowItWorks variant="card" />
-      </section>
-
-      <section className="border-t border-line pt-12">
-        <p className="kicker">Workflow</p>
-        <h2 className="mt-3 text-3xl">From data to publish-ready output.</h2>
-        <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            ["01", "Token research", "Name, symbol, or contract across chains."],
-            ["02", "Wallet intelligence", "Real balances and allocation in Your Chamber."],
-            ["03", "Data analysis", "Liquidity, volume, structure — never invented."],
-            ["04", "Content creation", "Posts, threads, articles grounded in research."],
-            ["05", "Content score", "What works, what is weak, how to improve."],
-            ["06", "Publish-ready", "Ship only when the piece holds up."],
-          ].map(([n, title, copy]) => (
-            <li key={n} className="panel lift-card p-4">
+      <section id="how" className="scroll-mt-8 border-t border-line pt-12">
+        <p className="kicker">How it works</p>
+        <h2 className="mt-3 max-w-2xl text-3xl">From a contract to a post you can stand behind.</h2>
+        <ol className="mt-6 grid gap-3 sm:grid-cols-2">
+          {STEPS.map(([n, title, copy]) => (
+            <li key={n} className="panel p-4 sm:p-5">
               <p className="font-mono text-xs text-accent">{n}</p>
               <h3 className="mt-2 text-lg">{title}</h3>
               <p className="mt-1 text-sm text-muted">{copy}</p>
@@ -387,58 +125,46 @@ function Home() {
           ))}
         </ol>
       </section>
-      <section className="grid items-start gap-8 border-t border-line pt-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
-        <div>
-          <p className="kicker">Who it is for</p>
-          <h2 className="mt-3 text-3xl">Devs, community, and publishers on X.</h2>
-          <p className="mt-3 text-muted">
-            Ship launch threads for your token, explain a bag to the community, or improve a draft before it goes live.
-            Research by name or contract, then turn facts into posts, threads, or articles with a clear content score.
-          </p>
-        </div>
-        <div className="panel p-5">
-          <p className="kicker">No X login required</p>
-          <p className="mt-3 text-sm text-muted">
-            Analyze public links and create content without connecting an X account. Your Solana wallet is the identity.
-            Unavailable metrics stay marked unavailable — never invented.
-          </p>
-        </div>
-      </section>
 
       <section className="border-t border-line pt-12">
-        <p className="kicker">Sample pair</p>
-        <h2 className="mt-3 max-w-2xl text-3xl">A thread that travels. An article where people stay.</h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <CompareCard title="Launch thread" post={thread} />
-          <CompareCard title="X Article" post={article} />
+        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div>
+            <p className="kicker">What you get</p>
+            <h2 className="mt-3 text-3xl">Try it on the wallet. Keep it if it earns the desk.</h2>
+            <p className="mt-3 text-muted">
+              Access follows the Solana address that signs in. No email account. The trial is seven days.
+              Lifetime is a single $10 payment in SOL or USDC, verified on-chain, bound to that wallet.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <article className="rounded-xl border border-accent/30 bg-accent/5 p-5">
+              <p className="kicker">Start</p>
+              <h3 className="mt-3 text-xl">7-day Pro trial</h3>
+              <p className="mt-2 text-sm text-muted">Starts automatically for a new wallet. Full product access while it is active.</p>
+            </article>
+            <article className="rounded-xl border border-line bg-surface-2/40 p-5">
+              <p className="kicker">Keep</p>
+              <h3 className="mt-3 text-xl">$10 lifetime</h3>
+              <p className="mt-2 text-sm text-muted">One payment. No renewal. The wallet that paid is the wallet that stays open.</p>
+            </article>
+          </div>
         </div>
       </section>
-
-      <section className="border-t border-line pt-12">
-        <p className="kicker">Counted fields</p>
-        <h2 className="mt-3 text-3xl">What gets counted</h2>
-        <dl className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2">
-          {READINGS.map(([term, copy]) => (
-            <div key={term} className="border-t border-line pt-4">
-              <dt className="font-medium">{term}</dt>
-              <dd className="mt-1 text-sm text-muted">{copy}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <PriceCompare />
 
       <section className="panel p-6 sm:p-8">
-        <p className="kicker">$10 · once · SOL/USDC</p>
-        <h2 className="mt-3 max-w-2xl text-3xl">Lifetime access, bound to the wallet that paid.</h2>
+        <p className="kicker">Enter XPulse</p>
+        <h2 className="mt-3 max-w-2xl text-3xl">Start with the wallet you already use.</h2>
         <p className="mt-3 max-w-2xl text-muted">
-          No renewal. The server reads the transfer from Solana. When the treasury receives $10 in SOL or USDC and your
-          wallet signed it, that address stays open.
+          Look up a token, read the X mentions, and write with the market snapshot still attached.
         </p>
-        <Link to="/onboard" className={`${buttonVariants()} mt-6`}>
-          Continue to payment
-        </Link>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Link to="/login" className={`${buttonVariants()} w-full justify-center sm:w-auto`}>
+            Enter XPulse
+          </Link>
+          <Link to="/tokens" className={`${buttonVariants({ variant: "quiet" })} w-full justify-center sm:w-auto`}>
+            Search a token
+          </Link>
+        </div>
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-6 text-sm text-muted">
@@ -446,220 +172,5 @@ function Home() {
         <span>Not affiliated with X or Solana.</span>
       </footer>
     </main>
-  );
-}
-
-/** Approximate USD for $10 lifetime for the savings simulator (display only). */
-const XPULSE_YEAR_USD = 10;
-const MARKET_MAX_USD = 588;
-
-function formatUsd(n: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function PriceCompare() {
-  const [open, setOpen] = useState(false);
-  const [annualSpend, setAnnualSpend] = useState(240);
-
-  const savings = useMemo(
-    () => Math.max(0, annualSpend - XPULSE_YEAR_USD),
-    [annualSpend],
-  );
-  const pct = useMemo(() => {
-    if (annualSpend <= 0) return 0;
-    return Math.round((savings / annualSpend) * 100);
-  }, [annualSpend, savings]);
-  const sliderPct = ((annualSpend - XPULSE_YEAR_USD) / (MARKET_MAX_USD - XPULSE_YEAR_USD)) * 100;
-
-  return (
-    <section className="border-t border-line pt-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="kicker">Price · honest comparison</p>
-          <h2 className="mt-3 max-w-2xl text-3xl">One payment. No subscription treadmill.</h2>
-          <p className="mt-3 max-w-2xl text-muted">
-            Drag the slider to the yearly amount you would spend on a typical X growth tool. XPulse is{" "}
-            <span className="text-fg">$10 lifetime once</span> (~{formatUsd(XPULSE_YEAR_USD)} at current display rate).
-            The gap is your year-one savings.
-          </p>
-        </div>
-        <Link to="/onboard" className={buttonVariants()}>
-          Unlock · $10
-        </Link>
-      </div>
-
-      <div className="panel mt-8 overflow-hidden p-5 sm:p-7">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="font-mono text-[11px] tracking-[0.16em] text-subtle uppercase">Your annual SaaS budget</p>
-            <p className="mt-1 font-mono text-4xl tabular-nums text-fg sm:text-5xl">{formatUsd(annualSpend)}</p>
-          </div>
-          <div className="text-right">
-            <p className="font-mono text-[11px] tracking-[0.16em] text-subtle uppercase">You save with XPulse</p>
-            <p className="mt-1 font-mono text-4xl tabular-nums text-accent sm:text-5xl">{formatUsd(savings)}</p>
-            <p className="mt-1 font-mono text-xs text-muted">{pct}% of that budget · year one</p>
-          </div>
-        </div>
-
-        <div className="mt-8">
-          <div className="relative h-3 rounded-full bg-line/80">
-            <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-accent/40 via-accent to-signal transition-[width] duration-75"
-              style={{ width: `${sliderPct}%` }}
-            />
-            <input
-              type="range"
-              min={XPULSE_YEAR_USD}
-              max={MARKET_MAX_USD}
-              step={6}
-              value={annualSpend}
-              onChange={(e) => setAnnualSpend(Number(e.target.value))}
-              aria-label="Annual subscription budget"
-              className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent accent-[var(--color-accent)]"
-            />
-          </div>
-          <div className="mt-2 flex justify-between font-mono text-[11px] tracking-wide text-subtle uppercase">
-            <span>XPulse · {formatUsd(XPULSE_YEAR_USD)}</span>
-            <span>Market high · {formatUsd(MARKET_MAX_USD)}</span>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-3">
-            <p className="text-[11px] text-subtle uppercase">XPulse year one</p>
-            <p className="mt-1 font-mono text-lg text-accent tabular-nums">
-              $10 lifetime · ~{formatUsd(XPULSE_YEAR_USD)}
-            </p>
-          </div>
-          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-3">
-            <p className="text-[11px] text-subtle uppercase">Your slider</p>
-            <p className="mt-1 font-mono text-lg text-fg tabular-nums">{formatUsd(annualSpend)} / yr</p>
-          </div>
-          <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-3">
-            <p className="text-[11px] text-subtle uppercase">Delta</p>
-            <p className="mt-1 font-mono text-lg text-signal tabular-nums">{formatUsd(savings)} saved</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="tap flex w-full items-center justify-between rounded-xl border border-line bg-surface/60 px-4 py-3 text-left text-sm hover:border-accent/40"
-          aria-expanded={open}
-        >
-          <span className="font-medium text-fg">{open ? "Hide full comparison table" : "Show full comparison table"}</span>
-          <span
-            className={`font-mono text-accent transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-            aria-hidden
-          >
-            ↓
-          </span>
-        </button>
-
-        <div
-          className="grid transition-[grid-template-rows] duration-300 ease-out"
-          style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
-        >
-          <div className="overflow-hidden">
-            <div className="mt-3 overflow-x-auto rounded-xl border border-line">
-              <table className="w-full min-w-[40rem] border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-line bg-surface/80 font-mono text-[11px] tracking-widest text-subtle uppercase">
-                    <th className="px-4 py-3 font-medium">Tool</th>
-                    <th className="px-4 py-3 font-medium">Billing</th>
-                    <th className="px-4 py-3 font-medium">Per month</th>
-                    <th className="px-4 py-3 font-medium">Year one</th>
-                    <th className="px-4 py-3 font-medium">Built for</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {PRICE_ROWS.map((row) => (
-                    <tr
-                      key={row.name}
-                      className={`border-b border-line/80 last:border-0 ${
-                        row.ours
-                          ? "bg-accent/10 shadow-[inset_3px_0_0_0_var(--color-accent)]"
-                          : "bg-bg/40"
-                      }`}
-                    >
-                      <td className="px-4 py-3.5">
-                        <span className={`font-medium ${row.ours ? "text-accent" : "text-fg"}`}>{row.name}</span>
-                        {row.ours ? (
-                          <span className="ml-2 rounded-full bg-accent/20 px-2 py-0.5 font-mono text-[10px] tracking-wider text-accent uppercase">
-                            You are here
-                          </span>
-                        ) : null}
-                      </td>
-                      <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.model}</td>
-                      <td className={`px-4 py-3.5 font-mono tabular-nums ${row.ours ? "text-fg" : "text-muted"}`}>
-                        {row.monthly}
-                      </td>
-                      <td
-                        className={`px-4 py-3.5 font-mono tabular-nums ${
-                          row.ours ? "text-accent font-semibold" : "text-muted"
-                        }`}
-                      >
-                        {row.yearly}
-                      </td>
-                      <td className={`px-4 py-3.5 ${row.ours ? "text-fg" : "text-muted"}`}>{row.focus}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className="mt-3 text-xs text-subtle">
-              Competitor figures are public list prices (approx.) and can change. XPulse is $10 lifetime, paid in SOL (live quote) or USDC on Solana.
-              SOL lifetime. USD display for the simulator is an estimate for comparison only.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-t border-line pt-3">
-      <dt className="font-mono text-xs tracking-wide text-subtle uppercase">{label}</dt>
-      <dd className="mt-1 font-mono text-lg text-fg tabular-nums">{value}</dd>
-    </div>
-  );
-}
-
-function CompareCard({
-  title,
-  post,
-}: {
-  title: string;
-  post: (typeof sampleModel.posts)[number];
-}) {
-  const ratio = readRatio(post.metrics);
-  return (
-    <article className="panel lift-card p-4">
-      <h3 className="text-sm text-muted">{title}</h3>
-      <p className="mt-3 font-mono text-3xl text-accent tabular-nums">{formatMaybe(post.metrics.detailExpands)}</p>
-      <p className="font-mono text-xs tracking-widest text-subtle uppercase">detail expands</p>
-      <dl className="mt-4 grid gap-2 text-sm">
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Engagement</dt>
-          <dd className="font-mono tabular-nums">{formatPct(engagementRate(post.metrics))}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Open rate</dt>
-          <dd className="font-mono tabular-nums">{ratio == null ? "—" : formatPct(ratio)}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-muted">Dwell</dt>
-          <dd className="font-mono tabular-nums">{formatDwell(post.metrics.dwellMs)}</dd>
-        </div>
-      </dl>
-    </article>
   );
 }

@@ -63,3 +63,63 @@ export function extractPostId(raw: string): string {
   if (article?.[1]) return article[1];
   return trimmed;
 }
+
+export function formatTokenPrice(n: number | null): string | null {
+  if (n == null || !Number.isFinite(n) || n < 0) return null;
+  if (n === 0) return "$0";
+  if (n >= 1) {
+    const digits = n >= 100 ? 2 : 4;
+    return `$${trimFixed(n.toFixed(digits))}`;
+  }
+  const exp = Math.floor(Math.log10(n));
+  const decimals = Math.min(12, Math.max(2, 3 - exp));
+  return `$${trimFixed(n.toFixed(decimals))}`;
+}
+
+function trimFixed(value: string): string {
+  if (!value.includes(".")) return value;
+  return value.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
+}
+
+function scaledUnit(value: number): { rounded: number; text: string } {
+  const rounded = value >= 100 ? Math.round(value) : Math.round(value * 10) / 10;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return { rounded, text };
+}
+
+/** Compact market-cap note for generated copy. Null means the value is unavailable. */
+export function formatMarketCapCompact(n: number | null): string | null {
+  if (n == null || !Number.isFinite(n) || n < 0) return null;
+  const tiers = [
+    { div: 1, suffix: "" },
+    { div: 1_000, suffix: "k" },
+    { div: 1_000_000, suffix: "M" },
+    { div: 1_000_000_000, suffix: "B" },
+    { div: 1_000_000_000_000, suffix: "T" },
+  ] as const;
+  let tier = 0;
+  if (n >= 1_000) tier = 1;
+  if (n >= 1_000_000) tier = 2;
+  if (n >= 1_000_000_000) tier = 3;
+  if (n >= 1_000_000_000_000) tier = 4;
+
+  let { div, suffix } = tiers[tier]!;
+  let scaled = scaledUnit(n / div);
+  if (scaled.rounded >= 1000 && tier < tiers.length - 1) {
+    tier += 1;
+    div = tiers[tier]!.div;
+    suffix = tiers[tier]!.suffix;
+    scaled = scaledUnit(n / div);
+  }
+  return `$${scaled.text}${suffix} mc`;
+}
+
+export function marketCapBand(
+  n: number | null,
+): "micro-cap" | "small-cap" | "mid-cap" | "large-cap" | null {
+  if (n == null || !Number.isFinite(n) || n <= 0) return null;
+  if (n < 10_000_000) return "micro-cap";
+  if (n < 100_000_000) return "small-cap";
+  if (n < 1_000_000_000) return "mid-cap";
+  return "large-cap";
+}

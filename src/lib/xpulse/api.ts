@@ -196,19 +196,6 @@ export const researchTokenIntel = createServerFn({ method: "POST" })
     return researchTokenByAddress(data.address);
   });
 
-export const loadViralIntel = createServerFn({ method: "POST" })
-  .validator((data: unknown) => {
-    const row = data as { identity?: { address?: string; symbol?: string; chain?: string } };
-    if (!row?.identity?.address || !row.identity.symbol) {
-      throw new Error("Token identity is required for viral intelligence.");
-    }
-    return data as import("./token-intel").TokenIntel;
-  })
-  .handler(async ({ data }) => {
-    const { runViralIntel } = await import("./viral-intel-run");
-    return runViralIntel(data);
-  });
-
 export const writeTokenContent = createServerFn({ method: "POST" })
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {

@@ -10,21 +10,31 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnalyzeRouteImport } from './routes/analyze'
+import { Route as CreateRouteImport } from './routes/create'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardRouteImport } from './routes/onboard'
 import { Route as PulseRouteImport } from './routes/pulse'
+import { Route as ResearchRouteImport } from './routes/research'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as TokensRouteImport } from './routes/tokens'
 import { Route as TokenAddressRouteImport } from './routes/token.$address'
-import { Route as ResearchRouteImport } from './routes/research'
-import { Route as CreateRouteImport } from './routes/create'
-import { Route as AnalyzeRouteImport } from './routes/analyze'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiXCallbackRouteImport } from './routes/api/x/callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyzeRoute = AnalyzeRouteImport.update({
+  id: '/analyze',
+  path: '/analyze',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateRoute = CreateRouteImport.update({
+  id: '/create',
+  path: '/create',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -42,6 +52,11 @@ const PulseRoute = PulseRouteImport.update({
   path: '/pulse',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResearchRoute = ResearchRouteImport.update({
+  id: '/research',
+  path: '/research',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudioRoute = StudioRouteImport.update({
   id: '/studio',
   path: '/studio',
@@ -57,21 +72,6 @@ const TokenAddressRoute = TokenAddressRouteImport.update({
   path: '/token/$address',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResearchRoute = ResearchRouteImport.update({
-  id: '/research',
-  path: '/research',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CreateRoute = CreateRouteImport.update({
-  id: '/create',
-  path: '/create',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyzeRoute = AnalyzeRouteImport.update({
-  id: '/analyze',
-  path: '/analyze',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -85,44 +85,44 @@ const ApiXCallbackRoute = ApiXCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analyze': typeof AnalyzeRoute
+  '/create': typeof CreateRoute
   '/login': typeof LoginRoute
   '/onboard': typeof OnboardRoute
   '/pulse': typeof PulseRoute
+  '/research': typeof ResearchRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
-  '/research': typeof ResearchRoute
-  '/create': typeof CreateRoute
-  '/analyze': typeof AnalyzeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/x/callback': typeof ApiXCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analyze': typeof AnalyzeRoute
+  '/create': typeof CreateRoute
   '/login': typeof LoginRoute
   '/onboard': typeof OnboardRoute
   '/pulse': typeof PulseRoute
+  '/research': typeof ResearchRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
-  '/research': typeof ResearchRoute
-  '/create': typeof CreateRoute
-  '/analyze': typeof AnalyzeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/x/callback': typeof ApiXCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analyze': typeof AnalyzeRoute
+  '/create': typeof CreateRoute
   '/login': typeof LoginRoute
   '/onboard': typeof OnboardRoute
   '/pulse': typeof PulseRoute
+  '/research': typeof ResearchRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
-  '/research': typeof ResearchRoute
-  '/create': typeof CreateRoute
-  '/analyze': typeof AnalyzeRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/x/callback': typeof ApiXCallbackRoute
 }
@@ -130,58 +130,58 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analyze'
+    | '/create'
     | '/login'
     | '/onboard'
     | '/pulse'
+    | '/research'
     | '/studio'
     | '/tokens'
     | '/token/$address'
-    | '/research'
-    | '/create'
-    | '/analyze'
     | '/api/auth/$'
     | '/api/x/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analyze'
+    | '/create'
     | '/login'
     | '/onboard'
     | '/pulse'
+    | '/research'
     | '/studio'
     | '/tokens'
     | '/token/$address'
-    | '/research'
-    | '/create'
-    | '/analyze'
     | '/api/auth/$'
     | '/api/x/callback'
   id:
     | '__root__'
     | '/'
+    | '/analyze'
+    | '/create'
     | '/login'
     | '/onboard'
     | '/pulse'
+    | '/research'
     | '/studio'
     | '/tokens'
     | '/token/$address'
-    | '/research'
-    | '/create'
-    | '/analyze'
     | '/api/auth/$'
     | '/api/x/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalyzeRoute: typeof AnalyzeRoute
+  CreateRoute: typeof CreateRoute
   LoginRoute: typeof LoginRoute
   OnboardRoute: typeof OnboardRoute
   PulseRoute: typeof PulseRoute
+  ResearchRoute: typeof ResearchRoute
   StudioRoute: typeof StudioRoute
   TokensRoute: typeof TokensRoute
   TokenAddressRoute: typeof TokenAddressRoute
-  ResearchRoute: typeof ResearchRoute
-  CreateRoute: typeof CreateRoute
-  AnalyzeRoute: typeof AnalyzeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiXCallbackRoute: typeof ApiXCallbackRoute
 }
@@ -193,6 +193,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analyze': {
+      id: '/analyze'
+      path: '/analyze'
+      fullPath: '/analyze'
+      preLoaderRoute: typeof AnalyzeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -216,6 +230,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PulseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/research': {
+      id: '/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof ResearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/studio': {
       id: '/studio'
       path: '/studio'
@@ -237,27 +258,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TokenAddressRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/research': {
-      id: '/research'
-      path: '/research'
-      fullPath: '/research'
-      preLoaderRoute: typeof ResearchRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/create': {
-      id: '/create'
-      path: '/create'
-      fullPath: '/create'
-      preLoaderRoute: typeof CreateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analyze': {
-      id: '/analyze'
-      path: '/analyze'
-      fullPath: '/analyze'
-      preLoaderRoute: typeof AnalyzeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -277,15 +277,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalyzeRoute: AnalyzeRoute,
+  CreateRoute: CreateRoute,
   LoginRoute: LoginRoute,
   OnboardRoute: OnboardRoute,
   PulseRoute: PulseRoute,
+  ResearchRoute: ResearchRoute,
   StudioRoute: StudioRoute,
   TokensRoute: TokensRoute,
   TokenAddressRoute: TokenAddressRoute,
-  ResearchRoute: ResearchRoute,
-  CreateRoute: CreateRoute,
-  AnalyzeRoute: AnalyzeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiXCallbackRoute: ApiXCallbackRoute,
 }

@@ -4,7 +4,7 @@ import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { researchTokenIntel, loadViralIntel, writeTokenContent } from "@/lib/xpulse/api";
+import { researchTokenIntel, writeTokenContent } from "@/lib/xpulse/api";
 import {
   attachXPatterns,
   buildTokenFactSet,
@@ -12,7 +12,6 @@ import {
   type TokenFactSet,
 } from "@/lib/xpulse/content-create";
 import { researchXContentIntel } from "@/lib/xpulse/x-content-intel";
-import type { ViralIntel } from "@/lib/xpulse/viral-intel";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import type { GeneratedContent } from "@/lib/xpulse/content-create";
 import {
@@ -310,8 +309,6 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
   const [factSet, setFactSet] = useState<TokenFactSet | null>(null);
   const [variant, setVariant] = useState(0);
   const [regenMode, setRegenMode] = useState<RegenMode>("default");
-  const [viral, setViral] = useState<ViralIntel | null>(null);
-  const [viralBusy, setViralBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -324,7 +321,6 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
     setError(null);
     setIntel(null);
     setContent(null);
-    setViral(null);
     setFactSet(null);
 
     async function load() {
@@ -344,18 +340,6 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
         setFactSet(buildTokenFactSet(row));
         setContent(null);
         setVariant(0);
-        setViral(null);
-        setViralBusy(true);
-        void loadViralIntel({ data: row })
-          .then((v) => {
-            if (!cancelled) setViral(v);
-          })
-          .catch(() => {
-            if (!cancelled) setViral(null);
-          })
-          .finally(() => {
-            if (!cancelled) setViralBusy(false);
-          });
       } catch (err: unknown) {
         if (!cancelled) {
           setError(
@@ -387,15 +371,6 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
       try {
         const xIntel = await researchXContentIntel(intel);
         const patternList = xIntel.patterns.map((p) => p.pattern);
-        if (viral?.topPosts.length) {
-          patternList.push(
-            `X trending/relevant sample returned ${viral.topPosts.length} posts.`,
-          );
-          const trending = viral.topPosts.filter((post) => post.signal === "trending").length;
-          if (trending > 0) {
-            patternList.push(`${trending} sampled X posts are marked trending by XPulse.`);
-          }
-        }
         facts = attachXPatterns(facts, patternList, xIntel.note);
       } catch {
         facts = attachXPatterns(facts, [], "X content sample unavailable.");
@@ -693,60 +668,9 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           </CollapsibleSection>
 
           <CollapsibleSection
-            kicker="Viral intelligence"
-            title="Trending / relevant posts"
+            kicker="Viral Intelligence"
+            title="Who is talking about this token on X"
             defaultOpen
-            badge={
-              <span className="rounded-md border border-accent/30 bg-accent/10 px-2 py-1 text-[10px] font-medium tracking-wide text-accent uppercase">
-                X only
-              </span>
-            }
-          >
-            {viralBusy && !viral ? (
-              <p className="text-sm text-muted">Loading X trending signals…</p>
-            ) : null}
-            {viral ? (
-              <>
-                <p className="text-xs text-subtle">{viral.note}</p>
-                {viral.topPosts.length === 0 ? (
-                  <p className="text-sm text-muted">
-                    No trending/relevant X posts are available right now.
-                  </p>
-                ) : (
-                  <ul className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0">
-                    {viral.topPosts.map((post) => (
-                      <li
-                        key={post.url}
-                        className="min-w-[260px] shrink-0 rounded-md border border-line bg-surface-2/40 p-3 lg:min-w-0"
-                      >
-                        <a href={post.url} target="_blank" rel="noreferrer" className="block">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs text-accent">X · {post.author}</p>
-                            <span className="text-[10px] tracking-wide text-subtle uppercase">
-                              {post.signal}
-                            </span>
-                          </div>
-                          <p className="mt-1 line-clamp-4 text-sm text-fg">{post.text}</p>
-                          <p className="mt-2 font-mono text-[11px] text-subtle">
-                            {post.likes != null ? `♥ ${post.likes.toLocaleString()}` : "♥ —"}
-                            {" · "}
-                            {post.views != null ? `👁 ${post.views.toLocaleString()}` : "👁 —"}
-                            {post.replies != null ? ` · 💬 ${post.replies.toLocaleString()}` : ""}
-                          </p>
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            ) : !viralBusy ? (
-              <p className="text-sm text-muted">Viral intelligence unavailable.</p>
-            ) : null}
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            kicker="X mentions & notable accounts"
-            title="Public social signals"
             badge={
               <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
                 {intel.mentions.availability === "unavailable"
@@ -757,7 +681,9 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
               </span>
             }
           >
-            <p className="text-sm text-muted">{intel.mentions.note}</p>
+            {intel.mentions.availability === "available" ? (
+              <p className="text-sm text-muted">{intel.mentions.note}</p>
+            ) : null}
             {intel.mentions.availability === "unavailable" ? (
               <p className="rounded-md border border-dashed border-line px-4 py-6 text-sm text-muted">
                 Public X signals are temporarily unavailable.

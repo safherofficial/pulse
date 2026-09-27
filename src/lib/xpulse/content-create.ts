@@ -4,9 +4,10 @@
  * Regeneration changes voice and structure — never invents market facts.
  */
 
-import { rewritePost } from "./rewrite";
-import { scoreContent, type ContentKind, type ContentScoreReport } from "./content-score";
-import type { TokenIntel } from "./token-intel";
+import { rewritePost } from "./rewrite.ts";
+import { scoreContent, type ContentKind, type ContentScoreReport } from "./content-score.ts";
+import { formatMarketCapCompact, formatTokenPrice, marketCapBand } from "./format.ts";
+import type { TokenIntel } from "./token-intel.ts";
 
 export type ContentAngle = {
   id: string;
@@ -75,13 +76,6 @@ export function suggestAngles(topic: string): ContentAngle[] {
   return ranked;
 }
 
-function formatPrice(n: number | null): string {
-  if (n == null) return "unavailable";
-  if (n >= 1) return `$${n.toLocaleString(undefined, { maximumFractionDigits: 4 })}`;
-  if (n >= 0.0001) return `$${n.toFixed(6)}`;
-  return `$${n.toExponential(2)}`;
-}
-
 function formatUsd(n: number | null): string {
   if (n == null) return "unavailable";
   if (n >= 1_000_000_000) return `$${(n / 1_000_000_000).toFixed(2)}B`;
@@ -95,11 +89,11 @@ export function tokenBrief(intel: TokenIntel): string {
   const lines = [
     `${identity.name} (${identity.symbol}) · ${identity.chain}`,
     `CA: ${identity.address}`,
-    `Price: ${formatPrice(market.priceUsd)}`,
+    `Price: ${formatTokenPrice(market.priceUsd) ?? "unavailable"}`,
     `24h change: ${market.priceChange24h != null ? `${market.priceChange24h.toFixed(1)}%` : "unavailable"}`,
     `Liquidity: ${formatUsd(market.liquidityUsd)}`,
     `24h volume: ${formatUsd(market.volume24h)}`,
-    `Market cap: ${formatUsd(market.marketCap)}`,
+    `Market cap: ${formatMarketCapCompact(market.marketCap) ?? "unavailable"}`,
     `FDV: ${formatUsd(market.fdv)}`,
     "",
     analysis.snapshot,
@@ -312,13 +306,14 @@ export function buildTokenFactSet(intel: TokenIntel): TokenFactSet {
       metrics.push({ key, value });
     }
   };
-  push("price", formatPrice(market.priceUsd));
+  push("price", formatTokenPrice(market.priceUsd));
   if (market.priceChange1h != null) push("change_1h", `${market.priceChange1h.toFixed(1)}%`);
   if (market.priceChange6h != null) push("change_6h", `${market.priceChange6h.toFixed(1)}%`);
   if (market.priceChange24h != null) push("change_24h", `${market.priceChange24h.toFixed(1)}%`);
   push("liquidity", formatUsd(market.liquidityUsd));
   push("volume_24h", formatUsd(market.volume24h));
-  push("market_cap", formatUsd(market.marketCap));
+  push("market_cap", formatMarketCapCompact(market.marketCap));
+  push("cap_band", marketCapBand(market.marketCap));
   push("fdv", formatUsd(market.fdv));
   if (market.buys24h != null || market.sells24h != null) {
     push("trades_24h", `${market.buys24h ?? "—"} buys / ${market.sells24h ?? "—"} sells`);
@@ -450,6 +445,7 @@ type Tape = {
   fdv: string | null;
   trades: string | null;
   dex: string | null;
+  band: string | null;
   bullish: boolean;
   red: boolean;
   hot: boolean;
@@ -475,6 +471,7 @@ function readTape(facts: TokenFactSet): Tape {
     fdv: metric(facts, "fdv"),
     trades: metric(facts, "trades_24h"),
     dex: metric(facts, "dex"),
+    band: metric(facts, "cap_band"),
     bullish: ch24n != null && ch24n >= 5,
     red: ch24n != null && ch24n <= -5,
     hot: ch24n != null && Math.abs(ch24n) >= 15,
@@ -573,12 +570,49 @@ function flowLine(t: Tape): string | null {
 
 function structureLine(t: Tape): string | null {
   const bits: string[] = [];
-  if (t.price) bits.push(`spot ${t.price}`);
-  if (t.mcap) bits.push(`mcap ${t.mcap}`);
   if (t.liq) bits.push(`liq ${t.liq}`);
+  if (t.vol) bits.push(`vol ${t.vol}`);
   if (t.fdv && t.fdv !== t.mcap) bits.push(`fdv ${t.fdv}`);
   if (!bits.length) return null;
   return bits.join(" · ");
+}
+
+function scaleNote(band: string | null): string {
+  if (band === "micro-cap") return " Still a micro-cap.";
+  if (band === "small-cap") return " Small-cap range.";
+  if (band === "mid-cap") return " Mid-cap size.";
+  if (band === "large-cap") return " Large-cap size.";
+  return "";
+}
+
+function marketLine(rng: Rng, t: Tape): string | null {
+  const scale = scaleNote(t.band);
+  if (t.price && t.mcap) {
+    return pick(rng, [
+      `${t.ticker} is sitting around ${t.price} at a ~${t.mcap}.${scale}`,
+      `At roughly ${t.mcap}, ${t.ticker} prints ${t.price}.${scale}`,
+      `${t.price} price, ~${t.mcap}.${scale}`,
+      `${t.mcap}. That's the interesting part. Spot is ${t.price}.`,
+    ]).replace(/[ \t]{2,}/g, " ").replace(/\s+\./g, ".").trim();
+  }
+  if (t.mcap) return `${t.mcap}.`;
+  if (t.price) return `Last price is ${t.price}.`;
+  return null;
+}
+
+export function ensureLockedMarket(text: string, facts: TokenFactSet): string {
+  const price = metric(facts, "price");
+  const mcap = metric(facts, "market_cap");
+  const out = text.trim();
+  const hasPrice = !price || out.includes(price);
+  const hasMcap = !mcap || out.includes(mcap);
+  if (hasPrice && hasMcap) return out;
+  if (price && mcap && !out.includes(price) && !out.includes(mcap)) {
+    return `${out}\n\n${price} price, ~${mcap}.`.trim();
+  }
+  if (mcap && !out.includes(mcap)) return `${out}\n\nAt roughly ${mcap}.`.trim();
+  if (price && !out.includes(price)) return `${out}\n\nSpot is ${price}.`.trim();
+  return out;
 }
 
 function whyNow(rng: Rng, t: Tape, facts: TokenFactSet): string {
@@ -635,10 +669,8 @@ function hook(rng: Rng, voice: Voice, t: Tape, facts: TokenFactSet): string {
       ]);
     case "tape":
       return pick(rng, [
-        [t.ticker, move, t.price ? `@ ${t.price}` : null, t.vol ? `vol ${t.vol}` : null]
-          .filter(Boolean)
-          .join(" · "),
-        `${t.ticker} tape: ${[move, t.liq ? `liq ${t.liq}` : null, t.vol ? `vol ${t.vol}` : null].filter(Boolean).join(" · ")}`,
+        [t.ticker, move, t.vol ? `vol ${t.vol}` : null].filter(Boolean).join(" · "),
+        `${t.ticker} tape${move ? `: ${move}` : ""}.`,
       ]);
     case "whisper":
       return pick(rng, [
@@ -678,7 +710,7 @@ function hook(rng: Rng, voice: Voice, t: Tape, facts: TokenFactSet): string {
       ]);
     default:
       return pick(rng, [
-        move ? `${t.ticker} prints ${move} over 24h${t.price ? ` at ${t.price}` : ""}.` : `${nameHit} — live on ${t.chain}.`,
+        move ? `${t.ticker} prints ${move} over 24h.` : `${nameHit} — live on ${t.chain}.`,
         t.vol && move ? `${t.ticker}: ${move} with ${t.vol} through the book.` : `${nameHit} is on the tape.`,
         facts.story ?? `${t.ticker} is the name. ${t.chain} is the market.`,
       ]);
@@ -719,9 +751,7 @@ function body(rng: Rng, voice: Voice, t: Tape, facts: TokenFactSet): string[] {
         t.liq && t.vol
           ? `That move is sitting on ${t.liq} liquidity with ${t.vol} through the day. That is a market, not a caption.`
           : `The name is ${t.name}. The chain is ${t.chain}. The contract is below.`,
-        t.mcap
-          ? `Market cap ${t.mcap}${t.liq ? `, pool ${t.liq}` : ""}. This is the frame — not a promise.`
-          : why,
+        why,
       ]),
     );
     if (t.trades) lines.push(`Order flow: ${t.trades}. That's people, not a render.`);
@@ -735,7 +765,7 @@ function body(rng: Rng, voice: Voice, t: Tape, facts: TokenFactSet): string[] {
     lines.push(
       pick(rng, [
         `Start with the name: ${t.name}. Then look at what the pair actually did.`,
-        `${t.ticker} is not a vibe. It is a book with a last price${t.price ? ` of ${t.price}` : ""}.`,
+        `${t.ticker} is not a vibe. It is a book on ${t.chain}.`,
       ]),
     );
     if (move) lines.push(move);
@@ -809,8 +839,10 @@ function writeBullPost(facts: TokenFactSet, mode: RegenMode, variant: number): {
   const rng = mulberry32(variant * 9973 + 13 + hashStr(facts.identity.address + facts.builtAt));
   const voice = pick(rng, voicesFor(mode));
   const t = readTape(facts);
+  const snap = marketLine(rng, t);
   const parts = [
     hook(rng, voice, t, facts),
+    snap,
     ...body(rng, voice, t, facts).filter(Boolean),
     close(rng, voice, t),
     caLine(rng, t),
@@ -818,7 +850,7 @@ function writeBullPost(facts: TokenFactSet, mode: RegenMode, variant: number): {
   ];
   let text = parts.filter(Boolean).join("\n\n");
   if (mode === "more_concise") {
-    text = [hook(rng, "tape", t, facts), structureLine(t), caLine(rng, t), disclaimer(rng, t)]
+    text = [hook(rng, "tape", t, facts), snap, caLine(rng, t), disclaimer(rng, t)]
       .filter(Boolean)
       .join("\n\n");
   }
@@ -829,8 +861,10 @@ function writeBullThread(facts: TokenFactSet, mode: RegenMode, variant: number):
   const rng = mulberry32(variant * 4999 + 101 + hashStr(facts.identity.symbol));
   const voice = pick(rng, voicesFor(mode));
   const t = readTape(facts);
+  const snap = marketLine(rng, t);
   const beats = [
     hook(rng, voice, t, facts),
+    snap ?? `${t.name} is live on ${t.chain}.`,
     moveLine(t) ?? `${t.name} is live on ${t.chain}.`,
     flowLine(t) ?? structureLine(t) ?? `${t.ticker} — structure still forming.`,
     whyNow(rng, t, facts),
@@ -846,6 +880,7 @@ function writeBullArticle(facts: TokenFactSet, mode: RegenMode, variant: number)
   const rng = mulberry32(variant * 3343 + 7 + hashStr(facts.identity.name));
   const voice = pick(rng, voicesFor(mode === "default" ? "more_professional" : mode));
   const t = readTape(facts);
+  const snap = marketLine(rng, t);
   const title = pick(rng, [
     `${t.ticker} on ${t.chain}: a market note, not a myth`,
     `How to read ${t.name} from the pair up`,
@@ -860,7 +895,7 @@ function writeBullArticle(facts: TokenFactSet, mode: RegenMode, variant: number)
     `${t.name} (${t.ticker}) trades on ${t.chain}${t.dex ? ` through ${t.dex}` : ""}. Identity is the contract, not the avatar.`,
     "",
     "What the pair shows",
-    [structureLine(t), moveLine(t), flowLine(t)].filter(Boolean).join("\n"),
+    [snap, structureLine(t), moveLine(t), flowLine(t)].filter(Boolean).join("\n"),
     "",
     "How to read it",
     whyNow(rng, t, facts),
@@ -890,11 +925,12 @@ export function generateFromFactSet(
         ? writeBullArticle(facts, mode, variant)
         : writeBullPost(facts, mode, variant);
 
-  const score = scoreContent(written.text, kind);
+  const text = ensureLockedMarket(written.text, facts);
+  const score = scoreContent(text, kind);
   return {
     kind,
     angle: angleForVoice(written.voice),
-    text: written.text,
+    text,
     score,
     applied: [
       `Copy voice: ${written.voice}`,

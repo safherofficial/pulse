@@ -3,7 +3,7 @@
  * Does not promise impressions. Scores structural + craft potential.
  */
 
-import { writingSignals } from "./metrics";
+import { writingSignals } from "./metrics.ts";
 import type { WritingSignals } from "./types";
 
 export type ContentKind = "post" | "thread" | "article";

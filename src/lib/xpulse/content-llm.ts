@@ -7,11 +7,12 @@
 import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind } from "./content-score";
 import {
+  ensureLockedMarket,
   generateFromFactSet,
   type GeneratedContent,
   type RegenMode,
   type TokenFactSet,
-} from "./content-create";
+} from "./content-create.ts";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -148,6 +149,7 @@ function systemPrompt(kind: ContentKind, mode: RegenMode): string {
     shape,
     tone,
     "Use ONLY facts supplied in the user message. Never invent price, %, volume, liquidity, mcap, partners, audits, or listings.",
+    "If price or market_cap is present, weave those exact strings once in a sentence. Do not reformat them and do not invent a different market cap.",
     "If a field is missing, skip it. Do not write unavailable, N/A, or placeholder text.",
     "Do not dump labels like price: volume: liquidity:. Weave numbers into sentences.",
     "Banned: 100x, guaranteed, to the moon, ape in, can't miss, risk-free, mockup, lorem, TODO, sample data.",
@@ -194,7 +196,7 @@ function sanitize(text: string, facts: TokenFactSet): string {
   if (!/not financial advice|nfa\b/i.test(out)) {
     out = `${out}\n\nNFA. Read the pair yourself.`;
   }
-  return out;
+  return ensureLockedMarket(out, facts);
 }
 
 async function polish(text: string): Promise<string> {

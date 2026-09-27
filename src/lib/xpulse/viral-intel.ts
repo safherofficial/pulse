@@ -1,30 +1,8 @@
-/** Viral Intelligence: X-only trending and relevant post intelligence. */
-export type PlatformId = "x";
-export type PostSignal = "trending" | "relevant";
-
-export type ViralPost = {
-  platform: "x";
-  author: string;
-  text: string;
-  url: string;
-  likes: number | null;
-  views: number | null;
-  replies: number | null;
-  createdAt: string | null;
-  score: number | null;
-  signal: PostSignal;
-};
-
-export type ViralIntel = {
-  query: string;
-  source: "x";
-  topPosts: ViralPost[];
-  updatedAt: string;
-  note: string;
-};
-
-const cache = new Map<string, { at: number; data: ViralIntel }>();
-
+/**
+ * Token mention matching used by the public X mentions pipeline.
+ * Viral Intelligence on the token page is that X-only mention list —
+ * not a trending feed and not a cross-platform aggregator.
+ */
 export function isTokenMention(
   text: string,
   symbol: string,
@@ -53,19 +31,4 @@ export function isTokenMention(
   }
 
   return false;
-}
-
-export function cacheViralIntel(key: string, data: ViralIntel): ViralIntel {
-  cache.set(key, { at: Date.now(), data });
-  return data;
-}
-
-export function getCachedViralIntel(key: string): ViralIntel | null {
-  const hit = cache.get(key);
-  if (!hit || Date.now() - hit.at >= 5 * 60_000) return null;
-  return hit.data;
-}
-
-export function clearViralIntelCache() {
-  cache.clear();
 }
