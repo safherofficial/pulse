@@ -3,12 +3,10 @@ import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
-import { researchTokenIntel, loadViralIntel } from "@/lib/xpulse/api";
+import { researchTokenIntel, loadViralIntel, writeTokenContent } from "@/lib/xpulse/api";
 import {
   attachXPatterns,
   buildTokenFactSet,
-  generateFromFactSet,
-  regenerateFromFactSet,
   type RegenMode,
   type TokenFactSet,
 } from "@/lib/xpulse/content-create";
@@ -62,7 +60,6 @@ function formatPct(n: number | null) {
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
 }
 
-/** Human-readable market cap with full and short forms. */
 function formatMcap(n: number | null): { short: string; full: string } {
   if (n == null) return { short: "—", full: "Data unavailable" };
   const full = n.toLocaleString(undefined, {
@@ -95,14 +92,17 @@ function TokensPage() {
   const navigate = useNavigate();
   const { ca } = Route.useSearch();
 
-  // Detail mode when ?ca= is present
   if (ca) {
     return <TokenDetailView address={ca} />;
   }
 
-  return <TokenListView onOpen={(address) => {
-    void navigate({ to: "/tokens", search: { ca: address } });
-  }} />;
+  return (
+    <TokenListView
+      onOpen={(address) => {
+        void navigate({ to: "/tokens", search: { ca: address } });
+      }}
+    />
+  );
 }
 
 function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
@@ -382,7 +382,6 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
   async function createContent(kind: ContentKind) {
     if (!intel) return;
     let facts = factSet ?? buildTokenFactSet(intel);
-    // X research once per fact set — regenerations reuse it
     if (!facts.xPatterns.length && facts.xNote == null) {
       try {
         const xIntel = await researchXContentIntel(intel);
@@ -402,16 +401,21 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
       }
     }
     setFactSet(facts);
-    const next = generateFromFactSet(facts, kind, regenMode, variant);
+    const next = await writeTokenContent({
+      data: { facts, kind, mode: regenMode, variant },
+    });
     setContent(next);
     setVariant((v) => v + 1);
   }
 
-  function regenerate() {
+  async function regenerate() {
     if (!content || !factSet) return;
-    const next = regenerateFromFactSet(factSet, content.kind, regenMode, variant);
+    const jump = variant + 5 + Math.floor(Math.random() * 47);
+    const next = await writeTokenContent({
+      data: { facts: factSet, kind: content.kind, mode: regenMode, variant: jump },
+    });
     setContent(next);
-    setVariant((v) => v + 1);
+    setVariant(jump + 1);
   }
 
   return (
@@ -467,7 +471,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                   <span className="text-muted">({intel.identity.symbol})</span>
                 </h2>
                 <p className="mt-1 text-sm text-accent">{chainLabel(intel.identity.chain)}</p>
-                <p className="mt-1 font-mono text-xs text-subtle break-all">
+                <p className="mt-1 break-all font-mono text-xs text-subtle">
                   {intel.identity.address}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -586,7 +590,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             </div>
           </section>
 
-          <section className="panel space-y-3 p-4 sm:p-5 animate-in">
+          <section className="panel animate-in space-y-3 p-4 sm:p-5">
             <p className="kicker">DEX Paid check</p>
             <h2 className="text-xl">Same public signal as CheckDEX</h2>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -618,17 +622,13 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 <p className="mt-1 text-lg font-medium text-fg">
                   {intel.market.boostActive != null ? intel.market.boostActive : "—"}
                 </p>
-                <p className="mt-1 text-xs text-muted">
-                  Live boost count when exposed on the pair.
-                </p>
+                <p className="mt-1 text-xs text-muted">Live boost count when exposed on the pair.</p>
               </div>
             </div>
             <p className="text-sm text-muted">
               {intel.market.paidListingDetail ?? "Paid-listing detail unavailable."}
             </p>
-            <p className="text-xs text-subtle">
-              Marketing signal only — not a quality or safety rating.
-            </p>
+            <p className="text-xs text-subtle">Marketing signal only — not a quality or safety rating.</p>
           </section>
 
           <section className="panel space-y-3 p-4 sm:p-5">
@@ -670,8 +670,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             </div>
           </section>
 
-          
-          <section className="panel space-y-4 p-4 sm:p-5 animate-in">
+          <section className="panel animate-in space-y-4 p-4 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="kicker">Viral intelligence</p>
@@ -698,17 +697,10 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                         key={post.url}
                         className="min-w-[260px] shrink-0 rounded-md border border-line bg-surface-2/40 p-3 lg:min-w-0"
                       >
-                        <a
-                          href={post.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block"
-                        >
+                        <a href={post.url} target="_blank" rel="noreferrer" className="block">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-xs text-accent">
-                              X · {post.author}
-                            </p>
-                            <span className="text-[10px] uppercase tracking-wide text-subtle">
+                            <p className="text-xs text-accent">X · {post.author}</p>
+                            <span className="text-[10px] tracking-wide text-subtle uppercase">
                               {post.signal}
                             </span>
                           </div>
@@ -716,12 +708,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                           <p className="mt-2 font-mono text-[11px] text-subtle">
                             {post.likes != null ? `♥ ${post.likes.toLocaleString()}` : "♥ —"}
                             {" · "}
-                            {post.views != null
-                              ? `👁 ${post.views.toLocaleString()}`
-                              : "👁 —"}
-                            {post.replies != null
-                              ? ` · 💬 ${post.replies.toLocaleString()}`
-                              : ""}
+                            {post.views != null ? `👁 ${post.views.toLocaleString()}` : "👁 —"}
+                            {post.replies != null ? ` · 💬 ${post.replies.toLocaleString()}` : ""}
                           </p>
                         </a>
                       </li>
@@ -762,7 +750,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                       <span className="text-sm text-fg">
                         {m.author} <span className="text-muted">@{m.handle}</span>
                       </span>
-                      <span className="rounded-full bg-line px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide text-subtle">
+                      <span className="rounded-full bg-line px-2 py-0.5 font-mono text-[10px] tracking-wide text-subtle uppercase">
                         {kindLabel(m.kind)}
                       </span>
                     </div>
@@ -781,11 +769,11 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             )}
           </section>
 
-          <section className="panel space-y-3 p-4 sm:p-5 animate-in">
+          <section className="panel animate-in space-y-3 p-4 sm:p-5">
             <p className="kicker">Create content from this research</p>
             <p className="text-sm text-muted">
-              Facts are locked from the research above. Regeneration rewrites structure and
-              language only — numbers stay the same.
+              Facts are locked from the research above. Regeneration rewrites structure and language
+              only — numbers stay the same.
             </p>
             <div className="flex flex-wrap gap-2">
               {(
@@ -823,7 +811,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 </Button>
               ))}
               {content ? (
-                <Button type="button" onClick={regenerate}>
+                <Button type="button" onClick={() => void regenerate()}>
                   Regenerate (unlimited)
                 </Button>
               ) : null}
@@ -831,7 +819,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           </section>
 
           {content ? (
-            <section className="space-y-4 animate-in">
+            <section className="animate-in space-y-4">
               <div className="panel p-4 sm:p-5">
                 <p className="kicker">
                   {content.kind} · {content.angle.label} · {regenMode}
@@ -847,7 +835,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                   >
                     Copy
                   </Button>
-                  <Button type="button" variant="quiet" onClick={regenerate}>
+                  <Button type="button" variant="quiet" onClick={() => void regenerate()}>
                     Regenerate
                   </Button>
                 </div>
@@ -926,10 +914,7 @@ function PriceChartPanel({
     };
   }, [pairAddress, tf]);
 
-  const series =
-    candles.length >= 2
-      ? candles.map((c) => ({ t: c.t, close: c.close }))
-      : fallback;
+  const series = candles.length >= 2 ? candles.map((c) => ({ t: c.t, close: c.close })) : fallback;
 
   return (
     <div className="animate-in">
@@ -943,7 +928,7 @@ function PriceChartPanel({
               onClick={() => setTf(x.id)}
               className={`h-8 rounded-md px-2.5 font-mono text-xs transition ${
                 tf === x.id
-                  ? "bg-accent/20 text-accent border border-accent/40"
+                  ? "border border-accent/40 bg-accent/20 text-accent"
                   : "border border-line text-muted hover:text-fg"
               }`}
             >
@@ -952,9 +937,7 @@ function PriceChartPanel({
           ))}
         </div>
       </div>
-      {busy ? (
-        <p className="mt-3 text-sm text-muted">Loading {tf} candles…</p>
-      ) : null}
+      {busy ? <p className="mt-3 text-sm text-muted">Loading {tf} candles…</p> : null}
       {note ? <p className="mt-2 text-xs text-subtle">{note}</p> : null}
       <PriceLine series={series} />
     </div>
@@ -981,7 +964,11 @@ function PriceLine({ series }: { series: Array<{ t: number; close: number }> }) 
   const up = series[series.length - 1]!.close >= series[0]!.close;
   return (
     <div className="mt-3 overflow-hidden rounded-md border border-line bg-surface-2/30 p-2 transition-opacity duration-300">
-      <svg viewBox={`0 0 ${w} ${h}`} className={`h-40 w-full ${up ? "text-signal" : "text-danger"}`} aria-hidden>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        className={`h-40 w-full ${up ? "text-signal" : "text-danger"}`}
+        aria-hidden
+      >
         <path d={d} fill="none" stroke="currentColor" strokeWidth="2.5" />
       </svg>
       <div className="mt-1 flex justify-between font-mono text-[10px] text-subtle">
