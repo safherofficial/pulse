@@ -310,9 +310,9 @@ export async function improveDraftCopy(text: string, kind: ContentKind): Promise
 }
 
 export async function threadifyDraftCopy(text: string): Promise<ImproveResult> {
-  const before = scoreContent(text, "post");
-  const live = await writeWithLlm(
-    [
+  const { buildPublishThread } = await import("./thread-builder");
+  return buildPublishThread(text);
+}
       "Turn the draft into a publish-ready X thread.",
       "5 to 7 tweets, numbered 1/ 2/ 3/.",
       "Tweet 1 is the hook. Middle tweets each carry one proof or turn. Last tweet is the close or question.",
