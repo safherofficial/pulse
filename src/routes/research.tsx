@@ -34,7 +34,7 @@ function ResearchPage() {
           ? snap.web3Bias.slice(0, 6).map((w) => `• ${w}`)
           : ["• No strong web3 bias in the current snapshot"]),
         "",
-        "Next: open Create with your notes, or research a Solana token if the topic is market-related.",
+        "Next: open Analyze with a draft, or research a Solana token if the topic is market-related.",
         "",
         "Fact discipline: separate verified data from claims. Do not invent numbers, partnerships, or quotes.",
       ];
@@ -42,7 +42,7 @@ function ResearchPage() {
     } catch {
       setNotes([
         "Some live signals are temporarily unavailable.",
-        "You can still outline angles and draft in Create.",
+        "You can still outline angles and improve a draft in Analyze.",
       ]);
     } finally {
       setBusy(false);
@@ -72,10 +72,10 @@ function ResearchPage() {
             Search Solana token
           </Link>
           <Link
-            to="/create"
+            to="/analyze"
             className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
           >
-            Create content
+            Improve a draft
           </Link>
         </div>
       </section>
@@ -105,7 +105,7 @@ function ResearchPage() {
           <li>Frame the topic in one sentence.</li>
           <li>Pull live market / builder context when relevant.</li>
           <li>Separate facts from claims before writing.</li>
-          <li>Pick an angle, then generate in Create.</li>
+          <li>Pick an angle, then improve the draft in Analyze.</li>
           <li>Score, improve, publish only what you can stand behind.</li>
         </ol>
       </section>
