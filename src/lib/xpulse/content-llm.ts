@@ -17,6 +17,24 @@ import {
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
+async function composeGenerated(text: string, kind: ContentKind, facts: TokenFactSet): Promise<string> {
+  try {
+    const { loadActiveContentLogic } = await import("./optimize/store.ts");
+    const { optimizeContent } = await import("./optimize/compose.ts");
+    const logic = await loadActiveContentLogic();
+    const required = [facts.market.headline, facts.market.rugLine].filter((line): line is string => Boolean(line));
+    return optimizeContent({
+      text,
+      kind,
+      mode: "GENERATE",
+      logic,
+      requiredPhrases: required,
+    }).text;
+  } catch {
+    return text;
+  }
+}
+
 type Provider = {
   id: string;
   url: string;
@@ -250,7 +268,7 @@ export async function writeTokenCopy(
       applied.push(`${provider.id}: skip`);
       continue;
     }
-    const cleaned = sanitize(await polish(raw), facts);
+    const cleaned = await composeGenerated(sanitize(await polish(raw), facts), kind, facts);
     const score = scoreContent(cleaned, kind);
     applied.push(`Writer: ${provider.id}`, `Variant: ${variant}`, `Mode: ${mode}`);
     return {
@@ -268,8 +286,10 @@ export async function writeTokenCopy(
   }
 
   const fallback = generateFromFactSet(facts, kind, mode, variant);
+  const text = await composeGenerated(fallback.text, kind, facts);
   return {
     ...fallback,
+    text,
     applied: [...fallback.applied, "Fallback: local copywriter (LLM providers unavailable)"],
   };
 }

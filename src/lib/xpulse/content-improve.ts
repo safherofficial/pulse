@@ -7,6 +7,10 @@
 import { checkLanguageTool, expandVagueVocabulary } from "./public-apis";
 import { scoreContent, type ContentKind, type ContentScoreReport } from "./content-score";
 import type { GeneratedContent } from "./content-create";
+import { baselineContent } from "./optimize/baseline.ts";
+import { optimizeContent, type CompositionResult } from "./optimize/compose.ts";
+import { preservesAuthorFacts } from "./optimize/benchmarks.ts";
+import type { ContentLogicVersion } from "./optimize/types.ts";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -170,82 +174,6 @@ async function polish(text: string): Promise<{ text: string; notes: string[] }> 
   return { text: stripFence(next), notes };
 }
 
-function packThread(source: string): string {
-  const raw = source
-    .replace(/^(hook|context|insight|summary|implication)\s*:\s*/gim, "")
-    .trim();
-  const pieces = raw
-    .split(/\n+/)
-    .flatMap((p) => p.split(/(?<=[.!?])\s+/))
-    .map((p) => p.trim())
-    .filter((p) => p.length > 1 && !/^[-•*]\s*$/.test(p));
-
-  const tweets: string[] = [];
-  let buf = "";
-  const push = () => {
-    const t = buf.trim();
-    if (t) tweets.push(t);
-    buf = "";
-  };
-  for (const piece of pieces) {
-    const candidate = buf ? `${buf} ${piece}` : piece;
-    if (candidate.length <= 240) {
-      buf = candidate;
-      continue;
-    }
-    if (buf) push();
-    if (piece.length <= 270) {
-      buf = piece;
-    } else {
-      const cut = piece.slice(0, 250);
-      const at = Math.max(cut.lastIndexOf(" "), 180);
-      tweets.push(cut.slice(0, at).trim());
-      buf = piece.slice(at).trim();
-    }
-  }
-  push();
-
-  while (tweets.length > 8) {
-    const last = tweets.pop()!;
-    const prev = tweets[tweets.length - 1]!;
-    if ((prev + " " + last).length <= 270) tweets[tweets.length - 1] = `${prev} ${last}`;
-    else tweets.push(last.slice(0, 260));
-  }
-  if (tweets.length < 3 && raw.length > 80) {
-    const mid = Math.ceil(pieces.length / 3) || 1;
-    const rebuilt = [
-      pieces.slice(0, mid).join(" "),
-      pieces.slice(mid, mid * 2).join(" "),
-      pieces.slice(mid * 2).join(" "),
-    ].filter(Boolean);
-    return packThread(rebuilt.join("\n"));
-  }
-
-  const n = Math.max(tweets.length, 1);
-  if (tweets.length && !/[?]$/.test(tweets[tweets.length - 1]!)) {
-    tweets[tweets.length - 1] = `${tweets[tweets.length - 1]} What's your read?`;
-    if (tweets[tweets.length - 1]!.length > 280) {
-      tweets[tweets.length - 1] = tweets[tweets.length - 1]!.replace(/\s+What's your read\?$/, "");
-    }
-  }
-  return tweets.map((t, i) => `${i + 1}/ ${t.replace(/^\d+\s*[/.)-]\s*/, "")}`).join("\n\n");
-}
-
-function localImprove(text: string, kind: ContentKind): string {
-  const lines = text
-    .split(/\n+/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  if (!lines.length) return text;
-  const hook = lines.reduce((a, b) => (b.length < a.length && b.length >= 24 ? b : a), lines[0]!);
-  const rest = lines.filter((l) => l !== hook);
-  const body = [hook.replace(/^(hook|context):\s*/i, ""), ...rest]
-    .join(kind === "post" ? "\n\n" : "\n\n")
-    .replace(/\b(it's important to note that|in today's rapidly evolving)\b/gi, "")
-    .trim();
-  return kind === "thread" ? packThread(body) : body;
-}
-
 async function writeWithLlm(system: string, user: string): Promise<{ text: string; source: string } | null> {
   const messages: ChatMessage[] = [
     { role: "system", content: system },
@@ -258,8 +186,41 @@ async function writeWithLlm(system: string, user: string): Promise<{ text: strin
   return null;
 }
 
-export async function improveDraftCopy(text: string, kind: ContentKind): Promise<ImproveResult> {
-  const before = scoreContent(text, kind);
+async function loadLogic(): Promise<ContentLogicVersion> {
+  try {
+    const { loadActiveContentLogic } = await import("./optimize/store.ts");
+    return await loadActiveContentLogic();
+  } catch {
+    return baselineContent();
+  }
+}
+
+function fromComposition(result: CompositionResult, source: string): ImproveResult {
+  return {
+    kind: result.kind,
+    angle: {
+      id: "why",
+      label: "Score improve",
+      focus: "Raise weak dimensions without new facts.",
+      why: "A higher score only counts when scoreContent measures it.",
+    },
+    text: result.text,
+    score: result.after,
+    before: result.before,
+    after: result.after,
+    source,
+    applied: [
+      `Score ${result.originalScore} → ${result.optimizedScore}`,
+      result.keptOriginal ? "Original kept" : `Rules: ${result.appliedRuleIds.join(", ") || "mode"}`,
+      ...result.dimensionDeltas.map((delta) => `${delta.label} ${delta.delta > 0 ? "+" : ""}${delta.delta}`),
+      ...result.notes.slice(0, 4),
+    ],
+  };
+}
+  export async function improveDraftCopy(text: string, kind: ContentKind): Promise<ImproveResult> {
+  const logic = await loadLogic();
+  const local = optimizeContent({ text, kind, mode: "SCORE_IMPROVE", logic });
+  const before = local.before;
   const weak = before.dimensions
     .filter((d) => d.score < 72)
     .sort((a, b) => a.score - b.score)
@@ -275,67 +236,69 @@ export async function improveDraftCopy(text: string, kind: ContentKind): Promise
           ? "Output a tight long-form note with a title and short sections."
           : "Output one X post. Short lines. Strong first sentence.",
       "Keep every concrete fact, number, name, ticker, URL, and contract. Do not invent new metrics.",
-      "Banned: 100x, guaranteed, to the moon, ape in, lorem, mockup, as an AI.",
+      "Do not make a bearish, weak, or collapsed tape sound bullish.",
+      "Banned: 100x, guaranteed, to the moon, ape in, lorem, mockup, as an AI, exciting opportunity, could explode.",
       "Output only the rewritten text.",
     ].join(" "),
     `Kind: ${kind}\nScore now: ${before.total}/100\nFix these first:\n${weak.join("\n")}\n\nDRAFT:\n${text}`,
   );
 
-  const base = live?.text ?? localImprove(text, kind);
-  const polished = await polish(kind === "thread" && !/^\s*1\s*\//.test(base) ? packThread(base) : base);
-  const after = scoreContent(polished.text, kind);
-  const chosen = after.total >= before.total - 1 ? polished.text : localImprove(text, kind);
-  const finalScore = scoreContent(chosen, kind);
-
-  return {
-    kind,
-    angle: {
-      id: "why",
-      label: "Improved draft",
-      focus: "Raise the weakest score dimensions without inventing facts.",
-      why: "Editing beats generating from scratch when a draft already exists.",
-    },
-    text: chosen,
-    score: finalScore,
-    before,
-    after: finalScore,
-    source: live?.source ?? "local",
-    applied: [
-      `Writer: ${live?.source ?? "local packer"}`,
-      `Score ${before.total} → ${finalScore.total}`,
-      ...polished.notes,
-      ...finalScore.improvements.slice(0, 3),
-    ],
-  };
+  let chosen = fromComposition(local, "local-score");
+  if (live?.text) {
+    const polished = await polish(live.text);
+    const candidate = polished.text;
+    const report = scoreContent(candidate, kind);
+    if (report.total > chosen.after.total && preservesAuthorFacts(text, candidate)) {
+      chosen = {
+        ...chosen,
+        text: candidate,
+        score: report,
+        after: report,
+        source: live.source,
+        applied: [
+          `Writer: ${live.source}`,
+          `Score ${before.total} → ${report.total}`,
+          ...polished.notes,
+          ...report.improvements.slice(0, 3),
+        ],
+      };
+    }
+  }
+  return chosen;
 }
 
 export async function threadifyDraftCopy(text: string): Promise<ImproveResult> {
   const { buildPublishThread } = await import("./thread-builder");
-  return buildPublishThread(text);
+  const packed = await buildPublishThread(text);
+  const logic = await loadLogic();
+  const local = optimizeContent({ text, kind: "thread", mode: "THREADIFY", logic });
+  if (local.optimizedScore > packed.after.total && preservesAuthorFacts(text, local.text)) {
+    return fromComposition(local, "local-thread");
+  }
+  return packed;
 }
 
 export async function strongerHookCopy(text: string, kind: ContentKind): Promise<ImproveResult> {
-  const before = scoreContent(text, kind);
+  const logic = await loadLogic();
+  const local = optimizeContent({ text, kind, mode: "HOOK_OPTIMIZE", logic });
   const live = await writeWithLlm(
-    "Rewrite only the opening line of this draft so it stops the scroll. Then keep the rest, lightly tightened. Keep facts. Output the full piece only.",
+    "Rewrite only the opening line of this draft so it stops the scroll. Then keep the rest, lightly tightened. Keep facts. Do not invent numbers or flip a negative market read. Output the full piece only.",
     text,
   );
-  const next = live?.text ?? localImprove(text, kind);
-  const polished = await polish(next);
-  const after = scoreContent(polished.text, kind);
-  return {
-    kind,
-    angle: {
-      id: "breaking",
-      label: "Stronger hook",
-      focus: "First line does the work.",
-      why: "Readers decide in one glance.",
-    },
-    text: polished.text,
-    score: after,
-    before,
-    after,
-    source: live?.source ?? "local",
-    applied: [`Writer: ${live?.source ?? "local"}`, `Score ${before.total} → ${after.total}`, ...polished.notes],
-  };
+  let chosen = fromComposition(local, "local-hook");
+  if (live?.text) {
+    const polished = await polish(live.text);
+    const report = scoreContent(polished.text, kind);
+    if (report.total > chosen.after.total && preservesAuthorFacts(text, polished.text)) {
+      chosen = {
+        ...chosen,
+        text: polished.text,
+        score: report,
+        after: report,
+        source: live.source,
+        applied: [`Writer: ${live.source}`, `Score ${local.originalScore} → ${report.total}`, ...polished.notes],
+      };
+    }
+  }
+  return chosen;
 }

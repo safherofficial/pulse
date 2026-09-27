@@ -215,6 +215,11 @@ export const writeTokenContent = createServerFn({ method: "POST" })
     return writeTokenCopy(payload.facts, kind, mode, variant);
   });
 
+export const optimizationStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const { getOptimizationSummary } = await import("./optimize/store");
+  return getOptimizationSummary();
+});
+
 export const improveDraft = createServerFn({ method: "POST" })
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {

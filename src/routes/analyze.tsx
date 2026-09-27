@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
 import { scoreContent, type ContentKind, type ContentScoreReport } from "@/lib/xpulse/content-score";
-import { improveDraft, threadifyDraft, strongerHookDraft } from "@/lib/xpulse/api";
+import { improveDraft, optimizationStatus, threadifyDraft, strongerHookDraft } from "@/lib/xpulse/api";
 import type { ImproveResult } from "@/lib/xpulse/content-improve";
 import { previewTweets } from "@/lib/xpulse/thread-builder";
 
@@ -13,6 +13,19 @@ export const Route = createFileRoute("/analyze")({
   component: AnalyzePage,
 });
 
+type OptimizationView = {
+  trendVersion: string;
+  contentLogicVersion: string;
+  nextRunAt: string;
+  schedule: { time: string; timezone: string };
+  lastRun: { id: string; status: string; dayKey: string; scoreDelta: number | null } | null;
+  rulesChanged: string[];
+  patternsDiscovered: string[];
+  experimentsActive: string[];
+  lastScoreDelta: number | null;
+  rollbackAvailable: boolean;
+};
+
 function AnalyzePage() {
   const [text, setText] = useState("");
   const [kind, setKind] = useState<ContentKind>("post");
@@ -20,6 +33,21 @@ function AnalyzePage() {
   const [improved, setImproved] = useState<ImproveResult | null>(null);
   const [busy, setBusy] = useState<"score" | "hook" | "improve" | "thread" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [optimization, setOptimization] = useState<OptimizationView | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void optimizationStatus()
+      .then((status) => {
+        if (!cancelled) setOptimization(status as OptimizationView);
+      })
+      .catch(() => {
+        if (!cancelled) setOptimization(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function analyze() {
     if (!text.trim()) return;
@@ -171,6 +199,33 @@ function AnalyzePage() {
       ) : null}
 
       {report ? <ScoreCard report={report} /> : null}
+
+      {optimization ? (
+        <section className="panel space-y-2 p-4 sm:p-5">
+          <p className="kicker">Daily optimization</p>
+          <p className="text-sm text-fg">
+            Viral {optimization.trendVersion} · Content {optimization.contentLogicVersion}
+          </p>
+          <p className="text-xs text-subtle">
+            Next run {new Date(optimization.nextRunAt).toLocaleString()} · {optimization.schedule.time}{" "}
+            {optimization.schedule.timezone}
+            {optimization.lastRun ? ` · Last ${optimization.lastRun.status} ${optimization.lastRun.dayKey}` : " · No run yet"}
+            {optimization.lastScoreDelta == null
+              ? " · No measured score gain on the last activation"
+              : ` · Benchmark delta ${optimization.lastScoreDelta > 0 ? "+" : ""}${optimization.lastScoreDelta}`}
+            {optimization.rollbackAvailable ? " · Rollback stored" : ""}
+          </p>
+          {optimization.patternsDiscovered.length ? (
+            <p className="text-xs text-muted">New patterns: {optimization.patternsDiscovered.join(", ")}</p>
+          ) : null}
+          {optimization.rulesChanged.length ? (
+            <p className="text-xs text-muted">Rule changes: {optimization.rulesChanged.join("; ")}</p>
+          ) : null}
+          {optimization.experimentsActive.length ? (
+            <p className="text-xs text-muted">Experiments: {optimization.experimentsActive.join(", ")}</p>
+          ) : null}
+        </section>
+      ) : null}
     </WorkspaceShell>
   );
 }

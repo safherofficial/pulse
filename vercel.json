@@ -1,3 +1,9 @@
 {
-  "installCommand": "npm install --no-audit --no-fund"
+  "installCommand": "npm install --no-audit --no-fund",
+  "crons": [
+    {
+      "path": "/api/cron/daily-optimization",
+      "schedule": "15 * * * *"
+    }
+  ]
 }

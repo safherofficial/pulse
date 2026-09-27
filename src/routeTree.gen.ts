@@ -20,6 +20,7 @@ import { Route as StudioRouteImport } from './routes/studio'
 import { Route as TokensRouteImport } from './routes/tokens'
 import { Route as TokenAddressRouteImport } from './routes/token.$address'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronDailyOptimizationRouteImport } from './routes/api/cron/daily-optimization'
 import { Route as ApiXCallbackRouteImport } from './routes/api/x/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -77,6 +78,12 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronDailyOptimizationRoute =
+  ApiCronDailyOptimizationRouteImport.update({
+    id: '/api/cron/daily-optimization',
+    path: '/api/cron/daily-optimization',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiXCallbackRoute = ApiXCallbackRouteImport.update({
   id: '/api/x/callback',
   path: '/api/x/callback',
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/daily-optimization': typeof ApiCronDailyOptimizationRoute
   '/api/x/callback': typeof ApiXCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +117,7 @@ export interface FileRoutesByTo {
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/daily-optimization': typeof ApiCronDailyOptimizationRoute
   '/api/x/callback': typeof ApiXCallbackRoute
 }
 export interface FileRoutesById {
@@ -124,6 +133,7 @@ export interface FileRoutesById {
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/daily-optimization': typeof ApiCronDailyOptimizationRoute
   '/api/x/callback': typeof ApiXCallbackRoute
 }
 export interface FileRouteTypes {
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/tokens'
     | '/token/$address'
     | '/api/auth/$'
+    | '/api/cron/daily-optimization'
     | '/api/x/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/tokens'
     | '/token/$address'
     | '/api/auth/$'
+    | '/api/cron/daily-optimization'
     | '/api/x/callback'
   id:
     | '__root__'
@@ -168,6 +180,7 @@ export interface FileRouteTypes {
     | '/tokens'
     | '/token/$address'
     | '/api/auth/$'
+    | '/api/cron/daily-optimization'
     | '/api/x/callback'
   fileRoutesById: FileRoutesById
 }
@@ -183,6 +196,7 @@ export interface RootRouteChildren {
   TokensRoute: typeof TokensRoute
   TokenAddressRoute: typeof TokenAddressRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronDailyOptimizationRoute: typeof ApiCronDailyOptimizationRoute
   ApiXCallbackRoute: typeof ApiXCallbackRoute
 }
 
@@ -265,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/daily-optimization': {
+      id: '/api/cron/daily-optimization'
+      path: '/api/cron/daily-optimization'
+      fullPath: '/api/cron/daily-optimization'
+      preLoaderRoute: typeof ApiCronDailyOptimizationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/x/callback': {
       id: '/api/x/callback'
       path: '/api/x/callback'
@@ -287,6 +308,7 @@ const rootRouteChildren: RootRouteChildren = {
   TokensRoute: TokensRoute,
   TokenAddressRoute: TokenAddressRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronDailyOptimizationRoute: ApiCronDailyOptimizationRoute,
   ApiXCallbackRoute: ApiXCallbackRoute,
 }
 export const routeTree = rootRouteImport
