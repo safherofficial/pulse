@@ -3,12 +3,9 @@ import { useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
-import { scoreContent, type ContentKind } from "@/lib/xpulse/content-score";
-import {
-  generateFromDraft,
-  improveForScore,
-  type GeneratedContent,
-} from "@/lib/xpulse/content-create";
+import { scoreContent, type ContentKind, type ContentScoreReport } from "@/lib/xpulse/content-score";
+import { improveDraft, threadifyDraft, strongerHookDraft } from "@/lib/xpulse/api";
+import type { ImproveResult } from "@/lib/xpulse/content-improve";
 
 export const Route = createFileRoute("/analyze")({
   head: () => ({ meta: [{ title: "Analyze · XPulse" }] }),
@@ -18,31 +15,36 @@ export const Route = createFileRoute("/analyze")({
 function AnalyzePage() {
   const [text, setText] = useState("");
   const [kind, setKind] = useState<ContentKind>("post");
-  const [report, setReport] = useState<ReturnType<typeof scoreContent> | null>(null);
-  const [improved, setImproved] = useState<GeneratedContent | null>(null);
+  const [report, setReport] = useState<ContentScoreReport | null>(null);
+  const [improved, setImproved] = useState<ImproveResult | null>(null);
+  const [busy, setBusy] = useState<"score" | "hook" | "improve" | "thread" | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   function analyze() {
     if (!text.trim()) return;
-    setReport(scoreContent(text, kind));
+    setError(null);
     setImproved(null);
+    setReport(scoreContent(text, kind));
   }
 
-  function strongerHook() {
-    const lines = text.trim().split(/\n+/);
-    const rest = lines.slice(1).join("\n\n");
-    const candidates = [
-      generateFromDraft(text, kind, "breaking", 0),
-      generateFromDraft(text, kind, "data", 2),
-      generateFromDraft(text, kind, "why", 4),
-    ];
-    candidates.sort((a, b) => b.score.total - a.score.total);
-    const best = candidates[0]!;
-    const hook = best.text.split(/\n+/)[0] ?? best.text;
-    setImproved({
-      ...best,
-      text: rest ? `${hook}\n\n${rest}` : best.text,
-      applied: [...best.applied, "Stronger hook pass"],
-    });
+  async function run(
+    action: "hook" | "improve" | "thread",
+    job: () => Promise<ImproveResult>,
+    nextKind?: ContentKind,
+  ) {
+    if (!text.trim()) return;
+    setBusy(action);
+    setError(null);
+    try {
+      const next = await job();
+      setImproved(next);
+      setReport(next.after);
+      if (nextKind) setKind(nextKind);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Improve is temporarily unavailable.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   return (
@@ -72,45 +74,57 @@ function AnalyzePage() {
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" disabled={!text.trim()} onClick={analyze}>
+          <Button type="button" disabled={!text.trim() || busy !== null} onClick={analyze}>
             Score
           </Button>
-          <Button type="button" variant="quiet" disabled={!text.trim()} onClick={strongerHook}>
-            Stronger hook
+          <Button
+            type="button"
+            variant="quiet"
+            disabled={!text.trim() || busy !== null}
+            onClick={() =>
+              void run("hook", () => strongerHookDraft({ data: { text, kind } }) as Promise<ImproveResult>)
+            }
+          >
+            {busy === "hook" ? "Rewriting hook…" : "Stronger hook"}
           </Button>
           <Button
             type="button"
             variant="quiet"
-            disabled={!text.trim()}
-            onClick={() => {
-              const next = improveForScore(text, kind);
-              setImproved(next);
-              setReport(next.score);
-            }}
+            disabled={!text.trim() || busy !== null}
+            onClick={() =>
+              void run("improve", () => improveDraft({ data: { text, kind } }) as Promise<ImproveResult>)
+            }
           >
-            Improve score
+            {busy === "improve" ? "Improving…" : "Improve score"}
           </Button>
           <Button
             type="button"
             variant="quiet"
-            disabled={!text.trim()}
-            onClick={() => {
-              const next = generateFromDraft(text, "thread");
-              setImproved(next);
-              setReport(next.score);
-              setKind("thread");
-            }}
+            disabled={!text.trim() || busy !== null}
+            onClick={() =>
+              void run(
+                "thread",
+                () => threadifyDraft({ data: { text } }) as Promise<ImproveResult>,
+                "thread",
+              )
+            }
           >
-            Threadify
+            {busy === "thread" ? "Threading…" : "Threadify"}
           </Button>
         </div>
+        {error ? (
+          <p className="text-sm text-danger" role="status">
+            {error}
+          </p>
+        ) : null}
       </section>
-
-      {report ? <ScoreCard report={report} /> : null}
 
       {improved ? (
         <section className="panel p-4 sm:p-5">
-          <p className="kicker">Improved version</p>
+          <p className="kicker">
+            {improved.kind} · {improved.angle.label} · {improved.source} · {improved.before.total}→
+            {improved.after.total}
+          </p>
           <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
             {improved.text}
           </pre>
@@ -127,14 +141,22 @@ function AnalyzePage() {
               variant="quiet"
               onClick={() => {
                 setText(improved.text);
-                setImproved(null);
+                setKind(improved.kind);
+                setReport(improved.after);
               }}
             >
               Use as draft
             </Button>
           </div>
+          <ul className="mt-3 space-y-1 text-xs text-subtle">
+            {improved.applied.map((a) => (
+              <li key={a}>• {a}</li>
+            ))}
+          </ul>
         </section>
       ) : null}
+
+      {report ? <ScoreCard report={report} /> : null}
     </WorkspaceShell>
   );
 }
