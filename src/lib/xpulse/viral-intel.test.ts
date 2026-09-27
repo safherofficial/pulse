@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  classifyTrend,
   isTokenMention,
   parseCompactCount,
   parseYoutubeAgeHours,
@@ -49,4 +50,12 @@ test("unavailable platforms are not counted as zero", () => {
   assert.equal(rolled.totalMentions24h, 4);
   assert.equal(rolled.totalReliability, "partial");
   assert.equal(rolled.activity, "low");
+});
+
+test("trend classification requires measurable rates", () => {
+  assert.equal(classifyTrend(null, 1, 10, 6), "UNKNOWN");
+  assert.equal(classifyTrend(8, 1, 8, 6), "SPIKING");
+  assert.equal(classifyTrend(2, 1, 12, 6), "STABLE");
+  assert.equal(classifyTrend(0, 1, 12, 6), "COOLING");
+  assert.equal(classifyTrend(0, 1, 0, 6), "STABLE");
 });
