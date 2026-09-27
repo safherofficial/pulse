@@ -42,6 +42,31 @@ function statusToPost(status: FxStatus, fallbackAuthor: string): ViralPost | nul
   return { platform: "x", author: status.author?.screen_name ? `@${status.author.screen_name}` : fallbackAuthor, text: text.slice(0, 220), url, likes: finite(status.likes), views: finite(status.views), replies: finite(status.replies), createdAt: createdAt && createdAt !== "Invalid Date" ? createdAt : null, score: finite(status.likes) };
 }
 
+function readHandle(twitter: string | null): string | null {
+  if (!twitter) return null;
+  const lower = twitter.toLowerCase();
+  const marks = ["x.com/", "twitter.com/"];
+  let start = -1;
+  for (const mark of marks) {
+    const at = lower.indexOf(mark);
+    if (at >= 0) {
+      start = at + mark.length;
+      break;
+    }
+  }
+  if (start < 0) return null;
+  const cut = twitter.slice(start);
+  let end = cut.length;
+  for (const ch of ["/", "?", "#"]) {
+    const at = cut.indexOf(ch);
+    if (at >= 0 && at < end) end = at;
+  }
+  const handle = cut.slice(0, end);
+  if (!/^[A-Za-z0-9_]{1,30}$/.test(handle)) return null;
+  if (["i", "intent", "share", "search", "home", "hashtag"].includes(handle.toLowerCase())) return null;
+  return handle;
+}
+
 export async function collectX(intel: TokenIntel): Promise<SourceSample> {
   const symbol = intel.identity.symbol;
   const name = intel.identity.name;
@@ -56,7 +81,7 @@ export async function collectX(intel: TokenIntel): Promise<SourceSample> {
       }
     } catch { /* fall through */ }
   }
-  const handle = intel.identity.twitter?.match(/(?:x\\.com|twitter\\.com)\\/([A-Za-z0-9_]+)/i)?.[1];
+  const handle = readHandle(intel.identity.twitter);
   if (!handle || ["i", "intent", "share", "search", "home", "hashtag"].includes(handle.toLowerCase())) {
     return { posts: [], reliability: "unavailable", unavailable: true, note: "Public X sample unavailable." };
   }
@@ -75,12 +100,14 @@ export async function collectWeb(intel: TokenIntel): Promise<SourceSample> {
   const res = await fetchText(`https://news.google.com/rss/search?${new URLSearchParams({ q, hl: "en-US", gl: "US", ceid: "US:en" })}`);
   if (!res || res.status !== 200) return { posts: [], reliability: "unavailable", unavailable: true, note: "Public news sample unavailable." };
   const posts: ViralPost[] = [];
-  for (const item of res.body.matchAll(/<item>([\\s\\S]*?)<\\/item>/g)) {
-    const block = item[1] ?? "";
-    const title = (block.match(/<title>([\\s\\S]*?)<\\/title>/)?.[1] ?? "").trim();
-    const link = (block.match(/<link>([\\s\\S]*?)<\\/link>/)?.[1] ?? "").trim();
-    const pub = (block.match(/<pubDate>([\\s\\S]*?)<\\/pubDate>/)?.[1] ?? "").trim();
-    const source = (block.match(/<source[^>]*>([\\s\\S]*?)<\\/source>/)?.[1] ?? "News").trim();
+  const chunks = res.body.split("<item>").slice(1);
+  for (const raw of chunks) {
+    const block = raw.split("</item>")[0] ?? "";
+    const title = (block.split("<title>")[1] ?? "").split("</title>")[0]?.trim() ?? "";
+    const link = (block.split("<link>")[1] ?? "").split("</link>")[0]?.trim() ?? "";
+    const pub = (block.split("<pubDate>")[1] ?? "").split("</pubDate>")[0]?.trim() ?? "";
+    const sourceRaw = (block.split("<source")[1] ?? "").split("</source>")[0] ?? "";
+    const source = (sourceRaw.split(">").pop() ?? "News").trim() || "News";
     if (!title || !link.startsWith("http") || !isTokenMention(title, symbol, name)) continue;
     const ts = pub ? Date.parse(pub) : NaN;
     posts.push({ platform: "web", author: source, text: title.slice(0, 220), url: link, likes: null, views: null, replies: null, createdAt: Number.isFinite(ts) ? new Date(ts).toISOString() : null, score: null });
@@ -89,7 +116,8 @@ export async function collectWeb(intel: TokenIntel): Promise<SourceSample> {
 }
 
 export async function collectYoutube(intel: TokenIntel): Promise<SourceSample> {
-  return { posts: [], reliability: "unavailable", unavailable: true, note: "YouTube collector loads via youtubei when the search endpoint responds." };
+  void intel;
+  return { posts: [], reliability: "unavailable", unavailable: true, note: "YouTube sample unavailable." };
 }
 
 export async function collectHn(intel: TokenIntel): Promise<SourceSample> {
