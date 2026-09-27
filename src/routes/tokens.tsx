@@ -395,7 +395,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           }
           if (viral.totalMentions24h != null) {
             patternList.push(
-              `Measurable public mentions in sample: ${viral.totalMentions24h} (${viral.totalReliability}).`,
+              `Measurable X mentions in sample: ${viral.totalMentions24h} (${viral.totalReliability}).`,
             );
           }
           const hot = viral.platforms.filter(
@@ -403,7 +403,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           );
           if (hot.length) {
             patternList.push(
-              `Sample attention on: ${hot.map((pl) => pl.label).join(", ")}.`,
+              `X sample attention on: ${hot.map((pl) => pl.label).join(", ")}.`,
             );
           }
         }
@@ -685,143 +685,67 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <section className="panel space-y-4 p-4 sm:p-5 animate-in">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="kicker">Viral intelligence · last 24h</p>
-                <h2 className="mt-1 text-xl">Cross-platform attention</h2>
+                <p className="kicker">Viral intelligence</p>
+                <h2 className="mt-1 text-xl">Trending / relevant posts</h2>
               </div>
-              {viral ? (
-                <div
-                  className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-                    viral.activity === "high"
-                      ? "border-signal/40 bg-signal/10 text-signal"
-                      : viral.activity === "medium"
-                        ? "border-accent/40 bg-accent/10 text-accent"
-                        : viral.activity === "low"
-                          ? "border-line text-muted"
-                          : "border-line text-subtle"
-                  }`}
-                >
-                  Viral activity: {viral.activity.toUpperCase()}
-                </div>
-              ) : null}
+              <span className="rounded-md border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent">
+                X only
+              </span>
             </div>
             {viralBusy && !viral ? (
-              <p className="text-sm text-muted">Loading public attention samples…</p>
+              <p className="text-sm text-muted">Loading X trending signals…</p>
             ) : null}
             {viral ? (
               <>
                 <p className="text-xs text-subtle">{viral.note}</p>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {viral.platforms.map((pl) => (
-                    <div
-                      key={pl.platform}
-                      className="rounded-md border border-line bg-surface-2/40 px-3 py-3"
-                    >
-                      <p className="text-xs text-subtle">{pl.label}</p>
-                      <p className="mt-1 text-lg font-medium tabular-nums text-fg">
-                        {pl.mentions24h != null
-                          ? pl.mentions24h.toLocaleString()
-                          : "Unavailable"}
-                      </p>
-                      <p className="mt-0.5 text-[10px] uppercase tracking-wide text-subtle">
-                        {pl.reliability}
-                      </p>
-                      {pl.note ? (
-                        <p className="mt-1 text-[11px] leading-snug text-muted">{pl.note}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-                <div className="rounded-md border border-line bg-surface-2/30 px-3 py-3">
-                  <p className="text-xs text-subtle">Total measurable mentions (24h sample)</p>
-                  <p className="mt-1 text-xl font-semibold tabular-nums text-fg">
-                    {viral.totalMentions24h != null
-                      ? viral.totalMentions24h.toLocaleString()
-                      : "Unavailable"}
+                {viral.topPosts.length === 0 ? (
+                  <p className="text-sm text-muted">
+                    No trending/relevant X posts are available right now.
                   </p>
-                  <p className="text-[10px] uppercase text-subtle">
-                    reliability: {viral.totalReliability}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-xs tracking-wide text-subtle uppercase">
-                    Relative share of measured sample
-                  </p>
-                  {(() => {
-                    const measured = viral.platforms.filter(
-                      (pl) => pl.mentions24h != null && pl.mentions24h > 0,
-                    );
-                    if (!measured.length) {
-                      return (
-                        <p className="text-sm text-muted">
-                          No platform returned a measurable mention count.
-                        </p>
-                      );
-                    }
-                    const max = Math.max(...measured.map((pl) => pl.mentions24h!), 1);
-                    return measured.map((pl) => (
-                      <div key={pl.platform} className="flex items-center gap-3 text-sm">
-                        <span className="w-24 shrink-0 text-muted">{pl.label}</span>
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-line">
-                          <div
-                            className="h-full rounded-full bg-accent/80"
-                            style={{
-                              width: `${Math.max(4, (pl.mentions24h! / max) * 100)}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="w-12 text-right font-mono text-xs tabular-nums">
-                          {pl.mentions24h}
-                        </span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-                <div>
-                  <p className="kicker mb-2">Trending / relevant posts</p>
-                  {viral.topPosts.length === 0 ? (
-                    <p className="text-sm text-muted">
-                      No public posts recovered for this window.
-                    </p>
-                  ) : (
-                    <ul className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0">
-                      {viral.topPosts.map((post) => (
-                        <li
-                          key={post.url}
-                          className="min-w-[260px] shrink-0 rounded-md border border-line bg-surface-2/40 p-3 lg:min-w-0"
+                ) : (
+                  <ul className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-1 lg:overflow-visible lg:pb-0">
+                    {viral.topPosts.map((post) => (
+                      <li
+                        key={post.url}
+                        className="min-w-[260px] shrink-0 rounded-md border border-line bg-surface-2/40 p-3 lg:min-w-0"
+                      >
+                        <a
+                          href={post.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block"
                         >
-                          <a
-                            href={post.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block"
-                          >
+                          <div className="flex items-center justify-between gap-2">
                             <p className="text-xs text-accent">
-                              {post.platform.toUpperCase()} · {post.author}
+                              X · {post.author}
                             </p>
-                            <p className="mt-1 line-clamp-3 text-sm text-fg">{post.text}</p>
-                            <p className="mt-2 font-mono text-[11px] text-subtle">
-                              {post.likes != null ? `♥ ${post.likes.toLocaleString()}` : "♥ —"}
-                              {" · "}
-                              {post.views != null
-                                ? `👁 ${post.views.toLocaleString()}`
-                                : "👁 —"}
-                              {post.replies != null
-                                ? ` · 💬 ${post.replies.toLocaleString()}`
-                                : ""}
-                            </p>
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                            <span className="text-[10px] uppercase tracking-wide text-subtle">
+                              {post.signal}
+                            </span>
+                          </div>
+                          <p className="mt-1 line-clamp-4 text-sm text-fg">{post.text}</p>
+                          <p className="mt-2 font-mono text-[11px] text-subtle">
+                            {post.likes != null ? `♥ ${post.likes.toLocaleString()}` : "♥ —"}
+                            {" · "}
+                            {post.views != null
+                              ? `👁 ${post.views.toLocaleString()}`
+                              : "👁 —"}
+                            {post.replies != null
+                              ? ` · 💬 ${post.replies.toLocaleString()}`
+                              : ""}
+                          </p>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </>
             ) : !viralBusy ? (
-              <p className="text-sm text-muted">Viral sample not loaded.</p>
+              <p className="text-sm text-muted">Viral intelligence unavailable.</p>
             ) : null}
           </section>
 
-<section className="panel space-y-4 p-4 sm:p-5">
+
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <p className="kicker">X mentions & notable accounts</p>
