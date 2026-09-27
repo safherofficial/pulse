@@ -12,6 +12,7 @@ import {
   type TokenFactSet,
 } from "@/lib/xpulse/content-create";
 import { researchXContentIntel } from "@/lib/xpulse/x-content-intel";
+import { analyzeTokenIntel, type MarketStance, type RugPullRisk } from "@/lib/xpulse/market-state";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import type { GeneratedContent } from "@/lib/xpulse/content-create";
 import {
@@ -71,6 +72,19 @@ function formatMcap(n: number | null): { short: string; full: string } {
   if (n >= 1e6) return { short: `$${(n / 1e6).toFixed(2)}M`, full };
   if (n >= 1e3) return { short: `$${(n / 1e3).toFixed(1)}K`, full };
   return { short: full, full };
+}
+
+function stanceLabel(state: MarketStance): string {
+  if (state === "SEVERE_RISK") return "SEVERE RISK";
+  return state.replaceAll("_", " ");
+}
+
+function rugLabel(risk: RugPullRisk): string {
+  if (risk === "low") return "LOW";
+  if (risk === "elevated") return "ELEVATED";
+  if (risk === "unconfirmed") return "UNCONFIRMED — price collapse is not proof of a rug pull";
+  if (risk === "high") return "HIGH — multiple signals, not a confirmed theft";
+  return "CRITICAL — stacked red flags, not proof funds were taken";
 }
 
 function kindLabel(kind: TokenMention["kind"]) {
@@ -666,6 +680,42 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
               </ul>
             </div>
           </CollapsibleSection>
+
+          {(() => {
+            const diagnosis = intel.diagnosis ?? analyzeTokenIntel(intel);
+            const severe = diagnosis.state === "SEVERE_RISK" || diagnosis.state === "COLLAPSED" || diagnosis.state === "BEARISH";
+            return (
+              <CollapsibleSection
+                kicker="Market state"
+                title={stanceLabel(diagnosis.state)}
+                defaultOpen={severe}
+                badge={
+                  <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
+                    XPulse {diagnosis.riskScore}/100
+                  </span>
+                }
+              >
+                <p className="text-sm text-fg">{diagnosis.headline}</p>
+                <p className="text-xs text-subtle">
+                  XPulse-derived reading of this snapshot ({diagnosis.riskBand}). Not an official market score.
+                </p>
+                {diagnosis.signals.length ? (
+                  <ul className="space-y-1 text-sm text-muted">
+                    {diagnosis.signals.map((signal) => (
+                      <li key={`${signal.type}-${signal.explanation}`}>
+                        • {signal.explanation}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted">No extra risk signals in this snapshot.</p>
+                )}
+                <p className="text-sm text-muted">
+                  Rug-pull signal: <span className="text-fg">{rugLabel(diagnosis.rugPullRisk)}</span>
+                </p>
+              </CollapsibleSection>
+            );
+          })()}
 
           <CollapsibleSection
             kicker="Viral Intelligence"

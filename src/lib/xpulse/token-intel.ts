@@ -6,6 +6,7 @@
  */
 
 import { interpretDexOrdersHttp, type DexPaidVerdict } from "./dex-paid";
+import { analyzeTokenIntel, type MarketDiagnosis } from "./market-state";
 import { fetchTokenMentions } from "./token-mentions";
 
 const TIMEOUT_MS = 8_000;
@@ -89,6 +90,8 @@ export type TokenIntel = {
   chart: TokenChartPoint[];
   analysis: TokenAnalysis;
   mentions: TokenMentionsReport;
+  /** Deterministic XPulse reading of this snapshot. Not an official market rating. */
+  diagnosis?: MarketDiagnosis;
   freshness: string;
 };
 
@@ -587,6 +590,7 @@ export async function researchTokenByAddress(
     chart: approximateChart(market),
     analysis: analyzeToken(identity, market),
     mentions,
+    diagnosis: analyzeTokenIntel({ identity, market, mentions }),
     freshness: market.updatedAt,
   };
 }

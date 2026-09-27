@@ -8,6 +8,7 @@ import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind } from "./content-score";
 import {
   ensureLockedMarket,
+  ensureMarketVerdict,
   generateFromFactSet,
   type GeneratedContent,
   type RegenMode,
@@ -145,14 +146,18 @@ function systemPrompt(kind: ContentKind, mode: RegenMode): string {
             : "Natural timeline voice. Like a sharp trader writing to peers.";
 
   return [
-    "You are a senior crypto copywriter. You write finished posts people actually publish.",
+    "You write a factual market note. You are not a promoter.",
     shape,
     tone,
-    "Use ONLY facts supplied in the user message. Never invent price, %, volume, liquidity, mcap, partners, audits, or listings.",
-    "If price or market_cap is present, weave those exact strings once in a sentence. Do not reformat them and do not invent a different market cap.",
+    "The marketState in the user message is binding. Writing style never changes that conclusion.",
+    "A severe, collapsed, bearish, or caution state must stay negative. Never turn it into an opportunity, a comeback pitch, or bullish hype.",
+    "Use ONLY facts supplied in the user message. Never invent price, %, volume, liquidity, mcap, partners, audits, listings, or a rug-pull confirmation.",
+    "If headline is present, include that sentence. If rugLine is present, include it. Do not upgrade rugLine into 'the team stole the funds' or 'this was rugged'.",
+    "Separate what was measured from what is inferred.",
+    "If price or market_cap is present, weave those exact strings once. Do not reformat them and do not invent a different market cap.",
     "If a field is missing, skip it. Do not write unavailable, N/A, or placeholder text.",
     "Do not dump labels like price: volume: liquidity:. Weave numbers into sentences.",
-    "Banned: 100x, guaranteed, to the moon, ape in, can't miss, risk-free, mockup, lorem, TODO, sample data.",
+    "Banned: 100x, guaranteed, to the moon, ape in, can't miss, risk-free, exciting opportunity, could explode, mockup, lorem, TODO, sample data.",
     "Mention the contract address once, naturally.",
     "End with one short NFA line, written differently each time.",
     "Output only the post text. No preamble, no markdown fences, no analysis of your own writing.",
@@ -171,6 +176,14 @@ function userPrompt(facts: TokenFactSet, kind: ContentKind, variant: number): st
     dexPaid: facts.dexPaid,
     boosts: facts.boosts,
     xNote: facts.xNote,
+    marketState: facts.market.state,
+    headline: facts.market.headline,
+    rugLine: facts.market.rugLine,
+    rugPullRisk: facts.market.rugPullRisk,
+    riskScore: facts.market.riskScore,
+    facts: facts.market.facts,
+    conclusions: facts.market.conclusions,
+    caveats: facts.market.caveats,
     variant,
     form: kind,
   };
@@ -196,7 +209,7 @@ function sanitize(text: string, facts: TokenFactSet): string {
   if (!/not financial advice|nfa\b/i.test(out)) {
     out = `${out}\n\nNFA. Read the pair yourself.`;
   }
-  return ensureLockedMarket(out, facts);
+  return ensureMarketVerdict(ensureLockedMarket(out, facts), facts);
 }
 
 async function polish(text: string): Promise<string> {

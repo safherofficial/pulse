@@ -1,12 +1,13 @@
 /**
  * Content angles + generation helpers for posts / threads / articles.
- * Token posts are written as professional bull copy from a locked fact set.
- * Regeneration changes voice and structure — never invents market facts.
+ * Token copy follows a locked market diagnosis. Style can change.
+ * The price, market cap, and market-state conclusion cannot.
  */
 
 import { rewritePost } from "./rewrite.ts";
 import { scoreContent, type ContentKind, type ContentScoreReport } from "./content-score.ts";
 import { formatMarketCapCompact, formatTokenPrice, marketCapBand } from "./format.ts";
+import { analyzeTokenIntel, type MarketDiagnosis } from "./market-state.ts";
 import type { TokenIntel } from "./token-intel.ts";
 
 export type ContentAngle = {
@@ -283,6 +284,7 @@ export type TokenFactSet = {
   boosts: number | null;
   xPatterns: string[];
   xNote: string | null;
+  market: MarketDiagnosis;
   builtAt: string;
 };
 
@@ -361,6 +363,8 @@ export function buildTokenFactSet(intel: TokenIntel): TokenFactSet {
   if (market.dexPaid === true) dexPaid = "paid";
   else if (market.dexPaid === false) dexPaid = "not_paid";
 
+  const diagnosis = analyzeTokenIntel(intel);
+
   return {
     identity: {
       name: identity.name,
@@ -369,13 +373,19 @@ export function buildTokenFactSet(intel: TokenIntel): TokenFactSet {
       address: identity.address,
     },
     metrics,
-    findings: findings.slice(0, 8),
-    story: findings[0] ?? null,
-    risks: analysis.risks.slice(0, 6),
+    findings: [...diagnosis.facts, ...diagnosis.conclusions, ...findings].slice(0, 12),
+    story: diagnosis.headline,
+    risks: [
+      ...diagnosis.signals
+        .filter((signal) => signal.polarity === "risk")
+        .map((signal) => signal.explanation),
+      ...analysis.risks,
+    ].slice(0, 8),
     dexPaid,
     boosts: market.boostActive,
     xPatterns: [],
     xNote: null,
+    market: diagnosis,
     builtAt: new Date().toISOString(),
   };
 }
@@ -422,12 +432,6 @@ function metric(facts: TokenFactSet, key: string): string | null {
   return facts.metrics.find((m) => m.key === key)?.value ?? null;
 }
 
-function parseChange(value: string | null): number | null {
-  if (!value) return null;
-  const n = Number.parseFloat(value.replace("%", ""));
-  return Number.isFinite(n) ? n : null;
-}
-
 type Tape = {
   name: string;
   symbol: string;
@@ -435,25 +439,11 @@ type Tape = {
   chain: string;
   ca: string;
   price: string | null;
-  ch1h: string | null;
-  ch6h: string | null;
-  ch24h: string | null;
-  ch24n: number | null;
-  liq: string | null;
-  vol: string | null;
   mcap: string | null;
-  fdv: string | null;
-  trades: string | null;
-  dex: string | null;
   band: string | null;
-  bullish: boolean;
-  red: boolean;
-  hot: boolean;
 };
 
 function readTape(facts: TokenFactSet): Tape {
-  const ch24h = metric(facts, "change_24h");
-  const ch24n = parseChange(ch24h);
   return {
     name: facts.identity.name,
     symbol: facts.identity.symbol,
@@ -461,26 +451,9 @@ function readTape(facts: TokenFactSet): Tape {
     chain: facts.identity.chain,
     ca: facts.identity.address,
     price: metric(facts, "price"),
-    ch1h: metric(facts, "change_1h"),
-    ch6h: metric(facts, "change_6h"),
-    ch24h,
-    ch24n,
-    liq: metric(facts, "liquidity"),
-    vol: metric(facts, "volume_24h"),
     mcap: metric(facts, "market_cap"),
-    fdv: metric(facts, "fdv"),
-    trades: metric(facts, "trades_24h"),
-    dex: metric(facts, "dex"),
     band: metric(facts, "cap_band"),
-    bullish: ch24n != null && ch24n >= 5,
-    red: ch24n != null && ch24n <= -5,
-    hot: ch24n != null && Math.abs(ch24n) >= 15,
   };
-}
-
-function signed(change: string | null): string | null {
-  if (!change) return null;
-  return change.startsWith("+") || change.startsWith("-") ? change : `+${change}`;
 }
 
 type Voice =
@@ -550,33 +523,6 @@ function caLine(rng: Rng, t: Tape): string {
   ]);
 }
 
-function moveLine(t: Tape): string | null {
-  if (!t.ch24h) return null;
-  const s = signed(t.ch24h)!;
-  if (t.bullish) return `${t.ticker} is printing ${s} on the 24h.`;
-  if (t.red) return `${t.ticker} just reset ${s} on the 24h — the tape is live.`;
-  return `${t.ticker} holds ${s} over 24h. Tight range. Cleaner than it looks.`;
-}
-
-function flowLine(t: Tape): string | null {
-  const bits: string[] = [];
-  if (t.vol) bits.push(`${t.vol} traded in 24h`);
-  if (t.liq) bits.push(`${t.liq} sitting in the pool`);
-  if (t.trades) bits.push(t.trades);
-  if (!bits.length) return null;
-  if (bits.length === 1) return `Flow check: ${bits[0]}.`;
-  return `Flow check: ${bits[0]}, ${bits.slice(1).join(", ")}.`;
-}
-
-function structureLine(t: Tape): string | null {
-  const bits: string[] = [];
-  if (t.liq) bits.push(`liq ${t.liq}`);
-  if (t.vol) bits.push(`vol ${t.vol}`);
-  if (t.fdv && t.fdv !== t.mcap) bits.push(`fdv ${t.fdv}`);
-  if (!bits.length) return null;
-  return bits.join(" · ");
-}
-
 function scaleNote(band: string | null): string {
   if (band === "micro-cap") return " Still a micro-cap.";
   if (band === "small-cap") return " Small-cap range.";
@@ -590,10 +536,13 @@ function marketLine(rng: Rng, t: Tape): string | null {
   if (t.price && t.mcap) {
     return pick(rng, [
       `${t.ticker} is sitting around ${t.price} at a ~${t.mcap}.${scale}`,
-      `At roughly ${t.mcap}, ${t.ticker} prints ${t.price}.${scale}`,
+      `At roughly ${t.mcap}, ${t.ticker} is at ${t.price}.${scale}`,
       `${t.price} price, ~${t.mcap}.${scale}`,
-      `${t.mcap}. That's the interesting part. Spot is ${t.price}.`,
-    ]).replace(/[ \t]{2,}/g, " ").replace(/\s+\./g, ".").trim();
+      `${t.mcap}. That's the frame. Spot is ${t.price}.`,
+    ])
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\s+\./g, ".")
+      .trim();
   }
   if (t.mcap) return `${t.mcap}.`;
   if (t.price) return `Last price is ${t.price}.`;
@@ -615,218 +564,6 @@ export function ensureLockedMarket(text: string, facts: TokenFactSet): string {
   return out;
 }
 
-function whyNow(rng: Rng, t: Tape, facts: TokenFactSet): string {
-  if (t.hot && t.bullish) {
-    return pick(rng, [
-      "That is not a quiet candle. Attention is already here.",
-      "When the 24h stretches like this, timelines start compounding.",
-      "The market is pricing a new range in public.",
-    ]);
-  }
-  if (t.hot && t.red) {
-    return pick(rng, [
-      "Violent prints cut both ways. This is where serious readers look twice.",
-      "A hard 24h is not the end of a story. It is a new page.",
-      "Dislocation is when the next bid or the next exit gets decided.",
-    ]);
-  }
-  if (t.vol && t.liq) {
-    return pick(rng, [
-      "Volume against that liquidity is the actual headline.",
-      "Price is the poster. Flow is the plot.",
-      "Ignore the slogan. Watch how much size the pool is absorbing.",
-    ]);
-  }
-  if (facts.findings[0]) return facts.findings[0];
-  return pick(rng, [
-    "The setup is on the screen. The rest is positioning.",
-    "This is a market structure note — not a myth.",
-  ]);
-}
-
-function hook(rng: Rng, voice: Voice, t: Tape, facts: TokenFactSet): string {
-  const move = t.ch24h ? signed(t.ch24h) : null;
-  const nameHit = `${t.name} (${t.ticker})`;
-  switch (voice) {
-    case "rally":
-      if (t.bullish && move) {
-        return pick(rng, [
-          `${t.ticker} just tagged ${move} in 24h. The room is awake.`,
-          `Stop scrolling past ${t.ticker}. ${move} on the day, and the tape is still working.`,
-          `${nameHit} is not whispering. ${move} in 24 hours.`,
-        ]);
-      }
-      return pick(rng, [
-        `${t.ticker} is on the desk. ${t.chain} is the venue.`,
-        `If you cover ${t.chain} flow, ${t.ticker} belongs in the next look.`,
-        `${nameHit} — this is the name people will ask you about.`,
-      ]);
-    case "street":
-      return pick(rng, [
-        move ? `${t.ticker} ${move} / 24h. That's the post.` : `${t.ticker} is in play on ${t.chain}.`,
-        t.vol ? `${t.ticker} ran ${t.vol} volume today. Not a ghost candle.` : `${t.ticker}. Live market. Live tape.`,
-        `${t.ticker} doesn't need a novel. It needs a look.`,
-      ]);
-    case "tape":
-      return pick(rng, [
-        [t.ticker, move, t.vol ? `vol ${t.vol}` : null].filter(Boolean).join(" · "),
-        `${t.ticker} tape${move ? `: ${move}` : ""}.`,
-      ]);
-    case "whisper":
-      return pick(rng, [
-        `Most people will notice ${t.ticker} late. The print is already on the board.`,
-        `Quiet note on ${t.ticker} — then you can go back to the timeline.`,
-        `You don't need a thread. You need one honest look at ${t.ticker}.`,
-      ]);
-    case "story":
-      return pick(rng, [
-        `${t.name} showed up on ${t.chain} with a market that is actually moving.`,
-        `Every cycle has a name that starts as a ticker and becomes a conversation. Today the ticker is ${t.ticker}.`,
-        `Here is the ${t.ticker} story as the market wrote it — not as a slogan.`,
-      ]);
-    case "brief":
-      return pick(rng, [
-        `Market brief: ${nameHit} on ${t.chain}.`,
-        `${t.ticker} — what the available market data supports right now.`,
-        `Desk note on ${t.name}. Facts only, written so a stranger can follow.`,
-      ]);
-    case "board":
-      return pick(rng, [
-        `${t.ticker} for the board: structure first, narrative second.`,
-        `Investment-committee tone, crypto venue: ${nameHit}.`,
-        `${t.name} in one page. No mythology.`,
-      ]);
-    case "operator":
-      return pick(rng, [
-        `${t.ticker} market structure — ${t.chain}.`,
-        `Operator read on ${t.ticker}. Numbers first.`,
-        `${t.ticker} internals from the pair, not from the replies.`,
-      ]);
-    case "thesis":
-      return pick(rng, [
-        `A clean way to read ${t.ticker} without the carnival.`,
-        `Thesis, not a chant: ${nameHit}.`,
-        `What ${t.ticker} is doing on-chain in the last 24 hours.`,
-      ]);
-    default:
-      return pick(rng, [
-        move ? `${t.ticker} prints ${move} over 24h.` : `${nameHit} — live on ${t.chain}.`,
-        t.vol && move ? `${t.ticker}: ${move} with ${t.vol} through the book.` : `${nameHit} is on the tape.`,
-        facts.story ?? `${t.ticker} is the name. ${t.chain} is the market.`,
-      ]);
-  }
-}
-
-function body(rng: Rng, voice: Voice, t: Tape, facts: TokenFactSet): string[] {
-  const lines: string[] = [];
-  const move = moveLine(t);
-  const flow = flowLine(t);
-  const structure = structureLine(t);
-  const why = whyNow(rng, t, facts);
-  const finding = pick(rng, facts.findings.length ? facts.findings : [why]);
-  const risk = facts.risks[0]
-    ? pick(rng, [
-        `Risk on the sheet: ${facts.risks[0]}`,
-        `Keep this visible: ${facts.risks[0]}`,
-        `The honest caveat — ${facts.risks[0]}`,
-      ])
-    : null;
-
-  if (voice === "tape" || voice === "operator") {
-    if (structure) lines.push(structure);
-    if (t.ch1h) lines.push(`1h ${signed(t.ch1h)} · 6h ${signed(t.ch6h) ?? "n/a"} · 24h ${signed(t.ch24h) ?? "n/a"}`);
-    if (flow) lines.push(flow);
-    if (t.dex) lines.push(`Venue: ${t.dex} on ${t.chain}.`);
-    if (facts.dexPaid === "paid") lines.push("Dex listing is marked paid.");
-    if (facts.boosts) lines.push(`Active boosts on the pair: ${facts.boosts}.`);
-    if (finding && finding !== structure) lines.push(finding);
-    if (risk) lines.push(risk);
-    return lines;
-  }
-
-  if (voice === "rally" || voice === "street") {
-    if (move) lines.push(move);
-    lines.push(
-      pick(rng, [
-        t.liq && t.vol
-          ? `That move is sitting on ${t.liq} liquidity with ${t.vol} through the day. That is a market, not a caption.`
-          : `The name is ${t.name}. The chain is ${t.chain}. The contract is below.`,
-        why,
-      ]),
-    );
-    if (t.trades) lines.push(`Order flow: ${t.trades}. That's people, not a render.`);
-    else if (flow) lines.push(flow);
-    lines.push(why);
-    if (risk) lines.push(risk);
-    return lines;
-  }
-
-  if (voice === "story" || voice === "whisper") {
-    lines.push(
-      pick(rng, [
-        `Start with the name: ${t.name}. Then look at what the pair actually did.`,
-        `${t.ticker} is not a vibe. It is a book on ${t.chain}.`,
-      ]),
-    );
-    if (move) lines.push(move);
-    if (flow) lines.push(flow);
-    lines.push(why);
-    if (finding && finding !== why) lines.push(finding);
-    if (risk) lines.push(risk);
-    return lines;
-  }
-
-  if (voice === "board" || voice === "brief" || voice === "thesis") {
-    lines.push(
-      pick(rng, [
-        `${t.name} trades on ${t.chain}${t.dex ? ` via ${t.dex}` : ""}.`,
-        `Venue: ${t.chain}${t.dex ? ` / ${t.dex}` : ""}. Identity is the contract, not the ticker art.`,
-      ]),
-    );
-    if (structure) lines.push(`Structure: ${structure}.`);
-    if (move) lines.push(move);
-    if (flow) lines.push(flow);
-    lines.push(why);
-    if (risk) lines.push(risk);
-    return lines;
-  }
-
-  if (move) lines.push(move);
-  if (structure) lines.push(structure);
-  if (flow) lines.push(flow);
-  lines.push(why);
-  if (finding && finding !== why) lines.push(finding);
-  if (risk) lines.push(risk);
-  return lines;
-}
-
-function close(rng: Rng, voice: Voice, t: Tape): string {
-  if (voice === "rally" || voice === "street") {
-    return pick(rng, [
-      `If you write about ${t.chain}, this is the CA worth keeping.`,
-      `Save the contract. Argue after you look.`,
-      `The chart is public. The contract is below.`,
-    ]);
-  }
-  if (voice === "whisper") {
-    return pick(rng, [
-      "That's the note. No parade.",
-      "Leaving this here for the people who actually read.",
-    ]);
-  }
-  if (voice === "board" || voice === "brief") {
-    return pick(rng, [
-      "Positioning is optional. Reading the pair is not.",
-      "File it. Recheck the tape before you act.",
-    ]);
-  }
-  return pick(rng, [
-    "Read it once. Then read the pair.",
-    "The work is the market data — not the caption.",
-    `${t.ticker} on ${t.chain}. Contract below.`,
-  ]);
-}
-
 function polish(text: string): string {
   return text
     .replace(/\b(about to explode|guaranteed|100x|to the moon|ape in|can't miss|risk-free)\b/gi, "")
@@ -835,74 +572,185 @@ function polish(text: string): string {
     .trim();
 }
 
-function writeBullPost(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
-  const rng = mulberry32(variant * 9973 + 13 + hashStr(facts.identity.address + facts.builtAt));
+function opener(rng: Rng, voice: Voice, t: Tape, market: MarketDiagnosis): string {
+  const severe = market.state === "SEVERE_RISK" || market.state === "COLLAPSED";
+  if (severe) {
+    if (voice === "rally" || voice === "street" || voice === "tape" || voice === "whisper") {
+      return pick(rng, [
+        `${t.ticker} does not get a hype post. The tape is the post.`,
+        `Stop framing ${t.ticker} as a setup. Read the damage first.`,
+        `${t.ticker}: this is a warning, written ${voice === "tape" ? "tight" : "out loud"}.`,
+      ]);
+    }
+    return pick(rng, [
+      `A straight read on ${t.ticker}. No pitch.`,
+      `${t.name} on ${t.chain}. The numbers come before any adjective.`,
+      `Desk note, not a rally: ${t.ticker}.`,
+    ]);
+  }
+  if (market.state === "BEARISH" || market.state === "CAUTION") {
+    return pick(rng, [
+      `${t.ticker} is weakening. The useful question is what the pair is actually doing.`,
+      `Downside first on ${t.ticker}. Style does not get a vote.`,
+      `A ${voice} telling of a weak tape. The weakness stays.`,
+    ]);
+  }
+  if (market.state === "BULLISH" || market.state === "POSITIVE") {
+    return pick(rng, [
+      `${t.ticker} is ahead on the window we can actually measure.`,
+      `The constructive part of ${t.ticker} is the measured move, not a slogan.`,
+      `${t.name} has a positive print. That is the claim, and it stops there.`,
+    ]);
+  }
+  return pick(rng, [
+    `${t.ticker} is not offering a clean directional story.`,
+    `Balanced note on ${t.ticker}. Missing fields stay missing.`,
+    `No campaign here. ${t.ticker} is a snapshot.`,
+  ]);
+}
+
+function closeFor(rng: Rng, market: MarketDiagnosis, t: Tape): string {
+  if (market.state === "COLLAPSED" || market.state === "SEVERE_RISK") {
+    return pick(rng, [
+      "Treat this as scrutiny, not an entry pitch.",
+      "The close is the risk, not a call to size up.",
+      `${t.ticker} needs verification before anyone calls it an opportunity.`,
+    ]);
+  }
+  if (market.state === "BEARISH" || market.state === "CAUTION") {
+    return pick(rng, [
+      "The weakness is the story until the pair says otherwise.",
+      "Do not upgrade a weak tape into a narrative.",
+    ]);
+  }
+  if (market.state === "BULLISH" || market.state === "POSITIVE") {
+    return pick(rng, [
+      "The positive read stops where the data stops.",
+      "Momentum is only the part the snapshot can support.",
+    ]);
+  }
+  return pick(rng, [
+    "No directional claim beyond this snapshot.",
+    "Flat is a result. It is not a tease.",
+  ]);
+}
+
+function lockedLines(market: MarketDiagnosis, snap: string | null): string[] {
+  const lines = [market.headline, snap];
+  for (const fact of market.facts) {
+    if (fact !== market.headline) lines.push(fact);
+  }
+  for (const signal of market.signals) {
+    if (signal.polarity === "risk" && !lines.includes(signal.explanation)) lines.push(signal.explanation);
+  }
+  if (market.rugLine && !lines.includes(market.rugLine)) lines.push(market.rugLine);
+  const x = market.facts.find((fact) => /public x/i.test(fact));
+  if (x && !lines.includes(x)) lines.push(x);
+  return lines.filter((line): line is string => Boolean(line));
+}
+
+const PROMO =
+  /\b(exciting opportunity|great potential|could explode|high potential|to the moon|still early|promising setup|room is awake|strong opportunity)\b/gi;
+
+export function ensureMarketVerdict(text: string, facts: TokenFactSet): string {
+  const market = facts.market;
+  let out = text.trim();
+  if (!market) return out;
+  if (market.headline && !out.includes(market.headline)) out = `${out}\n\n${market.headline}`;
+  if (market.rugLine && !out.includes(market.rugLine)) out = `${out}\n\n${market.rugLine}`;
+  if (market.state === "SEVERE_RISK" || market.state === "COLLAPSED" || market.state === "BEARISH" || market.state === "CAUTION") {
+    out = out.replace(PROMO, "");
+  }
+  return out.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function writeStatePost(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
+  const rng = mulberry32(variant * 9973 + 13 + hashStr(facts.identity.address + facts.builtAt + mode));
   const voice = pick(rng, voicesFor(mode));
   const t = readTape(facts);
+  const market = facts.market;
   const snap = marketLine(rng, t);
-  const parts = [
-    hook(rng, voice, t, facts),
-    snap,
-    ...body(rng, voice, t, facts).filter(Boolean),
-    close(rng, voice, t),
-    caLine(rng, t),
-    disclaimer(rng, t),
-  ];
+  const core = lockedLines(market, snap);
+  const parts = [opener(rng, voice, t, market), ...core, closeFor(rng, market, t), caLine(rng, t), disclaimer(rng, t)];
   let text = parts.filter(Boolean).join("\n\n");
   if (mode === "more_concise") {
-    text = [hook(rng, "tape", t, facts), snap, caLine(rng, t), disclaimer(rng, t)]
-      .filter(Boolean)
-      .join("\n\n");
+    text = [market.headline, snap, market.rugLine, caLine(rng, t), disclaimer(rng, t)].filter(Boolean).join("\n\n");
   }
   return { text: polish(text), voice };
 }
 
-function writeBullThread(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
-  const rng = mulberry32(variant * 4999 + 101 + hashStr(facts.identity.symbol));
+function writeStateThread(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
+  const rng = mulberry32(variant * 4999 + 101 + hashStr(facts.identity.symbol + mode));
   const voice = pick(rng, voicesFor(mode));
   const t = readTape(facts);
+  const market = facts.market;
   const snap = marketLine(rng, t);
+  const risks = market.signals.filter((signal) => signal.polarity === "risk").map((signal) => signal.explanation);
   const beats = [
-    hook(rng, voice, t, facts),
-    snap ?? `${t.name} is live on ${t.chain}.`,
-    moveLine(t) ?? `${t.name} is live on ${t.chain}.`,
-    flowLine(t) ?? structureLine(t) ?? `${t.ticker} — structure still forming.`,
-    whyNow(rng, t, facts),
-    facts.findings[1] ?? facts.findings[0] ?? `${t.ticker} only gets a second look if the pair still looks like this tomorrow.`,
-    facts.risks[0] ? `Risk flag, kept in the thread: ${facts.risks[0]}` : `No extra claims. If a number is missing, it stayed missing.`,
-    `${caLine(rng, t)}\n\n${disclaimer(rng, t)}`,
+    opener(rng, voice, t, market),
+    market.headline,
+    snap ?? market.facts.find((fact) => /last price|market cap/i.test(fact)) ?? `${t.ticker} on ${t.chain}.`,
+    risks.find((line) => /liquidity/i.test(line)) ?? market.facts.find((fact) => /liquidity/i.test(fact)) ?? "Liquidity was not returned, so depth is not invented.",
+    risks.find((line) => /sell|volume/i.test(line)) ?? market.facts.find((fact) => /sell|volume/i.test(fact)) ?? "Order flow was not returned as a clean buy/sell split.",
+    market.facts.find((fact) => /public x|official/i.test(fact)) ?? "Public X context is limited to what the sample returned.",
+    market.rugLine ?? market.conclusions.find((line) => line !== market.headline) ?? "The conclusion stays inside the snapshot.",
+    `${closeFor(rng, market, t)}\n\n${caLine(rng, t)}\n\n${disclaimer(rng, t)}`,
   ].filter(Boolean);
-  const text = beats.map((b, i) => `${i + 1}/ ${b.replace(/^\d+\/\s*/, "")}`).join("\n\n");
+  const text = beats.map((beat, i) => `${i + 1}/ ${beat.replace(/^\d+\/\s*/, "")}`).join("\n\n");
   return { text: polish(text), voice };
 }
 
-function writeBullArticle(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
-  const rng = mulberry32(variant * 3343 + 7 + hashStr(facts.identity.name));
+function writeStateArticle(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
+  const rng = mulberry32(variant * 3343 + 7 + hashStr(facts.identity.name + mode));
   const voice = pick(rng, voicesFor(mode === "default" ? "more_professional" : mode));
   const t = readTape(facts);
+  const market = facts.market;
   const snap = marketLine(rng, t);
-  const title = pick(rng, [
-    `${t.ticker} on ${t.chain}: a market note, not a myth`,
-    `How to read ${t.name} from the pair up`,
-    `${t.ticker} — structure, flow, and the honest caveat`,
-  ]);
+  const severe = market.state === "SEVERE_RISK" || market.state === "COLLAPSED" || market.state === "BEARISH";
+  const title = severe
+    ? `${t.ticker}: what the tape supports, and what it does not`
+    : `${t.ticker} on ${t.chain}: a market note, not a myth`;
+  const verified = market.facts.map((fact) => `• ${fact}`);
+  const inferred = [
+    ...market.signals.filter((signal) => signal.basis !== "fact").map((signal) => `• ${signal.explanation}`),
+    market.rugLine ? `• ${market.rugLine}` : null,
+  ].filter((line): line is string => Boolean(line));
   const text = [
     title,
     "",
-    hook(rng, voice, t, facts),
+    opener(rng, voice, t, market),
     "",
-    "The setup",
-    `${t.name} (${t.ticker}) trades on ${t.chain}${t.dex ? ` through ${t.dex}` : ""}. Identity is the contract, not the avatar.`,
+    "What happened",
+    market.headline,
+    snap ?? "Price or market cap was missing, so neither was filled in.",
     "",
-    "What the pair shows",
-    [snap, structureLine(t), moveLine(t), flowLine(t)].filter(Boolean).join("\n"),
+    severe ? "Price and damage" : "Price",
+    market.facts.find((fact) => fact.startsWith("Price is")) ?? "Price change was not in the snapshot.",
     "",
-    "How to read it",
-    whyNow(rng, t, facts),
-    ...facts.findings.slice(0, 4).map((f) => `• ${f}`),
+    "Market cap and liquidity",
+    [market.facts.find((fact) => /market cap/i.test(fact)), market.facts.find((fact) => /liquidity/i.test(fact))]
+      .filter(Boolean)
+      .join("\n") || "Market cap and liquidity were not both available.",
     "",
-    "Risks that stay on the page",
-    ...(facts.risks.length ? facts.risks.map((r) => `• ${r}`) : ["• No additional risk flags were returned with this snapshot."]),
+    "Volume and buy/sell data",
+    [market.facts.find((fact) => /volume/i.test(fact)), market.facts.find((fact) => /buys|sells/i.test(fact)), ...market.signals.filter((signal) => signal.type === "volume_liquidity" || signal.type === "sell_pressure").map((signal) => signal.explanation)]
+      .filter(Boolean)
+      .join("\n") || "Volume or trade-side data was not returned.",
+    "",
+    "X and official presence",
+    market.facts.find((fact) => /public x|official/i.test(fact)) ?? "No additional social claim was added.",
+    "",
+    "What is verified",
+    ...(verified.length ? verified : ["• Only the fields above were verified."]),
+    "",
+    "What is inferred",
+    ...(inferred.length ? inferred : ["• No stronger inference was supported."]),
+    "",
+    "Conclusion",
+    closeFor(rng, market, t),
+    market.state === "BULLISH" || market.state === "POSITIVE"
+      ? "Any positive wording is capped by the measured change and the pool behind it."
+      : "This is not a promotional close. The market state above is the conclusion.",
     "",
     "Contract",
     t.ca,
@@ -920,12 +768,12 @@ export function generateFromFactSet(
 ): GeneratedContent {
   const written =
     kind === "thread"
-      ? writeBullThread(facts, mode, variant)
+      ? writeStateThread(facts, mode, variant)
       : kind === "article"
-        ? writeBullArticle(facts, mode, variant)
-        : writeBullPost(facts, mode, variant);
+        ? writeStateArticle(facts, mode, variant)
+        : writeStatePost(facts, mode, variant);
 
-  const text = ensureLockedMarket(written.text, facts);
+  const text = ensureMarketVerdict(ensureLockedMarket(written.text, facts), facts);
   const score = scoreContent(text, kind);
   return {
     kind,
@@ -933,6 +781,9 @@ export function generateFromFactSet(
     text,
     score,
     applied: [
+      `Market state: ${facts.market.state}`,
+      `Rug-pull risk: ${facts.market.rugPullRisk}`,
+      `XPulse risk score: ${facts.market.riskScore} (${facts.market.riskBand})`,
       `Copy voice: ${written.voice}`,
       `Fact set locked (${facts.metrics.length} metrics, ${facts.findings.length} findings)`,
       `Mode: ${mode}`,
