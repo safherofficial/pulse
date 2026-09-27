@@ -387,24 +387,13 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
       try {
         const xIntel = await researchXContentIntel(intel);
         const patternList = xIntel.patterns.map((p) => p.pattern);
-        if (viral) {
-          if (viral.activity !== "unknown") {
-            patternList.push(
-              `Public conversation activity (24h sample): ${viral.activity}.`,
-            );
-          }
-          if (viral.totalMentions24h != null) {
-            patternList.push(
-              `Measurable X mentions in sample: ${viral.totalMentions24h} (${viral.totalReliability}).`,
-            );
-          }
-          const hot = viral.platforms.filter(
-            (pl) => pl.mentions24h != null && pl.mentions24h > 0,
+        if (viral?.topPosts.length) {
+          patternList.push(
+            `X trending/relevant sample returned ${viral.topPosts.length} posts.`,
           );
-          if (hot.length) {
-            patternList.push(
-              `X sample attention on: ${hot.map((pl) => pl.label).join(", ")}.`,
-            );
+          const trending = viral.topPosts.filter((post) => post.signal === "trending").length;
+          if (trending > 0) {
+            patternList.push(`${trending} sampled X posts are marked trending by XPulse.`);
           }
         }
         facts = attachXPatterns(facts, patternList, xIntel.note);
