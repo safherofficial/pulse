@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { scoreContent, type ContentKind, type ContentScoreReport } from "@/lib/xpulse/content-score";
 import { improveDraft, threadifyDraft, strongerHookDraft } from "@/lib/xpulse/api";
 import type { ImproveResult } from "@/lib/xpulse/content-improve";
+import { previewTweets } from "@/lib/xpulse/thread-builder";
 
 export const Route = createFileRoute("/analyze")({
   head: () => ({ meta: [{ title: "Analyze · XPulse" }] }),
@@ -47,6 +48,8 @@ function AnalyzePage() {
     }
   }
 
+  const tweets = improved?.kind === "thread" ? previewTweets(improved.text) : [];
+
   return (
     <WorkspaceShell active="/analyze" kicker="Editor" title="Analyze & improve">
       <section className="panel space-y-4 p-4 sm:p-5">
@@ -54,7 +57,7 @@ function AnalyzePage() {
           <span className="kicker">Paste your draft</span>
           <textarea
             className="mt-2 min-h-40 w-full rounded-md border border-line bg-surface-2 px-4 py-3 text-fg outline-none ring-accent focus:ring-1"
-            placeholder="Paste a post, thread, or article draft…"
+            placeholder="Paste a draft. Include $TICKER, CA, or an X URL if you want live tape."
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
@@ -109,7 +112,7 @@ function AnalyzePage() {
               )
             }
           >
-            {busy === "thread" ? "Threading…" : "Threadify"}
+            {busy === "thread" ? "Building thread…" : "Threadify"}
           </Button>
         </div>
         {error ? (
@@ -120,21 +123,32 @@ function AnalyzePage() {
       </section>
 
       {improved ? (
-        <section className="panel p-4 sm:p-5">
+        <section className="panel space-y-3 p-4 sm:p-5">
           <p className="kicker">
             {improved.kind} · {improved.angle.label} · {improved.source} · {improved.before.total}→
             {improved.after.total}
           </p>
-          <pre className="mt-3 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
-            {improved.text}
-          </pre>
-          <div className="mt-4 flex flex-wrap gap-2">
+          {tweets.length > 1 ? (
+            <ol className="space-y-2">
+              {tweets.map((tweet, i) => (
+                <li key={i} className="rounded-md border border-line bg-surface-2/50 px-3 py-3">
+                  <p className="font-mono text-[10px] text-subtle">{i + 1}/{tweets.length} · {tweet.length} chars</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-fg">{tweet}</p>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
+              {improved.text}
+            </pre>
+          )}
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               variant="quiet"
               onClick={() => void navigator.clipboard.writeText(improved.text)}
             >
-              Copy
+              Copy thread
             </Button>
             <Button
               type="button"
@@ -148,7 +162,7 @@ function AnalyzePage() {
               Use as draft
             </Button>
           </div>
-          <ul className="mt-3 space-y-1 text-xs text-subtle">
+          <ul className="space-y-1 text-xs text-subtle">
             {improved.applied.map((a) => (
               <li key={a}>• {a}</li>
             ))}
