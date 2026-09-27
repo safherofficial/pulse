@@ -21,7 +21,7 @@ const READINGS = [
 ] as const;
 
 const MOVES = [
-  ["01", "Create for X", "Posts, threads, and articles scored for attention — not engagement bait. Built for devs, community, and token narratives."],
+  ["01", "Analyze for X", "Drafts and public posts scored for attention — not engagement bait. Built for devs, community, and token narratives."],
   ["02", "Research Solana", "Look up any token by name or contract. Market structure, liquidity, risks — then turn research into publish-ready copy."],
   ["03", "Your Chamber", "Your links and stats in one place. Charts, history, and rewrite tools without averaging the whole account."],
 ] as const;
@@ -69,7 +69,6 @@ const PRICE_ROWS = [
     ours: false,
   },
 ] as const;
-
 
 function WatchHowItWorks({ variant = "button" }: { variant?: "button" | "card" } = {}) {
   const [open, setOpen] = useState(false);
@@ -275,7 +274,6 @@ function WatchHowItWorks({ variant = "button" }: { variant?: "button" | "card" }
   );
 }
 
-
 function Home() {
   const thread = sampleModel.posts[0]!;
   const article = sampleModel.posts[1]!;
@@ -287,8 +285,6 @@ function Home() {
         <p className="kicker">What do you want to do?</p>
         <div className="mt-3 flex flex-wrap gap-2">
           {[
-            ["/create", "Create a post"],
-            ["/create", "Create a thread"],
             ["/tokens", "Push my token"],
             ["/tokens", "Search any CA"],
             ["/research", "Research a topic"],
@@ -321,8 +317,8 @@ function Home() {
             <Link to="/tokens" className={buttonVariants()}>
               Analyze a token
             </Link>
-            <Link to="/create" className={buttonVariants({ variant: "quiet" })}>
-              Create content
+            <Link to="/analyze" className={buttonVariants({ variant: "quiet" })}>
+              Improve a draft
             </Link>
             <Link to="/pulse" className={buttonVariants({ variant: "quiet" })}>
               Open Your Chamber
@@ -361,7 +357,6 @@ function Home() {
         ))}
       </section>
 
-      
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -392,7 +387,7 @@ function Home() {
           ))}
         </ol>
       </section>
-<section className="grid items-start gap-8 border-t border-line pt-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
+      <section className="grid items-start gap-8 border-t border-line pt-12 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         <div>
           <p className="kicker">Who it is for</p>
           <h2 className="mt-3 text-3xl">Devs, community, and publishers on X.</h2>
