@@ -734,7 +734,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             ) : null}
           </section>
 
-
+          <section className="panel space-y-4 p-4 sm:p-5">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <p className="kicker">X mentions & notable accounts</p>
