@@ -414,7 +414,9 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
     } finally {
       setContentBusy(null);
     }
-  }  async function regenerate() {
+  }
+
+  async function regenerate() {
     if (!content || !factSet || contentBusy) return;
     setContentBusy(content.kind);
     setContentError(null);
