@@ -137,9 +137,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
 
   const beats =
     dossier?.output.kind === "thread"
-      ? dossier.output.text.split(/
-\s*
-/).map((part) => part.trim()).filter(Boolean)
+      ? dossier.output.text.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean)
       : [];
 
   return (
@@ -245,7 +243,6 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
         </CollapsibleSection>
       ) : null}
     </WorkspaceShell>
-    </>
   );
 }
 
