@@ -236,11 +236,16 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   }
 
   const originalScore = deterministic.score.original.total;
-  const best = [deterministic, ...candidates].sort(
-    (a, b) => b.score.improved.total - a.score.improved.total,
-  )[0];
+  const originalViral = deterministic.score.original.viral;
+  const best = [deterministic, ...candidates]
+    .filter((candidate) => candidate.score.improved.total > originalScore && candidate.score.improved.viral >= originalViral)
+    .sort((a, b) => {
+      const aGain = a.score.improved.total - originalScore + (a.score.improved.viral - originalViral) * 0.75;
+      const bGain = b.score.improved.total - originalScore + (b.score.improved.viral - originalViral) * 0.75;
+      return bGain - aGain;
+    })[0];
 
-  if (best.score.improved.total <= originalScore || best.output.keptOriginal) {
+  if (!best || best.output.keptOriginal) {
     deterministic.output.notes = [
       ...deterministic.output.notes,
       "No validated transformation improved the measured score. Original facts were preserved.",
@@ -251,6 +256,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   best.output.notes = [
     ...best.output.notes,
     `Validated improvement: ${originalScore} → ${best.score.improved.total} (+${best.score.improved.total - originalScore}).`,
+    `Viral score: ${originalViral} → ${best.score.improved.viral} (+${best.score.improved.viral - originalViral}).`,
   ];
   return cacheSet(cacheKey, best);
 }
