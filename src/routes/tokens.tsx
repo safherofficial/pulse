@@ -174,7 +174,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
 
   return (
     <WorkspaceShell active="/tokens" kicker="Solana" title="Token · multi-chain">
-      <section className="panel p-4 sm:p-5">
+      <CollapsibleSection kicker="Token" title="Search" activityKey={query || null}>
         <label className="block">
           <span className="kicker">Search</span>
           <input
@@ -203,10 +203,10 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
             {error}
           </p>
         ) : null}
-      </section>
+      </CollapsibleSection>
 
       {hits && hits.length > 0 ? (
-        <section className="panel p-4">
+        <CollapsibleSection kicker="Results" title="Search results" activityKey={hits?.map((h) => h.address).join("|") || null}>
           <p className="kicker">Search results</p>
           <p className="mt-1 text-sm text-muted">Select a token to open its full detail.</p>
           <ul className="mt-4 space-y-2">
@@ -244,10 +244,10 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
               </li>
             ))}
           </ul>
-        </section>
+        </CollapsibleSection>
       ) : null}
 
-      <section className="panel p-4 sm:p-5">
+      <CollapsibleSection kicker="Market" title="Moving now" activityKey={viral.map((t) => t.address).join("|") || null}>
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="kicker">Moving now</p>
@@ -303,7 +303,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
     </WorkspaceShell>
   );
 }
