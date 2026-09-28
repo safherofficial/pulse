@@ -213,6 +213,14 @@ function pickBestPair(pairs: DexPair[], preferChain?: string | null): DexPair | 
     .sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0))[0]!;
 }
 
+function faithfulTokenName(name: string | undefined, symbol: string | undefined): string {
+  const cleanName = (name ?? "").trim();
+  const cleanSymbol = (symbol ?? "").trim();
+  if (cleanName && !/^(unknown|token|coin|placeholder|n\/a|na)$/i.test(cleanName)) return cleanName;
+  if (cleanSymbol && !/^(unknown|token|coin|placeholder|n\/a|na)$/i.test(cleanSymbol)) return cleanSymbol;
+  return "Name unavailable";
+}
+
 function identityFromPair(pair: DexPair, addressHint?: string): TokenIdentity {
   const base = pair.baseToken;
   const address = addressHint || base?.address || "";
@@ -224,7 +232,7 @@ function identityFromPair(pair: DexPair, addressHint?: string): TokenIdentity {
   const website = pair.info?.websites?.[0]?.url ?? null;
   return {
     address,
-    name: base?.name ?? "Unknown",
+    name: faithfulTokenName(base?.name, base?.symbol),
     symbol: (base?.symbol ?? "—").toUpperCase(),
     decimals: null,
     logoUrl: pair.info?.imageUrl ?? null,
@@ -499,7 +507,7 @@ export async function searchTokensByName(query: string): Promise<TokenSearchHit[
     seen.add(key);
     hits.push({
       address: addr,
-      name: pair.baseToken?.name ?? "Unknown",
+      name: faithfulTokenName(pair.baseToken?.name, pair.baseToken?.symbol),
       symbol: (pair.baseToken?.symbol ?? "—").toUpperCase(),
       logoUrl: pair.info?.imageUrl ?? null,
       priceUsd: pair.priceUsd != null ? Number(pair.priceUsd) : null,
@@ -716,7 +724,7 @@ export async function fetchViralSolanaTokens(limit = 12): Promise<ViralToken[]> 
     if (liq > 200_000) reasons.push("deeper liquidity");
     ranked.push({
       address: p.baseToken?.address ?? "",
-      name: p.baseToken?.name ?? "Unknown",
+      name: faithfulTokenName(p.baseToken?.name, p.baseToken?.symbol),
       symbol: (p.baseToken?.symbol ?? "—").toUpperCase(),
       logoUrl: p.info?.imageUrl ?? null,
       priceUsd: p.priceUsd != null ? Number(p.priceUsd) : null,
