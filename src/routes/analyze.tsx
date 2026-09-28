@@ -63,6 +63,7 @@ type OptimizationView = {
 function AnalyzePage() {
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
+  const [request, setRequest] = useState("");
   const [kind, setKind] = useState<ContentKind>("post");
   const [mode, setMode] = useState<EditorMode>("ANALYZE");
   const [dossier, setDossier] = useState<EditorDossier | null>(null);
@@ -92,19 +93,19 @@ function AnalyzePage() {
     setText(parsed.text);
     setKind(parsed.kind);
     setToken(parsed.token);
-    void execute("ANALYZE", parsed.text, "", parsed.kind);
+    void execute("ANALYZE", parsed.text, "", parsed.kind, "Analyze this content and identify the highest-impact improvements.");
     // Handoff is read once on entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function execute(nextMode: EditorMode, draft = text, page = url, nextKind = kind) {
+  async function execute(nextMode: EditorMode, draft = text, page = url, nextKind = kind, nextRequest = request) {
     if (!draft.trim() && !page.trim()) return;
     setBusy(nextMode);
     setMode(nextMode);
     setNotice(null);
     try {
       const result = (await runEditor({
-        data: { text: draft, url: page, mode: nextMode, kind: nextKind },
+        data: { text: draft, url: page, mode: nextMode, kind: nextKind, request: nextRequest },
       })) as EditorDossier;
       setDossier(result);
     } catch {
@@ -113,6 +114,7 @@ function AnalyzePage() {
           text: draft,
           mode: nextMode,
           kind: nextKind,
+          request: nextRequest,
           logic: baselineContent(),
         }),
       );
@@ -151,6 +153,10 @@ function AnalyzePage() {
             value={text}
             onChange={(event) => setText(event.target.value)}
           />
+        </label>
+        <label className="block">
+          <span className="kicker">What do you want XPulse to do?</span>
+          <textarea className="mt-2 min-h-20 w-full rounded-md border border-line bg-surface-2 px-4 py-3 text-fg outline-none ring-accent focus:ring-1" placeholder="Find the biggest weakness, improve the hook, make it technical, or turn it into a thread." value={request} onChange={(event) => setRequest(event.target.value)} />
         </label>
         <label className="block">
           <span className="kicker">Public URL, optional</span>
@@ -243,6 +249,7 @@ function DossierView({
   return (
     <>
       <section className="panel space-y-3 p-4 sm:p-5">
+        {dossier.input.request ? <p className="text-xs text-subtle">Request · {dossier.input.request}</p> : null}
         <p className="kicker">Score · {dossier.output.source} · {dossier.output.kind}</p>
         <div className="grid gap-3 sm:grid-cols-3">
           <Meter label="Original" value={dossier.score.original.total} />
