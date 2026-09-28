@@ -188,8 +188,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   const writer: Rewrite | null =
     deps.rewrite === undefined
       ? async (payload) => {
-          const { hasConfiguredWriter, rewriteWithConfiguredModel } = await import("../content-improve.ts");
-          if (!hasConfiguredWriter()) return null;
+          const { rewriteWithConfiguredModel } = await import("../content-improve.ts");
           return rewriteWithConfiguredModel(payload);
         }
       : deps.rewrite;
