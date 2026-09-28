@@ -4,6 +4,7 @@
  */
 
 import { scoreContent, type ContentKind, type ContentScoreReport } from "../content-score.ts";
+import { EDITORIAL_ENGINE_VERSION, validateEditorialShape } from "../editorial-standard.ts";
 import { baselineContent } from "../optimize/baseline.ts";
 import { preservesAuthorFacts, PROMO_RE } from "../optimize/benchmarks.ts";
 import { optimizeContent } from "../optimize/compose.ts";
@@ -192,7 +193,9 @@ export function runEditorPipeline(input: {
       }
     : applyMode(text, input.mode, kind, logic);
   const validated = validate(text, drafted.text, language);
-  const finalText = validated.ok ? drafted.text : text;
+  const editorialGate = validateEditorialShape(drafted.text, drafted.kind);
+  const accepted = validated.ok && editorialGate.pass;
+  const finalText = accepted ? drafted.text : text;
   const after = scoreContent(finalText, drafted.kind);
   const original = namedScore(before, input.trend, input.liveTrends, text);
   const improved = namedScore(after, input.trend, input.liveTrends, finalText);
@@ -248,9 +251,14 @@ export function runEditorPipeline(input: {
       text: finalText,
       kind: drafted.kind,
       keptOriginal: finalText === text,
-      notes: validated.ok
-        ? drafted.notes
-        : ["Rewrite dropped a fact, a number, the author's language, or added promo wording. Original kept.", ...drafted.notes],
+      notes: accepted
+        ? [`Editorial engine: ${EDITORIAL_ENGINE_VERSION}`, ...drafted.notes]
+        : [
+            !validated.ok ? "Rewrite failed factuality/language/promo validation. Original kept." : "",
+            !editorialGate.pass ? `Editorial quality gate failed: ${editorialGate.violations.join(", ")}` : "",
+            `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,
+            ...drafted.notes,
+          ].filter(Boolean),
       source: validated.ok && input.proposed ? "configured-llm" : (input.source ?? "deterministic"),
     },
     diff: diffLines(text, finalText),
