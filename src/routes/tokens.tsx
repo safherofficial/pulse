@@ -325,6 +325,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
   const [factSet, setFactSet] = useState<TokenFactSet | null>(null);
   const [variant, setVariant] = useState(0);
   const [regenMode, setRegenMode] = useState<RegenMode>("default");
+  const [contentBusy, setContentBusy] = useState<ContentKind | null>(null);
+  const [contentError, setContentError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -381,33 +383,50 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
   }
 
   async function createContent(kind: ContentKind) {
-    if (!intel) return;
-    let facts = factSet ?? buildTokenFactSet(intel);
-    if (!facts.xPatterns.length && facts.xNote == null) {
-      try {
-        const xIntel = await researchXContentIntel(intel);
-        const patternList = xIntel.patterns.map((p) => p.pattern);
-        facts = attachXPatterns(facts, patternList, xIntel.note);
-      } catch {
-        facts = attachXPatterns(facts, [], "X content sample unavailable.");
-      }
-    }
-    setFactSet(facts);
-    const next = await writeTokenContent({
-      data: { facts, kind, mode: regenMode, variant },
-    });
-    setContent(next);
-    setVariant((v) => v + 1);
-  }
+    if (!intel || contentBusy) return;
+    setContentBusy(kind);
+    setContentError(null);
 
-  async function regenerate() {
-    if (!content || !factSet) return;
-    const jump = variant + 5 + Math.floor(Math.random() * 47);
-    const next = await writeTokenContent({
-      data: { facts: factSet, kind: content.kind, mode: regenMode, variant: jump },
-    });
-    setContent(next);
-    setVariant(jump + 1);
+    try {
+      let facts = factSet ?? buildTokenFactSet(intel);
+      if (!facts.xPatterns.length && facts.xNote == null) {
+        try {
+          const xIntel = await researchXContentIntel(intel);
+          const patternList = xIntel.patterns.map((p) => p.pattern);
+          facts = attachXPatterns(facts, patternList, xIntel.note);
+        } catch {
+          facts = attachXPatterns(facts, [], "X content sample unavailable.");
+        }
+      }
+
+      setFactSet(facts);
+      const next = await writeTokenContent({
+        data:   async function regenerate() {
+    if (!content || !factSet || contentBusy) return;
+    setContentBusy(content.kind);
+    setContentError(null);
+
+    try {
+      const jump = variant + 5 + Math.floor(Math.random() * 47);
+      const next = await writeTokenContent({
+        data: {
+          facts: factSet,
+          kind: content.kind,
+          mode: regenMode,
+          variant: jump,
+        },
+      });
+      setContent(next);
+      setVariant(jump + 1);
+    } catch (err: unknown) {
+      setContentError(
+        err instanceof Error
+          ? err.message
+          : "Content generation failed. Try again shortly.",
+      );
+    } finally {
+      setContentBusy(null);
+    }
   }
 
   return (
@@ -798,10 +817,38 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
 
           <CollapsibleSection kicker="Create content from this token" title="Write from locked facts">
             <p className="text-sm text-muted">
-              Facts are locked from the token data above. Regeneration rewrites structure and language
-              only — numbers stay the same.
+              Facts are locked from the token research above. The writer synthesizes the strongest
+              story and relationships in the evidence instead of copying the metric list.
             </p>
-            <div className="flex flex-wrap gap-2">
+
+            {contentBusy ? (
+              <div
+                className="mt-4 flex items-center gap-3 rounded-md border border-accent/30 bg-accent/5 px-4 py-3"
+                role="status"
+                aria-live="polite"
+              >
+                <span
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-accent/30 border-t-accent"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="text-sm text-fg">
+                    Building {contentBusy === "post" ? "post" : contentBusy === "thread" ? "thread" : "article"}…
+                  </p>
+                  <p className="text-xs text-subtle">
+                    Analyzing signals, composing the editorial angle, refining the copy and scoring the result.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {contentError ? (
+              <p className="mt-3 rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger" role="alert">
+                {contentError}
+              </p>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap gap-2">
               {(
                 [
                   ["default", "Default"],
@@ -819,26 +866,44 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 <button
                   key={id}
                   type="button"
+                  disabled={contentBusy !== null}
                   onClick={() => setRegenMode(id)}
                   className={`h-8 rounded-md px-2.5 text-xs transition ${
                     regenMode === id
                       ? "border border-accent/40 bg-accent/15 text-accent"
                       : "border border-line text-muted hover:text-fg"
-                  }`}
+                  }${contentBusy !== null ? " cursor-not-allowed opacity-50" : ""}`}
                 >
                   {label}
                 </button>
               ))}
             </div>
+
             <div className="flex flex-wrap gap-2">
               {(["post", "thread", "article"] as ContentKind[]).map((k) => (
-                <Button key={k} type="button" variant="quiet" onClick={() => void createContent(k)}>
-                  {k === "post" ? "Generate post" : k === "thread" ? "Generate thread" : "Generate article"}
+                <Button
+                  key={k}
+                  type="button"
+                  variant="quiet"
+                  disabled={contentBusy !== null}
+                  onClick={() => void createContent(k)}
+                >
+                  {contentBusy === k
+                    ? `Generating ${k}…`
+                    : k === "post"
+                      ? "Generate post"
+                      : k === "thread"
+                        ? "Generate thread"
+                        : "Generate article"}
                 </Button>
               ))}
               {content ? (
-                <Button type="button" onClick={() => void regenerate()}>
-                  Regenerate (unlimited)
+                <Button
+                  type="button"
+                  disabled={contentBusy !== null}
+                  onClick={() => void regenerate()}
+                >
+                  {contentBusy ? "Regenerating…" : "Regenerate (unlimited)"}
                 </Button>
               ) : null}
             </div>
