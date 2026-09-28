@@ -170,14 +170,6 @@ export function planDailyOptimization(input: {
           newRules: [],
           ruleChanges: [],
         };
-    if (!weeklyEditorialDue) {
-      logs.push(
-        event(runId, startedAt, "validation_completed", {
-          rejected: false,
-          weeklyEditorialUpgrade: false,
-        }),
-      );
-    }
     ordering.push("score_feedback");
     logs.push(event(runId, startedAt, "rules_changed", { count: contentResult.ruleChanges.length }));
     if (contentResult.experiments.length) {
