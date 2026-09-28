@@ -255,12 +255,13 @@ export const runEditor = createServerFn({ method: "POST" })
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {
     const { executeEditor } = await import("./editor/server");
-    const payload = data as { text?: string; url?: string; mode?: unknown; kind?: string };
+    const payload = data as { text?: string; url?: string; mode?: unknown; kind?: string; request?: string };
     const kind = payload?.kind === "thread" || payload?.kind === "article" || payload?.kind === "post" ? payload.kind : null;
     return executeEditor({
       text: typeof payload?.text === "string" ? payload.text : "",
       url: typeof payload?.url === "string" ? payload.url : "",
       mode: payload?.mode,
       kind,
+      request: typeof payload?.request === "string" ? payload.request : "",
     });
   });
