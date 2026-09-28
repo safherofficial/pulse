@@ -21,6 +21,8 @@ import {
 } from "./detect.ts";
 import { diffLines, type DiffMark } from "./diff.ts";
 import type { UrlExtraction } from "./url.ts";
+import type { TrendSnapshot } from "../trends.ts";
+import type { ViralTrendVersion } from "../optimize/types.ts";
 
 export type EditorMode =
   | "ANALYZE"
@@ -101,6 +103,13 @@ export type EditorDossier = {
     languageKept: boolean;
   };
   url: UrlExtraction | null;
+  trend?: {
+    version: string;
+    confidence: string;
+    pace: string;
+    activePatterns: string[];
+    topicLabels: string[];
+  };
 };
 
 const AI_SLACK =
@@ -125,16 +134,17 @@ export function isEditorMode(value: unknown): value is EditorMode {
   return typeof value === "string" && MODES.has(value as EditorMode);
 }
 
-export function namedScore(report: ContentScoreReport): NamedScore {
+export function namedScore(report: ContentScoreReport, trend?: ViralTrendVersion | null, liveTrends?: TrendSnapshot | null, text = ""): NamedScore {
   const dim = (key: string) => report.dimensions.find((item) => item.key === key)?.score ?? null;
   const score = (key: string) => report.dimensions.find((item) => item.key === key)?.score ?? 0;
-  const viral = Math.round(
+  const craftViral =
     score("hook") * 0.3 +
     score("curiosity") * 0.25 +
     score("shareability") * 0.25 +
     score("emotion") * 0.1 +
-    score("structure") * 0.1,
-  );
+    score("structure") * 0.1;
+  const trendMatch = trendMatchScore(text, trend, liveTrends);
+  const viral = Math.round(craftViral * 0.82 + trendMatch * 0.18);
   return {
     total: report.total,
     viral,
@@ -160,6 +170,8 @@ export function runEditorPipeline(input: {
   source?: "deterministic" | "configured-llm";
   /** Writer candidate. The critic below still accepts or reverts it. */
   proposed?: { text: string; source: string } | null;
+  trend?: ViralTrendVersion | null;
+  liveTrends?: TrendSnapshot | null;
 }): EditorDossier {
   const text = normalizeDraft(input.text);
   const request = (input.request ?? "").trim().replace(/\s+/g, " ").slice(0, 600);
@@ -182,8 +194,8 @@ export function runEditorPipeline(input: {
   const validated = validate(text, drafted.text, language);
   const finalText = validated.ok ? drafted.text : text;
   const after = scoreContent(finalText, drafted.kind);
-  const original = namedScore(before);
-  const improved = namedScore(after);
+  const original = namedScore(before, input.trend, input.liveTrends, text);
+  const improved = namedScore(after, input.trend, input.liveTrends, finalText);
   const activePatterns = logic.rules
     .filter((rule) => rule.learned && rule.status === "ACTIVE" && rule.weight > 0)
     .map((rule) => rule.patternId)
@@ -224,9 +236,12 @@ export function runEditorPipeline(input: {
         ...plan.filter((item) => item.action !== "KEEP").map((item) => `${item.target}: ${item.reason}`),
       ],
       risks: riskLines(text, intent),
-      viral: activePatterns.length
-        ? [`Active measured patterns: ${activePatterns.join(", ")}. They cannot change the facts.`]
-        : ["No promoted viral pattern is active. Craft rules only."],
+      viral: [
+        ...(activePatterns.length
+          ? [`Active measured patterns: ${activePatterns.join(", ")}. They cannot change the facts.`]
+          : ["No promoted viral pattern is active. Craft rules only."]),
+        ...trendEvidence(text, input.trend, input.liveTrends),
+      ],
     },
     plan,
     output: {
@@ -461,4 +476,58 @@ export function parseEditorHandoff(raw: string | null): EditorHandoff | null {
   } catch {
     return null;
   }
+}
+
+
+function trendMatchScore(text: string, trend?: ViralTrendVersion | null, liveTrends?: TrendSnapshot | null): number {
+  let score = 50;
+  if (trend?.patterns?.length) {
+    const active = trend.patterns.filter((p) => p.status === "ACTIVE" && p.engagementLift != null);
+    let matched = 0;
+    for (const pattern of active) {
+      const hit = pattern.patternId === "HOOK_QUESTION" ? /?/.test(text.split(/\\n+/)[0] ?? "")
+        : pattern.patternId === "CONTRARIAN_PATTERN" ? /\\b(nobody|most people|stop|wrong|don't|do not|hard truth)\\b/i.test(text.split(/\\n+/)[0] ?? "")
+        : pattern.patternId === "DATA_PATTERN" ? /\\d/.test(text)
+        : pattern.patternId === "EDUCATIONAL_PATTERN" ? /\\b(how to|here'?s|the reason|step \\d)\\b/i.test(text)
+        : pattern.patternId === "STORY_PATTERN" ? /\\b(i|we|yesterday|last week)\\b/i.test(text) && /\\b(then|after|when)\\b/i.test(text)
+        : pattern.patternId === "THREAD_PATTERN" ? /^\\s*\\d+\\s*\\//m.test(text)
+        : pattern.patternId === "CTA_PATTERN" ? /\\b(what do you|what's your|whats your|your read|reply if)\\b/i.test(text)
+        : pattern.patternId === "LENGTH_PATTERN" ? text.trim().split(/\\s+/).length >= 12 && text.trim().split(/\\s+/).length <= 45
+        : pattern.patternId === "OPENING_PATTERN" ? /\\d/.test(text.split(/\\n+/)[0] ?? "")
+        : pattern.patternId === "BREAKDOWN_PATTERN" ? /\\n\\s*(?:[-•]|\\d+\\.)\\s+\\S/.test(text)
+        : pattern.patternId === "ARTICLE_PATTERN" ? /\\n#{1,3}\\s+\\S/.test(text)
+        : false;
+      if (hit) matched += Math.max(1, Math.min(3, Math.round((pattern.engagementLift ?? 0) * 10)));
+    }
+    score += Math.min(28, matched * 4);
+  }
+  if (liveTrends?.items?.length) {
+    const lower = text.toLowerCase();
+    let hits = 0;
+    for (const item of liveTrends.items.slice(0, 12)) {
+      const tokens = item.label.toLowerCase().replace(/[()]/g, " ").split(/\\s+/).filter((t) => t.length >= 3);
+      if (tokens.some((token) => lower.includes(token))) hits += 1;
+    }
+    score += Math.min(12, hits * 2);
+  }
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function trendEvidence(text: string, trend?: ViralTrendVersion | null, liveTrends?: TrendSnapshot | null): string[] {
+  const lines: string[] = [];
+  if (trend) lines.push(`Trend memory ${trend.version} · confidence ${trend.confidence} · pace ${trend.pace}.`);
+  const active = trend?.patterns?.filter((p) => p.status === "ACTIVE").slice(0, 4) ?? [];
+  if (active.length) lines.push(`Measured active patterns available: ${active.map((p) => p.name).join(", ")}.`);
+  if (liveTrends?.items?.length) lines.push(`Live public trend context refreshed ${liveTrends.fetchedAt}; topics are context, not invented claims.`);
+  return lines;
+}
+
+function trendSummary(trend?: ViralTrendVersion | null, liveTrends?: TrendSnapshot | null) {
+  return {
+    version: trend?.version ?? "v1",
+    confidence: trend?.confidence ?? "LOW",
+    pace: trend?.pace ?? "insufficient",
+    activePatterns: trend?.patterns?.filter((p) => p.status === "ACTIVE").map((p) => p.patternId).slice(0, 8) ?? [],
+    topicLabels: (liveTrends?.web3Bias ?? trend?.topicLabels ?? []).slice(0, 8),
+  };
 }
