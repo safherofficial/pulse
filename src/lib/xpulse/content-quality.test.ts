@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateFromFactSet, type TokenFactSet } from "./content-create.ts";
+import { buildEditorialSystemPrompt, EDITORIAL_ENGINE_BASELINE, EDITORIAL_ENGINE_VERSION, validateEditorialShape, preferenceSignature } from "./editorial-standard.ts";
 
 function makeFacts(state: TokenFactSet["market"]["state"] = "POSITIVE"): TokenFactSet {
   const severe = state === "SEVERE_RISK";
@@ -131,4 +132,27 @@ test("severe risk remains visible in fallback writing", () => {
   assert.ok(result.text.includes("severe"));
   assert.ok(result.text.includes("96.0%"));
   assert.ok(!/exciting opportunity|could explode|strong opportunity/i.test(result.text));
+});
+
+
+test("global editorial standard is format-specific, versioned, and preference-aware", () => {
+  assert.equal(EDITORIAL_ENGINE_VERSION, "v1.0");
+  assert.equal(EDITORIAL_ENGINE_BASELINE, "v1.0");
+  const post = buildEditorialSystemPrompt("post", { tone: "technical", audience: "builders" });
+  const thread = buildEditorialSystemPrompt("thread", { tone: "technical", audience: "builders" });
+  const article = buildEditorialSystemPrompt("article", { tone: "technical", audience: "builders" });
+  assert.notEqual(post, thread);
+  assert.notEqual(thread, article);
+  assert.match(post, /TONE: technical/);
+  assert.match(post, /AUDIENCE: builders/);
+  assert.match(preferenceSignature({ format: "thread", tone: "human", variant: 3 }), /tone:human/);
+  assert.match(preferenceSignature({ format: "thread", tone: "human", variant: 3 }), /variant:3/);
+});
+
+test("global quality gate rejects generic AI language and shallow threads", () => {
+  const badPost = validateEditorialShape("In today's rapidly evolving Web3 landscape, let's dive in.", "post");
+  assert.equal(badPost.pass, false);
+  const badThread = validateEditorialShape("1/ First beat.\n\n2/ Second beat.\n\n3/ Third beat.", "thread");
+  assert.equal(badThread.pass, false);
+  assert.ok(badThread.violations.includes("thread_needs_progression"));
 });
