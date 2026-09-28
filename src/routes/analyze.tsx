@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { Button } from "@/components/ui/button";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { runEditor, optimizationStatus } from "@/lib/xpulse/api";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import { baselineContent } from "@/lib/xpulse/optimize/baseline";
@@ -245,12 +246,89 @@ function DossierView({
   beats: string[];
   onUse: () => void;
 }) {
+  const activityKey = [
+    dossier.input.text,
+    dossier.output.text,
+    dossier.output.kind,
+    dossier.output.source,
+  ].join("|");
   const delta = dossier.score.delta;
+
   return (
     <>
-      <section className="panel space-y-3 p-4 sm:p-5">
-        {dossier.input.request ? <p className="text-xs text-subtle">Request · {dossier.input.request}</p> : null}
-        <p className="kicker">Content {dossier.score.improved.total} · Viral {dossier.score.improved.viral} · {dossier.output.source} · {dossier.output.kind}</p>
+      <CollapsibleSection
+        kicker="Editor"
+        title="Content tool"
+        activityKey={activityKey}
+      >
+        {dossier.input.request ? (
+          <p className="text-xs text-subtle">Request · {dossier.input.request}</p>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block sm:col-span-2">
+            <span className="kicker">Draft</span>
+            <textarea
+              className="mt-2 min-h-32 w-full rounded-md border border-line bg-surface-2 px-4 py-3 text-fg outline-none ring-accent focus:ring-1"
+              value={dossier.input.text}
+              readOnly
+            />
+          </label>
+          <div className="space-y-2">
+            <p className="kicker">Action</p>
+            <p className="text-sm text-muted">Use the buttons above to analyze, rewrite, improve the hook, shorten, expand, or create a thread/article.</p>
+            <Button type="button" variant="quiet" onClick={onUse}>
+              Use output as draft
+            </Button>
+          </div>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        kicker="Output"
+        title="Original & regenerated content"
+        activityKey={activityKey}
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <article className="rounded-md border border-line bg-surface-2/40 p-4">
+            <p className="kicker">Original</p>
+            <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted">{dossier.input.text || "No text."}</pre>
+          </article>
+          <article className="rounded-md border border-accent/30 bg-accent/5 p-4">
+            <p className="kicker">Regenerated</p>
+            {beats.length > 1 ? (
+              <ol className="mt-2 space-y-2">
+                {beats.map((beat, index) => (
+                  <li key={index} className="rounded-md border border-line bg-surface-2/50 px-3 py-3">
+                    <p className="font-mono text-[10px] text-subtle">{index + 1}/{beats.length}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-fg">{beat}</p>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">{dossier.output.text || "No text."}</pre>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" variant="quiet" onClick={() => void navigator.clipboard.writeText(dossier.output.text)}>
+                Copy
+              </Button>
+              <Button type="button" variant="quiet" onClick={onUse}>
+                Use as draft
+              </Button>
+            </div>
+            <ul className="mt-3 space-y-1 text-xs text-subtle">
+              {dossier.output.notes.slice(0, 6).map((note) => (
+                <li key={note}>• {note}</li>
+              ))}
+            </ul>
+          </article>
+        </div>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        kicker="Score"
+        title={`Content ${dossier.score.improved.total} · Viral ${dossier.score.improved.viral} · ${dossier.output.source} · ${dossier.output.kind}`}
+        activityKey={activityKey}
+      >
         <div className="grid gap-3 sm:grid-cols-3">
           <Meter label="Content · Original" value={dossier.score.original.total} />
           <Meter label="Content · Improved" value={dossier.score.improved.total} />
@@ -283,98 +361,52 @@ function DossierView({
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-subtle">
-          Scores are scoreContent plus the specificity signal. They are not impressions.
-        </p>
-      </section>
+        <p className="text-xs text-subtle">Scores are scoreContent plus the specificity signal. They are not impressions.</p>
+        <p className="text-xs text-subtle">Measured delta: {delta > 0 ? "+" : ""}{delta} content points.</p>
+      </CollapsibleSection>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="panel space-y-2 p-4 sm:p-5">
-          <p className="kicker">Analysis</p>
-          <Block title="Detected" body={`${dossier.input.language} · ${dossier.input.format} · ${dossier.input.intent}`} />
-          <List title="What works" items={dossier.analysis.works} />
-          <List title="What does not" items={dossier.analysis.limits} />
-          <List title="Why" items={dossier.analysis.why} />
-          <List title="Risk" items={dossier.analysis.risks} />
-          <List title="Viral patterns" items={dossier.analysis.viral} />
-          {dossier.input.entities.tickers.length ? (
-            <p className="text-xs text-muted">Tickers: {dossier.input.entities.tickers.join(" ")}</p>
-          ) : null}
-          {dossier.url ? (
-            <p className="text-xs text-muted">
-              URL {dossier.url.kind} · {dossier.url.status}
-              {dossier.url.reason ? ` · ${dossier.url.reason}` : ""}
-            </p>
-          ) : null}
-        </article>
-        <article className="panel space-y-2 p-4 sm:p-5">
-          <p className="kicker">Improvement plan</p>
-          <ol className="space-y-2">
-            {dossier.plan.map((item, index) => (
-              <li key={`${item.action}-${item.target}-${index}`} className="text-sm">
-                <p className="text-fg">
-                  {index + 1}. {item.action} · {item.target}
-                </p>
-                <p className="text-muted">{item.reason}</p>
-                <p className="text-xs text-subtle">
-                  Impact {item.expectedImpact} · priority {item.priority}
-                </p>
-              </li>
-            ))}
-          </ol>
-          <p className="text-xs text-subtle">
-            Facts {dossier.validation.factsPreserved ? "kept" : "failed"} · numbers{" "}
-            {dossier.validation.numbersPreserved ? "kept" : "failed"} · language{" "}
-            {dossier.validation.languageKept ? "kept" : "failed"} · promo{" "}
-            {dossier.validation.promoAdded ? "added" : "not added"}
+      <CollapsibleSection kicker="Analysis" title="Content analysis" activityKey={activityKey}>
+        <Block title="Detected" body={`${dossier.input.language} · ${dossier.input.format} · ${dossier.input.intent}`} />
+        <List title="What works" items={dossier.analysis.works} />
+        <List title="What does not" items={dossier.analysis.limits} />
+        <List title="Why" items={dossier.analysis.why} />
+        <List title="Risk" items={dossier.analysis.risks} />
+        <List title="Viral patterns" items={dossier.analysis.viral} />
+        {dossier.input.entities.tickers.length ? (
+          <p className="text-xs text-muted">Tickers: {dossier.input.entities.tickers.join(" ")}</p>
+        ) : null}
+        {dossier.url ? (
+          <p className="text-xs text-muted">
+            URL {dossier.url.kind} · {dossier.url.status}
+            {dossier.url.reason ? ` · ${dossier.url.reason}` : ""}
           </p>
-        </article>
-      </section>
+        ) : null}
+      </CollapsibleSection>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <article className="panel space-y-2 p-4 sm:p-5">
-          <p className="kicker">Original</p>
-          <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-muted">{dossier.input.text || "No text."}</pre>
-        </article>
-        <article className="panel space-y-3 p-4 sm:p-5">
-          <p className="kicker">Improved</p>
-          {beats.length > 1 ? (
-            <ol className="space-y-2">
-              {beats.map((beat, index) => (
-                <li key={index} className="rounded-md border border-line bg-surface-2/50 px-3 py-3">
-                  <p className="font-mono text-[10px] text-subtle">{index + 1}/{beats.length}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-fg">{beat}</p>
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">{dossier.output.text || "No text."}</pre>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="quiet" onClick={() => void navigator.clipboard.writeText(dossier.output.text)}>
-              Copy
-            </Button>
-            <Button type="button" variant="quiet" onClick={onUse}>
-              Use as draft
-            </Button>
-          </div>
-          <ul className="space-y-1 text-xs text-subtle">
-            {dossier.output.notes.slice(0, 6).map((note) => (
-              <li key={note}>• {note}</li>
-            ))}
-          </ul>
-        </article>
-      </section>
+      <CollapsibleSection kicker="Plan" title="Improvement plan" activityKey={activityKey}>
+        <ol className="space-y-2">
+          {dossier.plan.map((item, index) => (
+            <li key={`${item.action}-${item.target}-${index}`} className="text-sm">
+              <p className="text-fg">{index + 1}. {item.action} · {item.target}</p>
+              <p className="text-muted">{item.reason}</p>
+              <p className="text-xs text-subtle">Impact {item.expectedImpact} · priority {item.priority}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="text-xs text-subtle">
+          Facts {dossier.validation.factsPreserved ? "kept" : "failed"} · numbers{" "}
+          {dossier.validation.numbersPreserved ? "kept" : "failed"} · language{" "}
+          {dossier.validation.languageKept ? "kept" : "failed"} · promo{" "}
+          {dossier.validation.promoAdded ? "added" : "not added"}
+        </p>
+      </CollapsibleSection>
 
-      <section className="panel space-y-2 p-4 sm:p-5">
-        <p className="kicker">Diff</p>
+      <CollapsibleSection kicker="Diff" title="Transformation diff" activityKey={activityKey}>
         <ul className="space-y-1 font-mono text-xs">
           {dossier.diff.length ? dossier.diff.map((mark, index) => (
             <li
               key={`${mark.type}-${index}`}
-              className={
-                mark.type === "added" ? "text-accent" : mark.type === "removed" ? "text-danger line-through" : "text-muted"
-              }
+              className={mark.type === "added" ? "text-accent" : mark.type === "removed" ? "text-danger line-through" : "text-muted"}
             >
               {mark.type === "added" ? "+ " : mark.type === "removed" ? "− " : "  "}
               {mark.text}
@@ -383,7 +415,7 @@ function DossierView({
             <li className="text-muted">No line changes.</li>
           )}
         </ul>
-      </section>
+      </CollapsibleSection>
     </>
   );
 }
