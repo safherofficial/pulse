@@ -664,100 +664,190 @@ export function ensureMarketVerdict(text: string, facts: TokenFactSet): string {
   return out.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function pickEvidence(facts: TokenFactSet, limit: number): string[] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const line of [...facts.market.facts, ...facts.findings, ...facts.market.conclusions]) {
+    const value = line?.trim();
+    if (!value || seen.has(value)) continue;
+    seen.add(value);
+    unique.push(value);
+    if (unique.length >= limit) break;
+  }
+  return unique;
+}
+
+function pickInterpretations(facts: TokenFactSet, limit: number): string[] {
+  return facts.market.signals
+    .filter((signal) => signal.basis !== "fact")
+    .map((signal) => signal.explanation)
+    .filter((line) => line && line !== facts.market.headline)
+    .slice(0, limit);
+}
+
+function fitThreadBeat(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= 260) return clean;
+  const words = clean.split(" ");
+  let out = "";
+  for (const word of words) {
+    const next = out ? out + " " + word : word;
+    if (next.length > 257) break;
+    out = next;
+  }
+  return out ? out + "…" : clean.slice(0, 257) + "…";
+}
+
 function writeStatePost(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
-  const rng = mulberry32(variant * 9973 + 13 + hashStr(facts.identity.address + facts.builtAt + mode));
+  const rng = mulberry32(
+    variant * 9973 + 13 + hashStr(facts.identity.address + facts.builtAt + mode),
+  );
   const voice = pick(rng, voicesFor(mode));
   const t = readTape(facts);
   const market = facts.market;
   const snap = marketLine(rng, t);
-  const core = lockedLines(market, snap);
-  const parts = [opener(rng, voice, t, market), ...core, closeFor(rng, market, t), caLine(rng, t), disclaimer(rng, t)];
-  let text = parts.filter(Boolean).join("\n\n");
-  if (mode === "more_concise") {
-    text = [market.headline, snap, market.rugLine, caLine(rng, t), disclaimer(rng, t)].filter(Boolean).join("\n\n");
-  }
+  const evidence = pickEvidence(facts, 3);
+  const interpretation = pickInterpretations(facts, 2);
+
+  const text = [
+    opener(rng, voice, t, market),
+    market.headline,
+    snap,
+    evidence[0],
+    evidence[1],
+    interpretation[0],
+    interpretation[1],
+    closeFor(rng, market, t),
+    caLine(rng, t),
+    disclaimer(rng, t),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
   return { text: polish(text), voice };
 }
 
 function writeStateThread(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
-  const rng = mulberry32(variant * 4999 + 101 + hashStr(facts.identity.symbol + mode));
+  const rng = mulberry32(
+    variant * 4999 + 101 + hashStr(facts.identity.symbol + mode),
+  );
   const voice = pick(rng, voicesFor(mode));
   const t = readTape(facts);
   const market = facts.market;
-  const snap = marketLine(rng, t);
-  const risks = market.signals.filter((signal) => signal.polarity === "risk").map((signal) => signal.explanation);
+  const evidence = pickEvidence(facts, 4);
+  const interpretations = pickInterpretations(facts, 3);
+  const risk = market.signals.find((signal) => signal.polarity === "risk")?.explanation ?? market.rugLine;
+  const social = market.facts.find((fact) => /public x|official/i.test(fact));
+  const relationship =
+    market.signals.find(
+      (signal) =>
+        signal.type === "volume_liquidity" ||
+        signal.type === "sell_pressure" ||
+        signal.type === "flow",
+    )?.explanation ?? interpretations[0];
+
   const beats = [
     opener(rng, voice, t, market),
     market.headline,
-    snap ?? market.facts.find((fact) => /last price|market cap/i.test(fact)) ?? `${t.ticker} on ${t.chain}.`,
-    risks.find((line) => /liquidity/i.test(line)) ?? market.facts.find((fact) => /liquidity/i.test(fact)) ?? "Liquidity was not returned, so depth is not invented.",
-    risks.find((line) => /sell|volume/i.test(line)) ?? market.facts.find((fact) => /sell|volume/i.test(fact)) ?? "Order flow was not returned as a clean buy/sell split.",
-    market.facts.find((fact) => /public x|official/i.test(fact)) ?? "Public X context is limited to what the sample returned.",
-    market.rugLine ?? market.conclusions.find((line) => line !== market.headline) ?? "The conclusion stays inside the snapshot.",
-    `${closeFor(rng, market, t)}\n\n${caLine(rng, t)}\n\n${disclaimer(rng, t)}`,
-  ].filter(Boolean);
-  const text = beats.map((beat, i) => `${i + 1}/ ${beat.replace(/^\d+\/\s*/, "")}`).join("\n\n");
+    snapLine(t, market),
+    evidence[0],
+    relationship,
+    evidence[1] ? evidence[1] + (interpretations[1] ? " " + interpretations[1] : "") : interpretations[1],
+    social,
+    risk,
+    closeFor(rng, market, t),
+    caLine(rng, t),
+    disclaimer(rng, t),
+  ].filter((line): line is string => Boolean(line));
+
+  const text = beats
+    .map((beat, index) => `${index + 1}/ ${fitThreadBeat(beat.replace(/^\d+\/\s*/, ""))}`)
+    .join("\n\n");
+
   return { text: polish(text), voice };
 }
 
+function snapLine(t: Tape, market: MarketDiagnosis): string {
+  const pieces = [
+    t.price ? "Price " + t.price : null,
+    t.mcap ? "market cap " + t.mcap : null,
+    t.band ? t.band : null,
+  ].filter(Boolean);
+  if (pieces.length) return pieces.join(" · ") + ".";
+  return market.facts.find((fact) => /price|market cap/i.test(fact)) ?? t.ticker + " on " + t.chain + ".";
+}
+
 function writeStateArticle(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
-  const rng = mulberry32(variant * 3343 + 7 + hashStr(facts.identity.name + mode));
-  const voice = pick(rng, voicesFor(mode === "default" ? "more_professional" : mode));
+  const rng = mulberry32(
+    variant * 3343 + 7 + hashStr(facts.identity.name + mode),
+  );
+  const voice = pick(
+    rng,
+    voicesFor(mode === "default" ? "more_professional" : mode),
+  );
   const t = readTape(facts);
   const market = facts.market;
-  const snap = marketLine(rng, t);
-  const severe = market.state === "SEVERE_RISK" || market.state === "COLLAPSED" || market.state === "BEARISH";
-  const title = severe
-    ? `${t.ticker}: what the tape supports, and what it does not`
-    : `${t.ticker} on ${t.chain}: a market note, not a myth`;
-  const verified = market.facts.map((fact) => `• ${fact}`);
-  const inferred = [
-    ...market.signals.filter((signal) => signal.basis !== "fact").map((signal) => `• ${signal.explanation}`),
-    market.rugLine ? `• ${market.rugLine}` : null,
-  ].filter((line): line is string => Boolean(line));
-  const text = [
+  const evidence = pickEvidence(facts, 6);
+  const interpretations = pickInterpretations(facts, 5);
+  const social = market.facts.find((fact) => /public x|official/i.test(fact));
+
+  const title =
+    market.state === "SEVERE_RISK" || market.state === "COLLAPSED" || market.state === "BEARISH"
+      ? t.ticker + ": reading the damage without turning it into a pitch"
+      : t.ticker + " on " + t.chain + ": what the current tape actually says";
+
+  const sections = [
     title,
     "",
-    opener(rng, voice, t, market),
+    market.headline ?? "A data-led snapshot of the token, using only the fields returned by the current research pass.",
     "",
-    "What happened",
-    market.headline,
-    snap ?? "Price or market cap was missing, so neither was filled in.",
+    "The setup",
+    opener(rng, voice, t, market) +
+      " " +
+      (snapLine(t, market) ?? "") +
+      (market.conclusions[0] ? " " + market.conclusions[0] : ""),
     "",
-    severe ? "Price and damage" : "Price",
-    market.facts.find((fact) => fact.startsWith("Price is")) ?? "Price change was not in the snapshot.",
+    "What the numbers say",
+    evidence.length
+      ? evidence
+          .slice(0, 3)
+          .map((line) => line.trim().replace(/^[•-]\s*/, ""))
+          .join(" ")
+      : "The current snapshot does not contain enough verified market detail for a stronger quantitative claim.",
     "",
-    "Market cap and liquidity",
-    [market.facts.find((fact) => /market cap/i.test(fact)), market.facts.find((fact) => /liquidity/i.test(fact))]
+    "Where the signals connect",
+    interpretations.length
+      ? interpretations.slice(0, 2).join(" ")
+      : "The available data does not support a stronger inference beyond the measured snapshot.",
+    "",
+    "The part worth watching",
+    [evidence[3], social, interpretations[2]]
       .filter(Boolean)
-      .join("\n") || "Market cap and liquidity were not both available.",
+      .join(" ") ||
+      "No additional public signal was strong enough to add without overstating the evidence.",
     "",
-    "Volume and buy/sell data",
-    [market.facts.find((fact) => /volume/i.test(fact)), market.facts.find((fact) => /buys|sells/i.test(fact)), ...market.signals.filter((signal) => signal.type === "volume_liquidity" || signal.type === "sell_pressure").map((signal) => signal.explanation)]
-      .filter(Boolean)
-      .join("\n") || "Volume or trade-side data was not returned.",
+    market.rugLine
+      ? "Risk and uncertainty\n" + market.rugLine + " " + (riskContext(facts) ?? "")
+      : "Risk and uncertainty\n" + (facts.risks[0] ?? "No additional risk signal was supported by the returned data."),
     "",
-    "X and official presence",
-    market.facts.find((fact) => /public x|official/i.test(fact)) ?? "No additional social claim was added.",
-    "",
-    "What is verified",
-    ...(verified.length ? verified : ["• Only the fields above were verified."]),
-    "",
-    "What is inferred",
-    ...(inferred.length ? inferred : ["• No stronger inference was supported."]),
-    "",
-    "Conclusion",
-    closeFor(rng, market, t),
-    market.state === "BULLISH" || market.state === "POSITIVE"
-      ? "Any positive wording is capped by the measured change and the pool behind it."
-      : "This is not a promotional close. The market state above is the conclusion.",
+    "Bottom line",
+    closeFor(rng, market, t) +
+      " " +
+      (market.caveats[0] ?? "The conclusion remains limited to the current snapshot; missing fields are not estimated."),
     "",
     "Contract",
     t.ca,
     "",
     disclaimer(rng, t),
-  ].join("\n");
-  return { text: polish(text), voice };
+  ];
+
+  return { text: polish(sections.join("\n")), voice };
+}
+
+function riskContext(facts: TokenFactSet): string | null {
+  return facts.market.caveats.find((line) => /confirm|evidence|uncertain|verify/i.test(line)) ??
+    facts.risks.find((line) => /liquidity|sell|collapse|risk/i.test(line)) ??
+    null;
 }
 
 export function generateFromFactSet(
