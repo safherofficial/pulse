@@ -128,6 +128,8 @@ export type ScoreBenchmark = {
 
 export type ContentLogicVersion = {
   version: string;
+  /** Global editorial-engine version used to create this rule set. */
+  editorialEngineVersion?: string;
   versionNumber: number;
   rules: ContentRule[];
   createdAt: string;
