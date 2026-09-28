@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import { baselineContent } from "../optimize/baseline.ts";
 import { BENCHMARKS } from "../optimize/benchmarks.ts";
@@ -40,10 +40,8 @@ test("navigation no longer exposes the Intelligence workspace", () => {
   assert.equal(shell.includes('label: "Home"'), false);
   assert.equal(shell.includes('label: "Research"'), false);
   assert.equal(home.includes('kicker: "Intelligence"'), false);
-  const legacy = read("../../../routes/research.tsx");
-  assert.match(legacy, /redirect\(\{ to: "\/analyze" \}\)/);
-  assert.equal(legacy.includes("Research · XPulse"), false);
-  assert.equal(legacy.includes("Intelligence"), false);
+  assert.equal(existsSync(new URL("../../../routes/research.tsx", import.meta.url)), false);
+  assert.equal(read("../../../routeTree.gen.ts").toLowerCase().includes("research"), false);
   assert.match(tokens, /Viral Intelligence/);
   assert.match(tokens, /Open in Analyze/);
 });
