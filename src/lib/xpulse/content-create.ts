@@ -162,14 +162,17 @@ export function generateFromDraft(
     };
   }
 
-  if (!hasEnoughSourceMaterial(cleaned) && kind !== "post") {
+  const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+  const minimumFacts = kind === "thread" ? 4 : kind === "article" ? 3 : 2;
+  const minimumWords = kind === "thread" ? 60 : kind === "article" ? 80 : 40;
+  if (!hasEnoughSourceMaterial(cleaned) || (kind !== "post" && facts.length < minimumFacts && wordCount < minimumWords)) {
     const score = scoreContent(cleaned, kind);
     return {
       kind,
       angle,
-      text: "More source material is required before creating a reliable analysis.\n\nAdd concrete facts, numbers, or verified events from your notes, then generate again.",
+      text: "More source material is required before creating reliable editorial content.\n\nAdd concrete facts, numbers, verified events, or source context, then generate again.",
       score,
-      applied: ["Blocked: insufficient source density"],
+      applied: ["Blocked: insufficient editorial source density", `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`],
     };
   }
 
@@ -184,53 +187,57 @@ export function generateFromDraft(
   }
 
   if (kind === "thread") {
-    const beats: string[] = [];
-    beats.push(`Hook: ${facts[0] ?? text.split(/\n+/)[0] ?? "What the data shows"}`);
-    beats.push(`Context: ${facts[1] ?? "Here is the setup behind the number."}`);
-    for (const f of facts.slice(2, 6)) beats.push(f);
-    if (facts.length) {
-      beats.push(`Insight: ${facts[Math.min(2, facts.length - 1)]}`);
-      beats.push("Implication: why this is worth attention now — without hype.");
+    const units = rewritePost(seeded, variant)
+      .text
+      .split(/\n\s*\n|\n+/)
+      .map((line) => line.replace(/^\s*\d+\s*[/.):-]\s*/, "").trim())
+      .filter((line) => line.length >= 12);
+    const ordered = [...new Set([...facts, ...units])].slice(0, 8);
+    const beats = ordered.slice(0, 8);
+    if (beats.length >= 4) {
+      const relationship = facts.length >= 2
+        ? "Read together, " + facts[0] + " and " + facts[1].toLowerCase()
+        : null;
+      if (relationship && beats.length < 8) beats.splice(2, 0, relationship);
+      text = beats
+        .slice(0, 8)
+        .map((beat, index) => (index + 1) + "/ " + beat.replace(/\s+/g, " ").slice(0, 268))
+        .join("\n\n");
+    } else {
+      text = beats.map((beat, index) => (index + 1) + "/ " + beat).join("\n\n");
     }
-    beats.push("Summary: stick to the measured facts above; treat everything else as open.");
-    const rewrittenBeats = beats.map((b, i) => {
-      const r = rewritePost(b, variant + i);
-      return `${i + 1}/ ${r.text.replace(/^\d+\/\s*/, "").split(/\n+/)[0]}`;
-    });
-    text = rewrittenBeats.join("\n\n");
   }
-
   if (kind === "article") {
-    const title = facts[0] ?? cleaned.split(/\n+/)[0] ?? "Market note";
+    const units = rewritePost(cleaned, variant).text
+      .split(/\n\s*\n|\n+/)
+      .map((line) => line.trim())
+      .filter((line) => line.length >= 20);
+    const evidence = facts.slice(0, 6);
+    const thesis = evidence.length >= 2
+      ? "The editorial angle is in the relationship between " + evidence[0] + " and " + evidence[1].toLowerCase()
+      : "The source contains a limited but concrete set of observations.";
+    const title = facts[0] ?? units[0] ?? "Market note";
     const sections = [
       title,
       "",
-      "Subtitle: What the available data actually shows.",
+      "The setup",
+      units[0] ?? cleaned,
       "",
-      "Introduction",
-      rewritePost(cleaned.slice(0, 400), variant).text,
+      "What the source establishes",
+      evidence.length ? evidence.slice(0, 3).join(" ") : cleaned,
       "",
-      "Context",
-      facts[1] ?? "Context is limited to what the source notes returned.",
+      "Where the signals connect",
+      thesis,
+      evidence.slice(2, 5).join(" "),
       "",
-      "Data",
-      ...(facts.length ? facts.map((f) => `• ${f}`) : ["• Data unavailable beyond the draft notes."]),
-      "",
-      "Analysis",
-      rewritePost(facts.slice(0, 5).join(". ") || cleaned, variant + 2).text,
-      "",
-      "Key findings",
-      ...facts.slice(0, 4).map((f) => `• ${f}`),
-      "",
-      "Implications",
-      "Read the numbers in context. Missing fields stay unavailable — no estimates were added.",
+      "What remains uncertain",
+      "Only claims supported by the supplied source are included. Missing information is not filled with assumptions.",
       "",
       "Conclusion",
-      "This article only uses facts present in the source notes. It is informational, not advice.",
+      units.slice(1, 3).join(" ") || thesis,
     ];
     text = sections.join("\n");
   }
-
   const score = scoreContent(text, kind);
   return {
     kind,
@@ -239,7 +246,7 @@ export function generateFromDraft(
     score,
     applied: [
       ...rewritten.applied,
-      `Angle: ${angle.label}`,
+      `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,\n      `Angle: ${angle.label}`,
       `Facts used: ${facts.length}`,
       `Content score ${score.total}/100`,
     ],
