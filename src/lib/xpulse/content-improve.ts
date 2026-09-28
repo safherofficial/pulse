@@ -348,25 +348,33 @@ export async function rewriteWithConfiguredModel(input: {
   const messages: ChatMessage[] = [
     {
       role: "system",
-      content: [
-        "You are the writer stage of an editorial pipeline. A critic will reject you if you invent or flip facts.",
-        "Keep the author's language, names, tickers, mentions, hashtags, URLs, emoji, and numbers.",
-        "Do not add a statistic, quote, source, partnership, price, or market-cap figure.",
-        "Do not turn a bearish, severe, or collapsed read into a bullish one.",
-        "Do not add a CTA, emoji, or hashtag unless the draft already uses that device.",
-        "Do not return the original draft unchanged. Make concrete editorial improvements: strengthen the first line, increase specificity and curiosity, tighten structure, improve readability, and create a more quotable/shareable line while staying truthful.",
-        "Banned: exciting opportunity, great potential, could explode, high potential, to the moon, this changes everything, the future is here, here's why, as an AI.",
-        input.kind === "thread"
-          ? "If the mode asks for a thread, number existing beats as 1/ 2/ 3/. Do not add a new beat."
-          : input.kind === "article"
-            ? "If the mode asks for an article, use the draft's own sentences as the sections."
-            : "If the mode asks for a post, keep it one publishable post.",
-        input.mode === "IMPROVE_HOOK" ? "The opening must be materially stronger than the original while preserving the factual meaning." : "",
-        input.mode === "MAKE_THREAD" ? "Turn the source into a genuine progression of beats with setup, tension, evidence already present, and payoff." : "",
-        input.mode === "MAKE_ARTICLE" ? "Create a coherent long-form structure from the source instead of merely adding line breaks." : "",
-        "Output only the rewritten text.",
-        input.request ? `Follow this explicit user request exactly when it is compatible with the facts: ${input.request}` : "",
-      ].filter(Boolean).join(" "),
+      content: buildEditorialSystemPrompt(
+        input.kind,
+        {
+          format: input.kind,
+          mode: input.mode,
+          language: input.language,
+          request: input.request,
+          variant: input.attempt ?? 1,
+        },
+        [
+          "You are the writer stage of an editorial pipeline. A critic will reject you if you invent or flip facts.",
+          "Keep the author's language, names, tickers, mentions, hashtags, URLs, emoji, and numbers unless the task explicitly asks for a format transformation.",
+          "Do not add a statistic, quote, source, partnership, price, or market-cap figure.",
+          "Do not turn a bearish, severe, or collapsed read into a bullish one.",
+          "Do not add a CTA, emoji, or hashtag unless the draft already uses that device.",
+          "Make concrete editorial improvements: strengthen the first line, increase specificity and curiosity, tighten structure, improve readability, and create a quotable/shareable line while staying truthful.",
+          input.kind === "thread"
+            ? "Create a genuine narrative progression with setup, tension, evidence already present, and payoff. Number beats 1/ 2/ 3/ and do not add unsupported facts."
+            : input.kind === "article"
+              ? "Create a coherent long-form structure from the source; do not merely add line breaks."
+              : "Keep it as one publishable post.",
+          input.mode === "IMPROVE_HOOK" ? "Make the opening materially stronger while preserving factual meaning." : "",
+          input.mode === "MAKE_THREAD" ? "Turn the source into a progressive narrative, not a list of facts." : "",
+          input.mode === "MAKE_ARTICLE" ? "Develop a thesis through context, evidence, interpretation and implications." : "",
+          buildEditorialSelfCritiquePrompt(input.kind),
+        ],
+      ),
     },
     {
       role: "user",
