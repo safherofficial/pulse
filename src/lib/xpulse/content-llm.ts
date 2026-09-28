@@ -307,7 +307,17 @@ function sanitize(text: string, facts: TokenFactSet, kind: ContentKind): string 
   if (!/not financial advice|nfa\b/i.test(out)) {
     out = out + "\n\nNFA. Read the pair yourself.";
   }
-  return ensureMarketVerdict(ensureLockedMarket(out, facts), facts);
+  out = ensureMarketVerdict(ensureLockedMarket(out, facts), facts);
+  if (kind !== "thread") return out;
+  return out
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const body = line.replace(/^\d+\s*[/.)-]\s*/, "").trim();
+      return (index + 1) + "/ " + body;
+    })
+    .join("\n\n");
 }
 
 async function polish(text: string): Promise<string> {
