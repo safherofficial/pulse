@@ -48,7 +48,7 @@ async function fetchWithTimeout(
  * LanguageTool public endpoint — grammar, style, redundancy.
  * https://api.languagetool.org/v2/check (free, rate-limited, no key)
  */
-export async function checkLanguageTool(text: string, language = "en-US"): Promise<LanguageToolMatch[]> {
+export async function checkLanguageTool(text: string, language = "auto"): Promise<LanguageToolMatch[]> {
   const clean = text.trim();
   if (!clean || clean.length > 20_000) return [];
 
