@@ -176,11 +176,17 @@ export function validateEditorialShape(text: string, kind: ContentKind): Editori
   }
 
   if (kind === "thread") {
-    const beats = clean
+    const rawBeats = clean
       .split(/\n\s*\n/)
+      .map((beat) => beat.trim())
+      .filter(Boolean);
+    const beats = rawBeats
       .map((beat) => beat.replace(/^\s*\d+\s*[/.)-]\s*/, "").trim())
       .filter(Boolean);
     if (beats.length < 4) violations.push("thread_needs_progression");
+    if (rawBeats.some((beat) => !/^\s*\d+\s*[/.)-]\s*/.test(beat))) {
+      violations.push("thread_needs_numbering");
+    }
     if (beats.some((beat) => beat.length > 280)) violations.push("thread_tweet_over_280");
     if (beats.some((beat) => /^(hook|context|insight|summary|implication)\s*:/i.test(beat))) {
       violations.push("thread_outline_labels");
