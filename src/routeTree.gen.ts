@@ -15,6 +15,7 @@ import { Route as CreateRouteImport } from './routes/create'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardRouteImport } from './routes/onboard'
 import { Route as PulseRouteImport } from './routes/pulse'
+import { Route as ResearchRouteImport } from './routes/research'
 import { Route as StudioRouteImport } from './routes/studio'
 import { Route as TokensRouteImport } from './routes/tokens'
 import { Route as TokenAddressRouteImport } from './routes/token.$address'
@@ -50,6 +51,11 @@ const OnboardRoute = OnboardRouteImport.update({
 const PulseRoute = PulseRouteImport.update({
   id: '/pulse',
   path: '/pulse',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchRoute = ResearchRouteImport.update({
+  id: '/research',
+  path: '/research',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StudioRoute = StudioRouteImport.update({
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/onboard': typeof OnboardRoute
   '/pulse': typeof PulseRoute
+  '/research': typeof ResearchRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/onboard': typeof OnboardRoute
   '/pulse': typeof PulseRoute
+  '/research': typeof ResearchRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/onboard': typeof OnboardRoute
   '/pulse': typeof PulseRoute
+  '/research': typeof ResearchRoute
   '/studio': typeof StudioRoute
   '/tokens': typeof TokensRoute
   '/token/$address': typeof TokenAddressRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboard'
     | '/pulse'
+    | '/research'
     | '/studio'
     | '/tokens'
     | '/token/$address'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboard'
     | '/pulse'
+    | '/research'
     | '/studio'
     | '/tokens'
     | '/token/$address'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/onboard'
     | '/pulse'
+    | '/research'
     | '/studio'
     | '/tokens'
     | '/token/$address'
@@ -179,6 +191,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   OnboardRoute: typeof OnboardRoute
   PulseRoute: typeof PulseRoute
+  ResearchRoute: typeof ResearchRoute
   StudioRoute: typeof StudioRoute
   TokensRoute: typeof TokensRoute
   TokenAddressRoute: typeof TokenAddressRoute
@@ -229,6 +242,13 @@ declare module '@tanstack/react-router' {
       path: '/pulse'
       fullPath: '/pulse'
       preLoaderRoute: typeof PulseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/research': {
+      id: '/research'
+      path: '/research'
+      fullPath: '/research'
+      preLoaderRoute: typeof ResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/studio': {
@@ -283,6 +303,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   OnboardRoute: OnboardRoute,
   PulseRoute: PulseRoute,
+  ResearchRoute: ResearchRoute,
   StudioRoute: StudioRoute,
   TokensRoute: TokensRoute,
   TokenAddressRoute: TokenAddressRoute,
