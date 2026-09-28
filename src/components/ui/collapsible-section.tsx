@@ -1,5 +1,5 @@
 import { ChevronDown } from "lucide-react";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { collapsibleAria, toggleOpen } from "@/lib/xpulse/ui-behavior";
 
@@ -13,6 +13,7 @@ export function CollapsibleSection({
   onOpenChange,
   className,
   contentClassName,
+  activityKey,
 }: {
   title: string;
   kicker?: string;
@@ -23,16 +24,32 @@ export function CollapsibleSection({
   onOpenChange?: (open: boolean) => void;
   className?: string;
   contentClassName?: string;
+  /** A changing key means new activity is available while the section is closed. */
+  activityKey?: string | number | null;
 }) {
   const reactId = useId();
   const panelId = `section-${reactId}`;
   const labelId = `section-label-${reactId}`;
   const [uncontrolled, setUncontrolled] = useState(defaultOpen);
+  const [unseen, setUnseen] = useState(false);
   const open = controlledOpen ?? uncontrolled;
+  const activityStorageKey = activityKey == null ? null : `xpulse.section.seen.${panelId}`;
+
+  useEffect(() => {
+    if (activityKey == null || typeof window === "undefined") return;
+    const seen = window.localStorage.getItem(activityStorageKey!);
+    setUnseen(seen !== String(activityKey));
+  }, [activityKey, activityStorageKey]);
 
   function onToggle() {
     const next = toggleOpen(open);
     onOpenChange?.(next);
+    if (next && activityKey != null) {
+      setUnseen(false);
+      if (typeof window !== "undefined" && activityStorageKey) {
+        window.localStorage.setItem(activityStorageKey, String(activityKey));
+      }
+    }
     if (controlledOpen === undefined) setUncontrolled(next);
   }
 
@@ -53,6 +70,7 @@ export function CollapsibleSection({
             {kicker ? <span className="kicker block">{kicker}</span> : null}
             <span className={cn("block text-xl", kicker && "mt-1")}>{title}</span>
           </span>
+          {unseen ? <span aria-label="New activity" title="New activity" className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent shadow-[0_0_8px_currentColor]" /> : null}
           {badge ? <span className="shrink-0">{badge}</span> : null}
           <ChevronDown
             aria-hidden
