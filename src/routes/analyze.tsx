@@ -56,7 +56,17 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
     let cancelled = false;
     void optimizationStatus()
       .then((status) => {
-        if (!cancelled) setOptimization(status as OptimizationView);
+        if (cancelled || !status || typeof status !== "object") return;
+        const value = status as Partial<OptimizationView>;
+        if (
+          typeof value.trendVersion !== "string" ||
+          typeof value.contentLogicVersion !== "string" ||
+          typeof value.nextRunAt !== "string" ||
+          !value.schedule
+        ) {
+          return;
+        }
+        setOptimization(value as OptimizationView);
       })
       .catch(() => {
         if (!cancelled) setOptimization(null);
@@ -87,17 +97,25 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
       const result = (await runEditor({
         data: { text: draft, url: page, mode: nextMode, kind: nextKind, request: nextRequest },
       })) as EditorDossier;
+      if (!result || typeof result !== "object" || !result.output || !result.score || !result.analysis) {
+        throw new Error("Editor returned an invalid dossier.");
+      }
       setDossier(result);
     } catch {
-      setDossier(
-        runEditorPipeline({
+      try {
+        const fallback = runEditorPipeline({
           text: draft,
           mode: nextMode,
           kind: nextKind,
           request: nextRequest,
           logic: baselineContent(),
-        }),
-      );
+        });
+        setDossier(fallback);
+      } catch {
+        setDossier(null);
+        setNotice("Analyze could not complete this input. Check the text or URL and try again.");
+        return;
+      }
       setNotice("Live editor path unavailable. Local score and craft rules still ran. Paste the text if a URL could not be read.");
     } finally {
       setBusy(null);
