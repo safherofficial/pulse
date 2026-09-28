@@ -286,20 +286,31 @@ function refinementPrompt(
   ].join("\n\n");
 }
 
-function sanitize(text: string, facts: TokenFactSet): string {
+function sanitize(text: string, facts: TokenFactSet, kind: ContentKind): string {
   let out = text
-    .replace(/^```[\w]*\n?|\n?```$/g, "")
+    .replace(/^\x60\x60\x60[\w-]*\n?|\n?\x60\x60\x60$/g, "")
     .replace(/\b(about to explode|guaranteed|100x|to the moon|ape in|can't miss|risk-free|lorem ipsum|mockup|placeholder)\b/gi, "")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  const hasCa = out.includes(facts.identity.address);
-  if (!hasCa) {
-    out = `${out}\n\nCA: ${facts.identity.address}`;
+  if (kind === "thread") {
+    const lines = out
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line, index) => {
+        const body = line.replace(/^\d+\s*[/.)-]\s*/, "").trim();
+        return (index + 1) + "/ " + body;
+      });
+    out = lines.join("\n\n");
+  }
+
+  if (!out.includes(facts.identity.address)) {
+    out = out + "\n\nCA: " + facts.identity.address;
   }
   if (!/not financial advice|nfa\b/i.test(out)) {
-    out = `${out}\n\nNFA. Read the pair yourself.`;
+    out = out + "\n\nNFA. Read the pair yourself.";
   }
   return ensureMarketVerdict(ensureLockedMarket(out, facts), facts);
 }
