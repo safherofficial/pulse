@@ -6,6 +6,7 @@
 
 import { rewritePost } from "./rewrite.ts";
 import { scoreContent, type ContentKind, type ContentScoreReport } from "./content-score.ts";
+import { EDITORIAL_ENGINE_VERSION, validateEditorialShape } from "./editorial-standard.ts";
 import { formatMarketCapCompact, formatTokenPrice, marketCapBand } from "./format.ts";
 import { analyzeTokenIntel, type MarketDiagnosis } from "./market-state.ts";
 import type { TokenIntel } from "./token-intel.ts";
@@ -864,6 +865,7 @@ export function generateFromFactSet(
         : writeStatePost(facts, mode, variant);
 
   const text = ensureMarketVerdict(ensureLockedMarket(written.text, facts), facts);
+  const editorialGate = validateEditorialShape(text, kind);
   const score = scoreContent(text, kind);
   return {
     kind,
@@ -871,6 +873,8 @@ export function generateFromFactSet(
     text,
     score,
     applied: [
+      `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,
+      `Editorial gate: ${editorialGate.pass ? "passed" : editorialGate.violations.join(", ")}`,
       `Market state: ${facts.market.state}`,
       `Rug-pull risk: ${facts.market.rugPullRisk}`,
       `XPulse risk score: ${facts.market.riskScore} (${facts.market.riskBand})`,
