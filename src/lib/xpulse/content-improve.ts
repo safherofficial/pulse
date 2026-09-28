@@ -4,7 +4,7 @@
  * LanguageTool, Datamuse. Local thread packer as fallback.
  */
 
-import { checkLanguageTool, expandVagueVocabulary } from "./public-apis";
+import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind, type ContentScoreReport } from "./content-score";
 import type { GeneratedContent } from "./content-create";
 import { baselineContent } from "./optimize/baseline.ts";
