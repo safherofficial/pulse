@@ -6,7 +6,7 @@
 import { scoreContent, type ContentKind, type ContentScoreReport } from "../content-score.ts";
 import { baselineContent } from "../optimize/baseline.ts";
 import { preservesAuthorFacts, PROMO_RE } from "../optimize/benchmarks.ts";
-import { isAlreadyStrong, optimizeContent } from "../optimize/compose.ts";
+import { optimizeContent } from "../optimize/compose.ts";
 import type { ContentLogicVersion, OptimizeMode } from "../optimize/types.ts";
 import {
   detectFormat,
