@@ -143,7 +143,7 @@ function resolveRequestMode(value: string | undefined): EditorMode {
 
 export async function executeEditor(input: EditorRequest, deps: EditorDeps = {}): Promise<EditorDossier> {
   const requestedMode = resolveRequestMode(input.request);
-  const mode: EditorMode = isEditorMode(input.mode) ? input.mode : requestedMode;
+  const mode: EditorMode = isEditorMode(input.mode) && input.mode !== "ANALYZE" ? input.mode : requestedMode;
   const request = normalizeRequest(input.request);
   const kind = input.kind === "thread" || input.kind === "article" || input.kind === "post" ? input.kind : null;
   const split = splitEditorInput(input.text ?? "", input.url ?? "");
