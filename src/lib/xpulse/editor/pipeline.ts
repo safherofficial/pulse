@@ -485,15 +485,15 @@ function trendMatchScore(text: string, trend?: ViralTrendVersion | null, liveTre
     const active = trend.patterns.filter((p) => p.status === "ACTIVE" && p.engagementLift != null);
     let matched = 0;
     for (const pattern of active) {
-      const hit = pattern.patternId === "HOOK_QUESTION" ? /?/.test(text.split(/\\n+/)[0] ?? "")
-        : pattern.patternId === "CONTRARIAN_PATTERN" ? /\\b(nobody|most people|stop|wrong|don't|do not|hard truth)\\b/i.test(text.split(/\\n+/)[0] ?? "")
-        : pattern.patternId === "DATA_PATTERN" ? /\\d/.test(text)
-        : pattern.patternId === "EDUCATIONAL_PATTERN" ? /\\b(how to|here'?s|the reason|step \\d)\\b/i.test(text)
-        : pattern.patternId === "STORY_PATTERN" ? /\\b(i|we|yesterday|last week)\\b/i.test(text) && /\\b(then|after|when)\\b/i.test(text)
+      const hit = pattern.patternId === "HOOK_QUESTION" ? /\?/.test(text.split(/\n+/)[0] ?? "")
+        : pattern.patternId === "CONTRARIAN_PATTERN" ? /\b(nobody|most people|stop|wrong|don't|do not|hard truth)\b/i.test(text.split(/\n+/)[0] ?? "")
+        : pattern.patternId === "DATA_PATTERN" ? /\d/.test(text)
+        : pattern.patternId === "EDUCATIONAL_PATTERN" ? /\b(how to|here'?s|the reason|step \\d)\b/i.test(text)
+        : pattern.patternId === "STORY_PATTERN" ? /\b(i|we|yesterday|last week)\b/i.test(text) && /\b(then|after|when)\b/i.test(text)
         : pattern.patternId === "THREAD_PATTERN" ? /^\\s*\\d+\\s*\\//m.test(text)
-        : pattern.patternId === "CTA_PATTERN" ? /\\b(what do you|what's your|whats your|your read|reply if)\\b/i.test(text)
-        : pattern.patternId === "LENGTH_PATTERN" ? text.trim().split(/\\s+/).length >= 12 && text.trim().split(/\\s+/).length <= 45
-        : pattern.patternId === "OPENING_PATTERN" ? /\\d/.test(text.split(/\\n+/)[0] ?? "")
+        : pattern.patternId === "CTA_PATTERN" ? /\b(what do you|what's your|whats your|your read|reply if)\b/i.test(text)
+        : pattern.patternId === "LENGTH_PATTERN" ? text.trim().split(/\s+/).length >= 12 && text.trim().split(/\s+/).length <= 45
+        : pattern.patternId === "OPENING_PATTERN" ? /\d/.test(text.split(/\n+/)[0] ?? "")
         : pattern.patternId === "BREAKDOWN_PATTERN" ? /\\n\\s*(?:[-•]|\\d+\\.)\\s+\\S/.test(text)
         : pattern.patternId === "ARTICLE_PATTERN" ? /\\n#{1,3}\\s+\\S/.test(text)
         : false;
@@ -505,7 +505,7 @@ function trendMatchScore(text: string, trend?: ViralTrendVersion | null, liveTre
     const lower = text.toLowerCase();
     let hits = 0;
     for (const item of liveTrends.items.slice(0, 12)) {
-      const tokens = item.label.toLowerCase().replace(/[()]/g, " ").split(/\\s+/).filter((t) => t.length >= 3);
+      const tokens = item.label.toLowerCase().replace(/[()]/g, " ").split(/\s+/).filter((t) => t.length >= 3);
       if (tokens.some((token) => lower.includes(token))) hits += 1;
     }
     score += Math.min(12, hits * 2);
