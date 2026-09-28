@@ -866,10 +866,10 @@ type TemporalWindow = {
 function buildTemporalWindow(candles: OhlcvCandle[], hours: TemporalWindow["hours"]): TemporalWindow {
   const current = candles.slice(-hours);
   const previous = candles.slice(-(hours * 2), -hours);
-  const priceChange = current.length >= 2 && current[0]?.open > 0 && current.at(-1)?.close != null
+  const priceChange = current.length >= 1 && current[0]?.open > 0 && current.at(-1)?.close != null
     ? ((current.at(-1)!.close - current[0]!.open) / current[0]!.open) * 100
     : null;
-  const previousPriceChange = previous.length >= 2 && previous[0]?.open > 0 && previous.at(-1)?.close != null
+  const previousPriceChange = previous.length >= 1 && previous[0]?.open > 0 && previous.at(-1)?.close != null
     ? ((previous.at(-1)!.close - previous[0]!.open) / previous[0]!.open) * 100
     : null;
   const volume = current.length ? current.reduce((sum, row) => sum + (row.volume ?? 0), 0) : null;
