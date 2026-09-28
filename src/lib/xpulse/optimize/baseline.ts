@@ -80,6 +80,7 @@ export function baselineContent(now = "1970-01-01T00:00:00.000Z"): ContentLogicV
   return {
     version: "v1",
     versionNumber: 1,
+    editorialEngineVersion: EDITORIAL_ENGINE_VERSION,
     rules: baselineRules(now),
     createdAt: now,
     basedOnTrendVersion: "v1",
