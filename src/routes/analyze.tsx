@@ -26,6 +26,18 @@ const MODES: Array<{ id: EditorMode; label: string }> = [
 ];
 
 
+const SCORE_ROWS: Array<{ key: keyof NamedScore; label: string }> = [
+  { key: "hook", label: "Hook" },
+  { key: "clarity", label: "Clarity" },
+  { key: "structure", label: "Structure" },
+  { key: "specificity", label: "Specificity" },
+  { key: "originality", label: "Originality" },
+  { key: "readability", label: "Readability" },
+  { key: "valueDensity", label: "Value density" },
+  { key: "engagementPotential", label: "Engagement potential" },
+  { key: "credibility", label: "Credibility" },
+];
+
 type OptimizationView = {
   trendVersion: string;
   contentLogicVersion: string;
