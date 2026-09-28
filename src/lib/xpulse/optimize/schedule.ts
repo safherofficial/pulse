@@ -63,6 +63,35 @@ export function romeDayKey(now: Date): string {
   return `${parts.year}-${month}-${day}`;
 }
 
+export function romeWeekKey(now: Date): string {
+  const parts = romeParts(now);
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const year = date.getUTCFullYear();
+  const yearStart = Date.UTC(year, 0, 1);
+  const week = Math.ceil((((date.getTime() - yearStart) / 86_400_000) + 1) / 7);
+  return `${year}-W${String(week).padStart(2, "0")}`;
+}
+
+export function isWeeklyEditorialUpgradeDue(
+  now: Date,
+  time: ClockTime,
+  lastUpdatedAt: string | Date | null | undefined,
+): boolean {
+  const parts = romeParts(now);
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: OPTIMIZATION_TIMEZONE,
+    weekday: "short",
+  }).format(now);
+  if (weekday !== "Mon") return false;
+  if (parts.hour * 60 + parts.minute < time.hour * 60 + time.minute) return false;
+  if (!lastUpdatedAt) return true;
+  const parsed = new Date(lastUpdatedAt);
+  if (!Number.isFinite(parsed.getTime())) return true;
+  return romeWeekKey(parsed) !== romeWeekKey(now);
+}
+
 function timezoneOffsetMs(date: Date): number {
   const parts = romeParts(date);
   const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, 0);
