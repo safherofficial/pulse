@@ -246,7 +246,8 @@ export function generateFromDraft(
     score,
     applied: [
       ...rewritten.applied,
-      `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,\n      `Angle: ${angle.label}`,
+      `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,
+      `Angle: ${angle.label}`,
       `Facts used: ${facts.length}`,
       `Content score ${score.total}/100`,
     ],
