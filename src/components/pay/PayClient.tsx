@@ -1,4 +1,4 @@
-import { 
+import
   WalletAdapterNetwork,
   WalletReadyState,
 } from "@solana/wallet-adapter-base";
