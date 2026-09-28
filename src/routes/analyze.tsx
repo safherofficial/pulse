@@ -250,11 +250,11 @@ function DossierView({
     <>
       <section className="panel space-y-3 p-4 sm:p-5">
         {dossier.input.request ? <p className="text-xs text-subtle">Request · {dossier.input.request}</p> : null}
-        <p className="kicker">Score · {dossier.output.source} · {dossier.output.kind}</p>
+        <p className="kicker">Content {dossier.score.improved.total} · Viral {dossier.score.improved.viral} · {dossier.output.source} · {dossier.output.kind}</p>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Meter label="Original" value={dossier.score.original.total} />
-          <Meter label="Improved" value={dossier.score.improved.total} />
-          <Meter label="Delta" value={`${delta > 0 ? "+" : ""}${delta}`} />
+          <Meter label="Content · Original" value={dossier.score.original.total} />
+          <Meter label="Content · Improved" value={dossier.score.improved.total} />
+          <Meter label="Viral · Improved" value={dossier.score.improved.viral} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
