@@ -133,7 +133,7 @@ function AnalyzePage() {
   return (
     <WorkspaceShell active="/analyze" kicker="Editor" title="Analyze & improve">
       {token ? (
-        <section className="panel space-y-1 p-4 sm:p-5">
+        <CollapsibleSection kicker="Token" title={`${token.symbol} · ${token.name}`} activityKey={token.address}>
           <p className="kicker">Token context</p>
           <p className="text-sm text-fg">
             {token.symbol} · {token.name}
@@ -142,7 +142,7 @@ function AnalyzePage() {
           <p className="break-all font-mono text-xs text-subtle">{token.address}</p>
           {token.headline ? <p className="text-sm text-muted">{token.headline}</p> : null}
           {token.rugLine ? <p className="text-sm text-muted">{token.rugLine}</p> : null}
-        </section>
+        </CollapsibleSection>
       ) : null}
 
       <CollapsibleSection kicker="Input" title="Content tool" activityKey={dossier ? `${dossier.input.text}|${dossier.output.text}` : null}>
@@ -208,8 +208,7 @@ function AnalyzePage() {
       }} /> : null}
 
       {optimization ? (
-        <section className="panel space-y-2 p-4 sm:p-5">
-          <p className="kicker">Daily optimization</p>
+        <CollapsibleSection kicker="Optimization" title="Daily optimization" activityKey={optimization.lastRun?.id ?? optimization.nextRunAt}>
           <p className="text-sm text-fg">
             Viral {optimization.trendVersion} · Content {optimization.contentLogicVersion}
           </p>
@@ -231,7 +230,7 @@ function AnalyzePage() {
           {optimization.experimentsActive.length ? (
             <p className="text-xs text-muted">Experiments: {optimization.experimentsActive.join(", ")}</p>
           ) : null}
-        </section>
+        </CollapsibleSection>
       ) : null}
     </WorkspaceShell>
   );
@@ -256,32 +255,6 @@ function DossierView({
 
   return (
     <>
-      <CollapsibleSection
-        kicker="Editor"
-        title="Content tool"
-        activityKey={activityKey}
-      >
-        {dossier.input.request ? (
-          <p className="text-xs text-subtle">Request · {dossier.input.request}</p>
-        ) : null}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="block sm:col-span-2">
-            <span className="kicker">Draft</span>
-            <textarea
-              className="mt-2 min-h-32 w-full rounded-md border border-line bg-surface-2 px-4 py-3 text-fg outline-none ring-accent focus:ring-1"
-              value={dossier.input.text}
-              readOnly
-            />
-          </label>
-          <div className="space-y-2">
-            <p className="kicker">Action</p>
-            <p className="text-sm text-muted">Use the buttons above to analyze, rewrite, improve the hook, shorten, expand, or create a thread/article.</p>
-            <Button type="button" variant="quiet" onClick={onUse}>
-              Use output as draft
-            </Button>
-          </div>
-        </div>
-      </CollapsibleSection>
 
       <CollapsibleSection
         kicker="Output"
