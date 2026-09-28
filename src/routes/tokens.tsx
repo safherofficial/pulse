@@ -1007,7 +1007,7 @@ function MarketStatePanel({ diagnosis }: { diagnosis: ReturnType<typeof analyzeT
     diagnosis.rugPullRisk === "critical" || diagnosis.rugPullRisk === "high"
       ? "border-danger/40 bg-danger/10 text-danger"
       : diagnosis.rugPullRisk === "elevated"
-        ? "border-warning/40 bg-warning/10 text-warning"
+        ? "border-line bg-surface-2 text-muted"
         : "border-signal/40 bg-signal/10 text-signal";
   return (
     <section className="panel p-4 sm:p-5">
