@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { runEditor, optimizationStatus } from "@/lib/xpulse/api";
@@ -241,11 +242,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
           ) : null}
         </CollapsibleSection>
       ) : null}
-    </WorkspaceShell>
-  );
-}
-
-function DossierView({
+    </WorkspaceShell>\n    </>\n  );\n}\n\nfunction ProcessingOverlay({ mode }: { mode: EditorMode }) {\n  const label = mode === "REWRITE" ? "Rewriting" : "Analyzing";\n\n  return (\n    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6 backdrop-blur-md" role="status" aria-live="polite" aria-label={label}>\n      <div className="flex w-full max-w-xs flex-col items-center text-center">\n        <div className="flex items-center gap-3 text-fg">\n          <div className="animate-pulse" aria-hidden><BrandMark /></div>\n          <span className="wordmark text-xl tracking-[0.2em]">XPulse</span>\n        </div>\n        <p className="mt-5 font-mono text-[10px] tracking-[0.28em] text-muted uppercase">{label} task</p>\n        <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-line">\n          <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />\n        </div>\n        <p className="mt-3 text-xs text-subtle">XPulse is processing your request…</p>\n      </div>\n    </div>\n  );\n}\n\nfunction DossierView({
   dossier,
   beats,
   onUse,
