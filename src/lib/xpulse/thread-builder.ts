@@ -7,6 +7,7 @@
 
 import { fetchVxTwitterStatus, checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentScoreReport } from "./content-score";
+import { buildEditorialSelfCritiquePrompt, buildEditorialSystemPrompt, EDITORIAL_ENGINE_VERSION, validateEditorialShape } from "./editorial-standard";
 import {
   detectTokenInput,
   explorerUrl,
@@ -505,20 +506,23 @@ export async function buildPublishThread(draft: string): Promise<ImproveResult> 
   for (const provider of providers()) {
     const raw = await chatComplete(
       provider,
-      [
-        "You write publish-ready X threads.",
-        "Use ONLY the locked facts and the user draft.",
-        "Do not invent prices, percentages, volume, holders, names, or links.",
-        "If a number is not in LOCKED FACTS, drop it.",
-        "Output 4 to 7 tweets. One idea per tweet. Under 270 characters each.",
-        "No labels like Hook: or 1/ in the body — plain tweet text, one tweet per paragraph.",
-        "Tweet 1 is the snapshot hook. Middle tweets carry tape or draft claims. Last tweet has official links + CA + NFA if those facts exist.",
-      ].join(" "),
-      `USER DRAFT:\n${brief.draft}\n\nLOCKED FACTS:\n${ledger || "(none beyond the draft)"}`,
-    );
-    if (!raw) continue;
+      buildEditorialSystemPrompt(
+        "thread",
+        { format: "thread", mode: "THREADIFY" },
+        [
+          "Write a publish-ready X thread from the locked evidence and the user draft.",
+          "Do not copy the order of the facts. Identify the central thesis, then build a progressive narrative.",
+          "Opening creates a concrete reason to continue. Middle beats add evidence and explain relationships or tension. Ending delivers a useful takeaway.",
+          "Use ONLY the locked facts and the user draft. Do not invent prices, percentages, volume, holders, names, links, quotes or events.",
+          "Output 4 to 8 publishable tweets, each under 270 characters. Number them 1/ 2/ 3/. No Hook:/Context:/Insight: labels.",
+          "Every tweet must have a function; remove filler and repeated facts.",
+          buildEditorialSelfCritiquePrompt("thread"),
+        ],
+      ),
+      "USER DRAFT:\n" + brief.draft + "\n\nLOCKED FACTS:\n" + (ledger || "(none beyond the draft)"),
+    );    if (!raw) continue;
     const parsed = parseModelThread(raw);
-    if (parsed.length >= 3) {
+    if (parsed.length >= 4) {
       tweets = parsed;
       source = provider.id;
       break;
@@ -528,6 +532,7 @@ export async function buildPublishThread(draft: string): Promise<ImproveResult> 
   const cleaned = stripInvented(numberTweets(tweets.length ? tweets : factual), brief.allowedNumbers);
   const polished = await polishThread(cleaned);
   const finalText = polished.trim() || numberTweets(factual);
+  const gate = validateEditorialShape(finalText, "thread");
   const after = scoreContent(finalText, "thread");
 
   return {
@@ -544,6 +549,7 @@ export async function buildPublishThread(draft: string): Promise<ImproveResult> 
     after,
     source,
     applied: [
+      `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,
       `Writer: ${source}`,
       intelNote(brief),
       ...notes.slice(0, 4),
