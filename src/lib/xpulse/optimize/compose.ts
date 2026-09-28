@@ -121,6 +121,23 @@ function applyLever(text: string, lever: string, kind: ContentFormat, mode: Opti
   return text;
 }
 
+function bestExistingOrder(text: string, kind: ContentFormat): string {
+  const parts = sentencesOf(text);
+  if (parts.length < 2 || parts.length > 12) return text;
+  const originalScore = scoreContent(text, kind as ContentKind).total;
+  let best = text;
+  let bestScore = originalScore;
+  for (let i = 0; i < parts.length; i += 1) {
+    const candidate = [parts[i], ...parts.filter((_, index) => index !== i)].join("\n\n");
+    const score = scoreContent(candidate, kind as ContentKind).total;
+    if (score > bestScore && preservesAuthorFacts(text, candidate)) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 function articleify(text: string): string {
   const parts = sentencesOf(dropLabels(stripAi(text)));
   if (parts.length < 2) return text.trim();
@@ -183,6 +200,13 @@ export function composeWithRules(
       if (updated !== next) {
         next = updated;
         applied.push(rule.ruleId);
+      }
+    }
+    if (["SCORE_IMPROVE", "OPTIMIZE", "REWRITE", "HOOK_OPTIMIZE"].includes(mode)) {
+      const reordered = bestExistingOrder(next, kind);
+      if (reordered !== next) {
+        next = reordered;
+        applied.push("optimize:existing-order");
       }
     }
     if (mode === "ARTICLEIFY") {
