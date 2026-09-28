@@ -156,3 +156,16 @@ test("global quality gate rejects generic AI language and shallow threads", () =
   assert.equal(badThread.pass, false);
   assert.ok(badThread.violations.includes("thread_needs_progression"));
 });
+
+test("draft generator keeps format identity and avoids outline-label threads", () => {
+  const draft =
+    "$EXT is up 18.4% over 24h. Liquidity is $185K. Volume is $640K. The move is constructive but turnover is elevated versus liquidity. Watch the relationship between price and liquidity.";
+  const thread = generateFromFactSet(makeFacts(), "thread");
+  assert.match(thread.text, /^1\//);
+  assert.doesNotMatch(thread.text, /^(?:Hook|Context|Insight|Summary|Implication):/m);
+  const postGate = validateEditorialShape(
+    generateFromFactSet(makeFacts(), "post").text,
+    "post",
+  );
+  assert.equal(postGate.pass, true);
+});
