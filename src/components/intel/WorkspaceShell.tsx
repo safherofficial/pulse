@@ -3,9 +3,8 @@ import { TopNav } from "@/components/top-nav";
 import { cn } from "@/lib/cn";
 
 const NAV = [
-  { to: "/tokens", label: "Token" },
   { to: "/analyze", label: "Analyze" },
-  { to: "/pulse", label: "Your Chamber" },
+  { to: "/rewrite", label: "Rewrite" },
 ] as const;
 
 export function WorkspaceShell({
