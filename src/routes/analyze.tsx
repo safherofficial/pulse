@@ -145,7 +145,7 @@ function AnalyzePage() {
         </section>
       ) : null}
 
-      <section className="panel space-y-4 p-4 sm:p-5">
+      <CollapsibleSection kicker="Input" title="Content tool" activityKey={dossier ? `${dossier.input.text}|${dossier.output.text}` : null}>
         <label className="block">
           <span className="kicker">Draft</span>
           <textarea
@@ -200,7 +200,7 @@ function AnalyzePage() {
             {notice}
           </p>
         ) : null}
-      </section>
+      </CollapsibleSection>
 
       {dossier ? <DossierView dossier={dossier} beats={beats} onUse={() => {
         setText(dossier.output.text);
