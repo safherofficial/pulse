@@ -252,6 +252,17 @@ async function savePlan(sql: Sql, plan: PlannedOptimization, attempts: number): 
   }
 }
 
+export async function loadActiveViralTrend() {
+  try {
+    const sql = await getSql();
+    await ensureBaseline(sql);
+    const { trend } = await loadActive(sql);
+    return trend;
+  } catch {
+    return baselineTrend();
+  }
+}
+
 export async function loadActiveContentLogic(): Promise<ContentLogicVersion> {
   try {
     const sql = await getSql();
