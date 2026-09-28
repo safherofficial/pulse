@@ -4,8 +4,8 @@
  * A second call for the same completed day does not mint another version.
  */
 
-import { updateContentLogic } from "./content-logic.ts";
-import { isDue, romeDayKey, type ClockTime } from "./schedule.ts";
+import { benchmarkRules, updateContentLogic } from "./content-logic.ts";
+import { isDue, isWeeklyEditorialUpgradeDue, romeDayKey, type ClockTime } from "./schedule.ts";
 import { analyzeTrends } from "./trend-engine.ts";
 import type {
   ContentLogicVersion,
@@ -153,7 +153,31 @@ export function planDailyOptimization(input: {
       return fail(base, logs, ordering, input, [trendResult.validError], startedAt, dayKey);
     }
     ordering.push("content_logic");
-    const contentResult = updateContentLogic(trendResult.version, input.content, startedAt);
+    const weeklyEditorialDue = isWeeklyEditorialUpgradeDue(
+      input.now,
+      input.time,
+      input.content.createdAt,
+    );
+    const contentResult = weeklyEditorialDue
+      ? updateContentLogic(trendResult.version, input.content, startedAt)
+      : {
+          version: input.content,
+          changed: false,
+          rejected: false,
+          benchmark: benchmarkRules(input.content.rules),
+          incrementalDelta: 0,
+          experiments: [],
+          newRules: [],
+          ruleChanges: [],
+        };
+    if (!weeklyEditorialDue) {
+      logs.push(
+        event(runId, startedAt, "validation_completed", {
+          rejected: false,
+          weeklyEditorialUpgrade: false,
+        }),
+      );
+    }
     ordering.push("score_feedback");
     logs.push(event(runId, startedAt, "rules_changed", { count: contentResult.ruleChanges.length }));
     if (contentResult.experiments.length) {
@@ -221,6 +245,9 @@ export function planDailyOptimization(input: {
           ...input.corpus.notes,
           `Pace: ${trendResult.version.pace}.`,
           "Topic labels are context only. They do not change market facts or force a bullish read.",
+          weeklyEditorialDue
+            ? "Editorial engine upgrade slot: weekly Europe/Rome slot reached; candidate rules were benchmarked before promotion."
+            : "Editorial engine upgrade slot: closed until the next Monday at DAILY_OPTIMIZATION_TIME; current content rules remain active.",
         ],
         windows: trendResult.version.windows,
         ordering,
