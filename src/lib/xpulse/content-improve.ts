@@ -342,11 +342,12 @@ export async function rewriteWithConfiguredModel(input: {
             ? "If the mode asks for an article, use the draft's own sentences as the sections."
             : "If the mode asks for a post, keep it one publishable post.",
         "Output only the rewritten text.",
-      ].join(" "),
+        input.request ? `Follow this explicit user request exactly when it is compatible with the facts: ${input.request}` : "",
+      ].filter(Boolean).join(" "),
     },
     {
       role: "user",
-      content: `Mode: ${input.mode}\nKind: ${input.kind}\nLanguage: ${input.language}\nPlan:\n${input.plan.join("\n")}\n\nDRAFT:\n${input.text}`,
+      content: `Mode: ${input.mode}\nKind: ${input.kind}\nLanguage: ${input.language}\nUser request: ${input.request ?? "General editorial analysis"}\nPlan:\n${input.plan.join("\n")}\n\nDRAFT:\n${input.text}`,
     },
   ];
   for (const provider of keyed) {
