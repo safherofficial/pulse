@@ -34,6 +34,8 @@ export type TokenMarket = {
   liquidityUsd: number | null;
   fdv: number | null;
   marketCap: number | null;
+  athPriceUsd: number | null;
+  athDate: string | null;
   pairAddress: string | null;
   pairUrl: string | null;
   dexId: string | null;
@@ -243,6 +245,59 @@ function identityFromPair(pair: DexPair, addressHint?: string): TokenIdentity {
   };
 }
 
+
+type TokenAth = {
+  priceUsd: number | null;
+  date: string | null;
+};
+
+const GECKO_NETWORKS: Record<string, string> = {
+  solana: "solana",
+  ethereum: "eth",
+  base: "base",
+  bsc: "bsc",
+  arbitrum: "arbitrum",
+  polygon: "polygon_pos",
+  avalanche: "avax",
+  optimism: "optimism",
+  sui: "sui",
+  ton: "ton",
+  tron: "tron",
+};
+
+async function fetchTokenAth(address: string, chain: string): Promise<TokenAth> {
+  const network = GECKO_NETWORKS[chain.toLowerCase()];
+  if (!network) return { priceUsd: null, date: null };
+
+  const token = await fetchJson<{
+    data?: { attributes?: { coingecko_coin_id?: string | null } };
+  }>(
+    "https://api.geckoterminal.com/api/v2/networks/" +
+      network +
+      "/tokens/" +
+      encodeURIComponent(address),
+  );
+  const coinId = token?.data?.attributes?.coingecko_coin_id;
+  if (!coinId) return { priceUsd: null, date: null };
+
+  const coin = await fetchJson<{
+    market_data?: {
+      ath?: { usd?: number };
+      ath_date?: { usd?: string };
+    };
+  }>(
+    "https://api.coingecko.com/api/v3/coins/" +
+      encodeURIComponent(coinId) +
+      "?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false",
+  );
+
+  const price = coin?.market_data?.ath?.usd;
+  return {
+    priceUsd: typeof price === "number" && Number.isFinite(price) ? price : null,
+    date: coin?.market_data?.ath_date?.usd ?? null,
+  };
+}
+
 function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: string | null; report?: DexPaidReport } = { paid: null, detail: null }): TokenMarket {
   const price = pair.priceUsd != null ? Number(pair.priceUsd) : null;
   const vol = pair.volume?.h24 ?? 0;
@@ -273,6 +328,8 @@ function marketFromPair(pair: DexPair, paid: { paid: boolean | null; detail: str
     liquidityUsd: pair.liquidity?.usd ?? null,
     fdv: pair.fdv ?? null,
     marketCap: pair.marketCap ?? null,
+    athPriceUsd: null,
+    athDate: null,
     pairAddress: pair.pairAddress ?? null,
     pairUrl: pair.url ?? null,
     dexId: pair.dexId ?? null,
@@ -572,6 +629,7 @@ export async function researchTokenByAddress(
         }
       : paid;
   const market = marketFromPair(pair, paidWithBoost);
+  const athPromise = fetchTokenAth(tokenAddress, chainId);
 
   let mentions: TokenMentionsReport = {
     totalFound: null,
@@ -592,10 +650,17 @@ export async function researchTokenByAddress(
     };
   }
 
+  const ath = await athPromise;
+  const enrichedMarket: TokenMarket = {
+    ...market,
+    athPriceUsd: ath.priceUsd,
+    athDate: ath.date,
+  };
+
   return {
     identity,
-    market,
-    chart: approximateChart(market),
+    market: enrichedMarket,
+    chart: approximateChart(enrichedMarket),
     analysis: analyzeToken(identity, market),
     mentions,
     diagnosis: analyzeTokenIntel({ identity, market, mentions }),
