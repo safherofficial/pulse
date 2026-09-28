@@ -4,6 +4,7 @@
  */
 
 import { scoreContent } from "../content-score.ts";
+import { EDITORIAL_ENGINE_VERSION } from "../editorial-standard.ts";
 import { BENCHMARKS, preservesAuthorFacts } from "./benchmarks.ts";
 import { nextVersionLabel } from "./baseline.ts";
 import { measureRules } from "./compose.ts";
@@ -200,6 +201,7 @@ export function updateContentLogic(
     version: {
       version: label.version,
       versionNumber: label.versionNumber,
+      editorialEngineVersion: EDITORIAL_ENGINE_VERSION,
       rules,
       createdAt: now,
       basedOnTrendVersion: trend.version,
