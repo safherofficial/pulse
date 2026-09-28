@@ -80,14 +80,14 @@ function Home() {
             ))}
           </ol>
           <Link to="/tokens" className="mt-5 inline-flex text-sm text-accent hover:underline">
-            Open token research
+            Open Token
           </Link>
         </aside>
       </section>
 
       <section>
         <p className="kicker">Why it matters</p>
-        <h2 className="mt-3 max-w-2xl text-3xl">Research and writing stop living in different tabs.</h2>
+        <h2 className="mt-3 max-w-2xl text-3xl">Token data and writing stop living in different tabs.</h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           {[
             ["Discover", "Find the token and the public X posts that actually mention it."],
