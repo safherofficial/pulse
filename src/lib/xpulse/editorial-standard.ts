@@ -192,9 +192,11 @@ export function validateEditorialShape(text: string, kind: ContentKind): Editori
     if (repeated > 0) violations.push("thread_repeated_beats");
     notes.push("thread_beats:" + beats.length);
   } else if (kind === "article") {
-    if (clean.split(/\s+/).length < 250) violations.push("article_too_shallow");
     if (!/[.!?]/.test(clean)) violations.push("article_has_no_argument");
-    if (clean.split(/\n\s*\n/).filter(Boolean).length < 4) notes.push("article_has_few_sections");
+    const blocks = clean.split(/\n\s*\n/).filter(Boolean);
+    if (blocks.length < 3) violations.push("article_needs_editorial_structure");
+    if (blocks.length < 5) notes.push("article_has_limited_sectioning");
+    if (clean.split(/\s+/).filter(Boolean).length < 180) notes.push("article_is_compact_because_value_is_limited");
   } else {
     const wordCount = clean.split(/\s+/).filter(Boolean).length;
     if (wordCount > 280) notes.push("post_is_long_but_not_rejected");
