@@ -6,6 +6,7 @@
 
 import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind, type ContentScoreReport } from "./content-score";
+import { buildEditorialSelfCritiquePrompt, buildEditorialSystemPrompt, EDITORIAL_ENGINE_VERSION, validateEditorialShape } from "./editorial-standard";
 import type { GeneratedContent } from "./content-create";
 import { baselineContent } from "./optimize/baseline.ts";
 import { optimizeContent, type CompositionResult } from "./optimize/compose.ts";
@@ -228,27 +229,31 @@ export async function improveDraftCopy(text: string, kind: ContentKind): Promise
     .map((d) => `${d.label} (${d.score}): ${d.note}`);
 
   const live = await writeWithLlm(
-    [
-      "You are a senior X copy editor. Rewrite the draft into a finished piece people can publish.",
-      kind === "thread"
-        ? "Output a numbered thread 1/ 2/ 3/. Each tweet under 270 characters. No Hook:/Context: labels."
-        : kind === "article"
-          ? "Output a tight long-form note with a title and short sections."
-          : "Output one X post. Short lines. Strong first sentence.",
-      "Keep every concrete fact, number, name, ticker, URL, and contract. Do not invent new metrics.",
-      "Do not make a bearish, weak, or collapsed tape sound bullish.",
-      "Banned: 100x, guaranteed, to the moon, ape in, lorem, mockup, as an AI, exciting opportunity, could explode.",
-      "Output only the rewritten text.",
-    ].join(" "),
-    `Kind: ${kind}\nScore now: ${before.total}/100\nFix these first:\n${weak.join("\n")}\n\nDRAFT:\n${text}`,
+    buildEditorialSystemPrompt(
+      kind,
+      { format: kind, mode: "IMPROVE", variant: before.total },
+      [
+        "Rewrite the draft into finished publishable editorial content.",
+        kind === "thread"
+          ? "Use a true narrative progression. Number publishable tweets 1/ 2/ 3/. Keep each tweet under 270 characters and do not use outline labels."
+          : kind === "article"
+            ? "Develop a coherent editorial argument with a title and purposeful sections. Do not pad with generic background."
+            : "Write one compressed, high-signal post with a strong first sentence; do not turn it into a mini-article.",
+        "Keep every concrete fact, number, name, ticker, URL, and contract. Do not invent new metrics.",
+        "Use the score weaknesses below as craft guidance, not as permission to change the facts.",
+        "WEAK DIMENSIONS:\n" + (weak.join("\n") || "None materially below threshold."),
+        buildEditorialSelfCritiquePrompt(kind),
+      ],
+    ),
+    "Kind: " + kind + "\nScore now: " + before.total + "/100\nDRAFT:\n" + text,
   );
-
   let chosen = fromComposition(local, "local-score");
   if (live?.text) {
     const polished = await polish(live.text);
     const candidate = polished.text;
     const report = scoreContent(candidate, kind);
-    if (report.total > chosen.after.total && preservesAuthorFacts(text, candidate)) {
+    const gate = validateEditorialShape(candidate, kind);
+    if (gate.pass && report.total > chosen.after.total && preservesAuthorFacts(text, candidate)) {
       chosen = {
         ...chosen,
         text: candidate,
@@ -256,6 +261,7 @@ export async function improveDraftCopy(text: string, kind: ContentKind): Promise
         after: report,
         source: live.source,
         applied: [
+          `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,
           `Writer: ${live.source}`,
           `Score ${before.total} → ${report.total}`,
           ...polished.notes,
@@ -282,21 +288,31 @@ export async function strongerHookCopy(text: string, kind: ContentKind): Promise
   const logic = await loadLogic();
   const local = optimizeContent({ text, kind, mode: "HOOK_OPTIMIZE", logic });
   const live = await writeWithLlm(
-    "Rewrite only the opening line of this draft so it stops the scroll. Then keep the rest, lightly tightened. Keep facts. Do not invent numbers or flip a negative market read. Output the full piece only.",
+    buildEditorialSystemPrompt(
+      kind,
+      { format: kind, mode: "IMPROVE_HOOK" },
+      [
+        "Rewrite the opening materially stronger while keeping the rest lightly tightened.",
+        "The first line must earn attention through specificity, contrast or a useful unanswered question, never clickbait.",
+        "Keep every existing fact and do not invent numbers or flip a negative market read.",
+        buildEditorialSelfCritiquePrompt(kind),
+      ],
+    ),
     text,
   );
   let chosen = fromComposition(local, "local-hook");
   if (live?.text) {
     const polished = await polish(live.text);
     const report = scoreContent(polished.text, kind);
-    if (report.total > chosen.after.total && preservesAuthorFacts(text, polished.text)) {
+    const gate = validateEditorialShape(polished.text, kind);
+    if (gate.pass && report.total > chosen.after.total && preservesAuthorFacts(text, polished.text)) {
       chosen = {
         ...chosen,
         text: polished.text,
         score: report,
         after: report,
         source: live.source,
-        applied: [`Writer: ${live.source}`, `Score ${local.originalScore} → ${report.total}`, ...polished.notes],
+        applied: [`Editorial engine: ${EDITORIAL_ENGINE_VERSION}`, `Writer: ${live.source}`, `Score ${local.originalScore} → ${report.total}`, ...polished.notes],
       };
     }
   }
