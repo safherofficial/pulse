@@ -12,6 +12,7 @@ import type { ContentLogicVersion } from "../optimize/types.ts";
 import { extractPublicXPostId, resolvePublicXPost } from "../x-public.ts";
 import { isEditorMode, runEditorPipeline, type EditorDossier, type EditorMode } from "./pipeline.ts";
 import { classifyUrl, extractPublicPage, type UrlExtraction } from "./url.ts";
+import { getTrendSnapshot, type TrendSnapshot } from "../trends.ts";
 
 const ANALYSIS_CACHE = new Map<string, { at: number; value: EditorDossier }>();
 const TTL_MS = 5 * 60 * 1000;
@@ -143,6 +144,16 @@ function resolveRequestMode(value: string | undefined): EditorMode {
 }
 
 
+async function loadActiveViralTrend() {
+  try {
+    const { loadActiveViralTrend: load } = await import("../optimize/store.ts");
+    return await load();
+  } catch {
+    const { baselineTrend } = await import("../optimize/baseline.ts");
+    return baselineTrend();
+  }
+}
+
 export async function executeEditor(input: EditorRequest, deps: EditorDeps = {}): Promise<EditorDossier> {
   const requestedMode = resolveRequestMode(input.request);
   const mode: EditorMode = isEditorMode(input.mode) && input.mode !== "ANALYZE" ? input.mode : requestedMode;
@@ -155,7 +166,11 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     urlResult = await readEditorUrl(split.url, deps);
     if (!text && urlResult.text) text = urlResult.text;
   }
-  const logic = await (deps.loadLogic ?? defaultLogic)();
+  const [logic, trend, liveTrends] = await Promise.all([
+    (deps.loadLogic ?? defaultLogic)(),
+    loadActiveViralTrend(),
+    getTrendSnapshot().catch(() => null),
+  ]);
   const cacheKey = JSON.stringify({
     mode,
     kind,
@@ -168,7 +183,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
-  const deterministic = runEditorPipeline({ text, mode, kind, request, logic, url: urlResult });
+  const deterministic = runEditorPipeline({ text, mode, kind, request, logic, url: urlResult, trend, liveTrends });
   const rewriteMode = mode !== "ANALYZE" && mode !== "SCORE" && mode !== "FACT_CHECK";
   const writer: Rewrite | null =
     deps.rewrite === undefined
@@ -222,6 +237,8 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       logic,
       url: urlResult,
       proposed: { text: proposed, source: candidate.source },
+      trend,
+      liveTrends,
     });
 
     if (
