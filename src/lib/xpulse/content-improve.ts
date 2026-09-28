@@ -180,7 +180,7 @@ async function writeWithLlm(system: string, user: string): Promise<{ text: strin
     { role: "user", content: user },
   ];
   for (const provider of providers()) {
-    const raw = await chatComplete(provider, messages, 0.85);
+    const raw = await chatComplete(provider, messages, 0.25);
     if (raw && raw.length >= 60) return { text: stripFence(raw), source: provider.id };
   }
   return null;
@@ -326,7 +326,9 @@ export async function rewriteWithConfiguredModel(input: {
   attempt?: number;
 }): Promise<{ text: string; source: string } | null> {
   const keyed = providers().filter((provider) => provider.key);
-  if (!keyed.length) return null;
+  const publicFallback = providers().filter((provider) => provider.id === "pollinations-public");
+  const available = keyed.length ? keyed : publicFallback;
+  if (!available.length) return null;
   const messages: ChatMessage[] = [
     {
       role: "system",
@@ -355,8 +357,8 @@ export async function rewriteWithConfiguredModel(input: {
       content: `Mode: ${input.mode}\nAttempt: ${input.attempt ?? 1}\nKind: ${input.kind}\nLanguage: ${input.language}\nUser request: ${input.request ?? "General editorial analysis"}\nPlan:\n${input.plan.join("\n")}\n\nDRAFT:\n${input.text}`,
     },
   ];
-  for (const provider of keyed) {
-    const raw = await chatComplete(provider, messages, 0.3);
+  for (const provider of available) {
+    const raw = await chatComplete(provider, messages, 0.15);
     if (raw && raw.length >= 20) return { text: stripFence(raw), source: provider.id };
   }
   return null;
