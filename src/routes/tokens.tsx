@@ -174,7 +174,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
 
   return (
     <WorkspaceShell active="/tokens" kicker="Solana" title="Token · multi-chain">
-      <CollapsibleSection kicker="Token" title="Search" activityKey={query || null}>
+      <CollapsibleSection kicker="Token" title="Search" activityKey={hits?.map((h) => h.address).join("|") || error || null}>
         <label className="block">
           <span className="kicker">Search</span>
           <input
