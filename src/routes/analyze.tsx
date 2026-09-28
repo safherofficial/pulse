@@ -141,7 +141,9 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
       : [];
 
   return (
-    <WorkspaceShell active={active} kicker="Editor" title={title}>
+    <>
+      {busy !== null ? <ProcessingOverlay mode={busy} /> : null}
+      <WorkspaceShell active={active} kicker="Editor" title={title}>
       {token ? (
         <CollapsibleSection kicker="Token" title={`${token.symbol} · ${token.name}`} activityKey={token.address}>
           <p className="kicker">Token context</p>
@@ -242,7 +244,8 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
           ) : null}
         </CollapsibleSection>
       ) : null}
-    </WorkspaceShell>
+      </WorkspaceShell>
+    </>
   );
 }
 
