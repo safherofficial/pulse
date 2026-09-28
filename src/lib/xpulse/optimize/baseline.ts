@@ -4,6 +4,7 @@
  */
 
 import type { ContentLogicVersion, ContentRule, ViralTrendVersion } from "./types.ts";
+import { EDITORIAL_ENGINE_VERSION } from "../editorial-standard.ts";
 
 const EMPTY_WINDOW = {
   posts: 0,
