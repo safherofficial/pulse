@@ -5,7 +5,7 @@ import { baselineContent, baselineTrend } from "./baseline.ts";
 import { BENCHMARKS } from "./benchmarks.ts";
 import { isAlreadyStrong, optimizeContent } from "./compose.ts";
 import { planDailyOptimization, type ExistingRun } from "./runner.ts";
-import { formatRomeHm, isDue, nextRunAt, parseDailyTime, romeDayKey, romeWallTimeToUtc } from "./schedule.ts";
+import { formatRomeHm, isDue, isWeeklyEditorialUpgradeDue, nextRunAt, parseDailyTime, romeDayKey, romeWeekKey, romeWallTimeToUtc } from "./schedule.ts";
 import { analyzeTrends } from "./trend-engine.ts";
 import type { ContentLogicVersion, ObservedPost, ViralPattern, ViralTrendVersion } from "./types.ts";
 
@@ -83,6 +83,19 @@ function hashtagCorpus(): ObservedPost[] {
     ...repeat("p-old", "Pool update today", 20, 72, 3, 1, 0),
   ];
 }
+
+test("editorial rule upgrades run once per week at the Rome Monday slot", () => {
+  const monday = romeWallTimeToUtc(2026, 9, 28, 6, 15);
+  const before = new Date(monday.getTime() - 60_000);
+  const tuesday = romeWallTimeToUtc(2026, 9, 29, 12, 0);
+  const nextMonday = romeWallTimeToUtc(2026, 10, 5, 6, 15);
+  assert.equal(romeWeekKey(monday), "2026-W40");
+  assert.equal(isWeeklyEditorialUpgradeDue(before, TIME, null), false);
+  assert.equal(isWeeklyEditorialUpgradeDue(monday, TIME, "2026-09-21T04:15:00.000Z"), true);
+  assert.equal(isWeeklyEditorialUpgradeDue(monday, TIME, monday.toISOString()), false);
+  assert.equal(isWeeklyEditorialUpgradeDue(tuesday, TIME, monday.toISOString()), false);
+  assert.equal(isWeeklyEditorialUpgradeDue(nextMonday, TIME, monday.toISOString()), true);
+});
 
 test("schedule stays on 06:15 Europe/Rome across DST", () => {
   assert.deepEqual(parseDailyTime(undefined), { hour: 6, minute: 15 });
