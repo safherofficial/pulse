@@ -63,6 +63,7 @@ export type EditorDossier = {
   mode: EditorMode;
   input: {
     text: string;
+    request: string;
     language: DraftLanguage;
     format: DraftFormat;
     intent: DraftIntent;
@@ -142,6 +143,7 @@ export function namedScore(report: ContentScoreReport): NamedScore {
 export function runEditorPipeline(input: {
   text: string;
   mode: EditorMode;
+  request?: string;
   kind?: DraftFormat | null;
   logic?: ContentLogicVersion | null;
   url?: UrlExtraction | null;
@@ -150,6 +152,7 @@ export function runEditorPipeline(input: {
   proposed?: { text: string; source: string } | null;
 }): EditorDossier {
   const text = normalizeDraft(input.text);
+  const request = (input.request ?? "").trim().replace(/\s+/g, " ").slice(0, 600);
   const language = detectLanguage(text);
   const format = detectFormat(text, input.kind === "headline" || input.kind === "note" ? null : input.kind);
   const kind = toKind(input.mode, format);
@@ -157,7 +160,7 @@ export function runEditorPipeline(input: {
   const entities = extractEntities(text);
   const statements = extractStatements(text);
   const before = text ? scoreContent(text, kind) : emptyReport();
-  const plan = buildPlan(before, text, statements.claims);
+  const plan = buildPlan(before, text, statements.claims, request);
   const logic = input.logic ?? baselineContent();
   const drafted = input.proposed?.text.trim()
     ? {
@@ -180,6 +183,7 @@ export function runEditorPipeline(input: {
     mode: input.mode,
     input: {
       text,
+      request,
       language,
       format,
       intent,
@@ -205,7 +209,10 @@ export function runEditorPipeline(input: {
     analysis: {
       works: before.working,
       limits: before.limiting,
-      why: plan.filter((item) => item.action !== "KEEP").map((item) => `${item.target}: ${item.reason}`),
+      why: [
+        ...(request ? [`User request: ${request}`] : []),
+        ...plan.filter((item) => item.action !== "KEEP").map((item) => `${item.target}: ${item.reason}`),
+      ],
       risks: riskLines(text, intent),
       viral: activePatterns.length
         ? [`Active measured patterns: ${activePatterns.join(", ")}. They cannot change the facts.`]
@@ -301,9 +308,18 @@ function sharesLanguageToken(before: string, after: string, language: DraftLangu
   return ` ${after.toLowerCase()} `.includes(hit);
 }
 
-function buildPlan(report: ContentScoreReport, text: string, claims: string[]): PlanItem[] {
+function buildPlan(report: ContentScoreReport, text: string, claims: string[], request = ""): PlanItem[] {
   const items: PlanItem[] = [];
   let priority = 1;
+  if (request) {
+    items.push({
+      action: "IMPROVE",
+      target: "User request",
+      reason: `Prioritize the requested outcome: ${request}`,
+      expectedImpact: "high",
+      priority: 0,
+    });
+  }
   for (const dimension of report.dimensions) {
     if (dimension.score >= 72) {
       items.push({
