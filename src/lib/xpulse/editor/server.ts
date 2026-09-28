@@ -29,6 +29,7 @@ export type EditorRequest = {
   url?: string;
   mode?: unknown;
   kind?: "post" | "thread" | "article" | null;
+  request?: string;
 };
 
 export type EditorDeps = {
@@ -118,9 +119,32 @@ function cacheSet(key: string, value: EditorDossier): EditorDossier {
   ANALYSIS_CACHE.set(key, { at: Date.now(), value });
   return value;
 }
+function normalizeRequest(value: string | undefined): string {
+  return (value ?? "").trim().replace(/\s+/g, " ").slice(0, 600);
+}
+
+function resolveRequestMode(value: string | undefined): EditorMode {
+  const request = normalizeRequest(value).toLowerCase();
+  if (!request) return "ANALYZE";
+  if (/\b(thread|threadify|threaded)\b/.test(request)) return "MAKE_THREAD";
+  if (/\b(article|long[- ]form)\b/.test(request)) return "MAKE_ARTICLE";
+  if (/\b(hook|opening|first line|stop the scroll)\b/.test(request)) return "IMPROVE_HOOK";
+  if (/\b(structure|flow|order|organize)\b/.test(request)) return "IMPROVE_STRUCTURE";
+  if (/\b(fact[- ]?check|verify|claims|credib)\b/.test(request)) return "FACT_CHECK";
+  if (/\b(score|rate|grade)\b/.test(request)) return "SCORE";
+  if (/\b(shorten|shorter|concise|cut)\b/.test(request)) return "SHORTEN";
+  if (/\b(expand|longer|develop)\b/.test(request)) return "EXPAND";
+  if (/\b(rewrite|rephrase|redraft)\b/.test(request)) return "REWRITE";
+  if (/\b(improve|better|fix|weakness|stronger)\b/.test(request)) return "IMPROVE";
+  if (/\b(post|tweet)\b/.test(request)) return "MAKE_POST";
+  return "ANALYZE";
+}
+
 
 export async function executeEditor(input: EditorRequest, deps: EditorDeps = {}): Promise<EditorDossier> {
-  const mode: EditorMode = isEditorMode(input.mode) ? input.mode : "ANALYZE";
+  const requestedMode = resolveRequestMode(input.request);
+  const mode: EditorMode = isEditorMode(input.mode) ? input.mode : requestedMode;
+  const request = normalizeRequest(input.request);
   const kind = input.kind === "thread" || input.kind === "article" || input.kind === "post" ? input.kind : null;
   const split = splitEditorInput(input.text ?? "", input.url ?? "");
   let text = split.text;
@@ -133,6 +157,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   const cacheKey = JSON.stringify({
     mode,
     kind,
+    request,
     version: logic.version,
     text,
     url: urlResult?.status ?? null,
@@ -141,7 +166,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
 
-  const deterministic = runEditorPipeline({ text, mode, kind, logic, url: urlResult });
+  const deterministic = runEditorPipeline({ text, mode, kind, request, logic, url: urlResult });
   const rewriteMode = mode !== "ANALYZE" && mode !== "SCORE" && mode !== "FACT_CHECK";
   const writer: Rewrite | null =
     deps.rewrite === undefined
@@ -160,6 +185,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       mode,
       kind: deterministic.output.kind,
       language: deterministic.input.language,
+      request,
       plan: deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`),
     });
   } catch {
@@ -191,6 +217,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     text,
     mode,
     kind,
+    request,
     logic,
     url: urlResult,
     proposed: { text: proposed, source: candidate.source },
