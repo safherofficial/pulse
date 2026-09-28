@@ -46,14 +46,6 @@ function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNaviga
       aria-label="Primary"
     >
       <Link
-        to="/tokens"
-        className={item}
-        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
-        onClick={onNavigate}
-      >
-        Token
-      </Link>
-      <Link
         to="/analyze"
         className={item}
         activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
