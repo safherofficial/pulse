@@ -97,33 +97,11 @@ const SOFT_LEAD = /^(i |we |today |just |so |hi |hello |hey |wanted to |want to 
  * Avoid aggressive number injection that changes the author's intent.
  */
 const VAGUE_MAP: Array<[RegExp, string[]]> = [
-  [/\ba lot of\b/gi, ["many", "dozens of", "far more"]],
-  [/\bmany\b/gi, ["dozens of", "most", "a large share of"]],
-  [/\bsome\b/gi, ["a few", "several", "a handful of"]],
-  [/\bbetter\b/gi, ["sharper", "clearer", "stronger"]],
-  [/\bmore\b/gi, ["far more", "noticeably more", "significantly more"]],
-  [/\bgrowth\b/gi, ["measurable lift", "reach lift", "progress"]],
-  [/\bquickly\b/gi, ["fast", "this week", "in days"]],
-  [/\bsoon\b/gi, ["this week", "shortly", "before long"]],
-  [/\boften\b/gi, ["regularly", "frequently", "again and again"]],
-  [/\bgreat\b/gi, ["specific", "concrete", "proven"]],
-  [/\bawesome\b/gi, ["effective", "high-signal", "repeatable"]],
-  [/\bthing\b/gi, ["move", "lever", "change"]],
-  [/\bstuff\b/gi, ["details", "signals", "proof"]],
-  [/\bcontent\b/gi, ["posts", "threads", "writing"]],
-  [/\bengagement\b/gi, ["replies and reposts", "saves and replies", "real interactions"]],
-  [/\bviral\b/gi, ["high-travel", "widely shared", "breakout"]],
-  [/\bsuccess\b/gi, ["results", "outcomes", "wins"]],
-  [/\boptimize\b/gi, ["tighten", "cut and sharpen", "refine"]],
-  [/\bleverage\b/gi, ["use", "apply", "put to work"]],
-  [/\breally\b/gi, ["", "clearly", "truly"]],
-  [/\bvery\b/gi, ["", "genuinely", "markedly"]],
-  [/\bjust\b/gi, ["", "simply", "only"]],
-  [/\bcrypto\b/gi, ["on-chain", "web3", "Solana"]],
-  [/\bblockchain\b/gi, ["Solana", "on-chain", "L1"]],
-  [/\bproject\b/gi, ["protocol", "product", "build"]],
-  [/\bcommunity\b/gi, ["holders", "builders", "users"]],
-  [/\blaunch\b/gi, ["ship", "mainnet launch", "go live"]],
+  [/\breally\b/gi, [""]],
+  [/\bvery\b/gi, [""]],
+  [/\bjust\b/gi, [""]],
+  [/\bleverage\b/gi, ["use", "apply"]],
+  [/\butilize\b/gi, ["use"]],
 ];
 
 export function suggestEdits(text: string): EditSuggestion[] {
