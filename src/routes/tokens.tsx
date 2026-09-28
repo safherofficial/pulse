@@ -382,6 +382,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
     window.setTimeout(() => setCopied(false), 1500);
   }
 
+
   async function createContent(kind: ContentKind) {
     if (!intel || contentBusy) return;
     setContentBusy(kind);
@@ -401,7 +402,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
 
       setFactSet(facts);
       const next = await writeTokenContent({
-        data:   async function regenerate() {
+        data:
+  async function regenerate() {
     if (!content || !factSet || contentBusy) return;
     setContentBusy(content.kind);
     setContentError(null);
@@ -815,6 +817,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             )}
           </CollapsibleSection>
 
+          
           <CollapsibleSection kicker="Create content from this token" title="Write from locked facts">
             <p className="text-sm text-muted">
               Facts are locked from the token research above. The writer synthesizes the strongest
@@ -833,7 +836,13 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                 />
                 <div>
                   <p className="text-sm text-fg">
-                    Building {contentBusy === "post" ? "post" : contentBusy === "thread" ? "thread" : "article"}…
+                    Building{" "}
+                    {contentBusy === "post"
+                      ? "post"
+                      : contentBusy === "thread"
+                        ? "thread"
+                        : "article"}
+                    …
                   </p>
                   <p className="text-xs text-subtle">
                     Analyzing signals, composing the editorial angle, refining the copy and scoring the result.
@@ -843,7 +852,10 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             ) : null}
 
             {contentError ? (
-              <p className="mt-3 rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger" role="alert">
+              <p
+                className="mt-3 rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger"
+                role="alert"
+              >
                 {contentError}
               </p>
             ) : null}
@@ -868,11 +880,13 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                   type="button"
                   disabled={contentBusy !== null}
                   onClick={() => setRegenMode(id)}
-                  className={`h-8 rounded-md px-2.5 text-xs transition ${
-                    regenMode === id
+                  className={
+                    "h-8 rounded-md px-2.5 text-xs transition " +
+                    (regenMode === id
                       ? "border border-accent/40 bg-accent/15 text-accent"
-                      : "border border-line text-muted hover:text-fg"
-                  }${contentBusy !== null ? " cursor-not-allowed opacity-50" : ""}`}
+                      : "border border-line text-muted hover:text-fg") +
+                    (contentBusy !== null ? " cursor-not-allowed opacity-50" : "")
+                  }
                 >
                   {label}
                 </button>
@@ -889,7 +903,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                   onClick={() => void createContent(k)}
                 >
                   {contentBusy === k
-                    ? `Generating ${k}…`
+                    ? "Generating " + k + "…"
                     : k === "post"
                       ? "Generate post"
                       : k === "thread"
