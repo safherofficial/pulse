@@ -447,6 +447,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <CollapsibleSection
             kicker="Token overview"
             title="Market data"
+            activityKey={intel.freshness}
             
             contentClassName="space-y-0"
           >
@@ -580,7 +581,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             </div>
           </CollapsibleSection>
 
-          <CollapsibleSection kicker="Price chart" title="Market path" >
+          <CollapsibleSection kicker="Price chart" title="Market path"
+            activityKey={intel.freshness} >
             <PriceChartPanel
               embedded
               pairAddress={intel.market.pairAddress}
@@ -591,6 +593,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <CollapsibleSection
             kicker="DEX Paid check"
             title="Public DEX listing signal"
+            activityKey={intel.freshness}
             
             badge={
               <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[10px] tracking-wide text-subtle uppercase">
@@ -650,6 +653,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <CollapsibleSection
             kicker="Virality signals"
             title="Activity ranking factors"
+            activityKey={intel.freshness}
             badge={
               <span className="font-mono text-sm text-accent tabular-nums">
                 {intel.market.viralScore != null ? intel.market.viralScore : "—"}
@@ -667,7 +671,8 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             )}
           </CollapsibleSection>
 
-          <CollapsibleSection kicker="Analysis" title="Structure, liquidity, and risks">
+          <CollapsibleSection kicker="Analysis" title="Structure, liquidity, and risks"
+            activityKey={intel.freshness}>
             <Block title="Snapshot" body={intel.analysis.snapshot} />
             <Block title="Market structure" body={intel.analysis.marketStructure} />
             <Block title="Liquidity" body={intel.analysis.liquidity} />
@@ -690,6 +695,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
               <CollapsibleSection
                 kicker="Market state"
                 title={stanceLabel(diagnosis.state)}
+                activityKey={intel.freshness}
                 
                 badge={
                   <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
@@ -723,6 +729,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <CollapsibleSection
             kicker="Viral Intelligence"
             title="Who is talking about this token on X"
+            activityKey={intel.freshness}
             
             badge={
               <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
