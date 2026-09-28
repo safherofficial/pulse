@@ -321,6 +321,7 @@ export async function rewriteWithConfiguredModel(input: {
   mode: string;
   kind: ContentKind;
   language: string;
+  request?: string;
   plan: string[];
 }): Promise<{ text: string; source: string } | null> {
   const keyed = providers().filter((provider) => provider.key);
