@@ -137,7 +137,9 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
 
   const beats =
     dossier?.output.kind === "thread"
-      ? dossier.output.text.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean)
+      ? dossier.output.text.split(/
+\s*
+/).map((part) => part.trim()).filter(Boolean)
       : [];
 
   return (
@@ -242,7 +244,32 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
           ) : null}
         </CollapsibleSection>
       ) : null}
-    </WorkspaceShell>\n    </>\n  );\n}\n\nfunction ProcessingOverlay({ mode }: { mode: EditorMode }) {\n  const label = mode === "REWRITE" ? "Rewriting" : "Analyzing";\n\n  return (\n    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6 backdrop-blur-md" role="status" aria-live="polite" aria-label={label}>\n      <div className="flex w-full max-w-xs flex-col items-center text-center">\n        <div className="flex items-center gap-3 text-fg">\n          <div className="animate-pulse" aria-hidden><BrandMark /></div>\n          <span className="wordmark text-xl tracking-[0.2em]">XPulse</span>\n        </div>\n        <p className="mt-5 font-mono text-[10px] tracking-[0.28em] text-muted uppercase">{label} task</p>\n        <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-line">\n          <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />\n        </div>\n        <p className="mt-3 text-xs text-subtle">XPulse is processing your request…</p>\n      </div>\n    </div>\n  );\n}\n\nfunction DossierView({
+    </WorkspaceShell>
+    </>
+  );
+}
+
+function ProcessingOverlay({ mode }: { mode: EditorMode }) {
+  const label = mode === "REWRITE" ? "Rewriting" : "Analyzing";
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 px-6 backdrop-blur-md" role="status" aria-live="polite" aria-label={label}>
+      <div className="flex w-full max-w-xs flex-col items-center text-center">
+        <div className="flex items-center gap-3 text-fg">
+          <div className="animate-pulse" aria-hidden><BrandMark /></div>
+          <span className="wordmark text-xl tracking-[0.2em]">XPulse</span>
+        </div>
+        <p className="mt-5 font-mono text-[10px] tracking-[0.28em] text-muted uppercase">{label} task</p>
+        <div className="mt-4 h-1 w-full overflow-hidden rounded-full bg-line">
+          <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />
+        </div>
+        <p className="mt-3 text-xs text-subtle">XPulse is processing your request…</p>
+      </div>
+    </div>
+  );
+}
+
+function DossierView({
   dossier,
   beats,
   onUse,
