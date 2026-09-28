@@ -12,7 +12,7 @@ import type { ContentLogicVersion } from "../optimize/types.ts";
 import { extractPublicXPostId, resolvePublicXPost } from "../x-public.ts";
 import { isEditorMode, runEditorPipeline, type EditorDossier, type EditorMode } from "./pipeline.ts";
 import { classifyUrl, extractPublicPage, type UrlExtraction } from "./url.ts";
-import { getTrendSnapshot, type TrendSnapshot } from "../trends.ts";
+import { getTrendSnapshot } from "../trends.ts";
 
 const ANALYSIS_CACHE = new Map<string, { at: number; value: EditorDossier }>();
 const TTL_MS = 5 * 60 * 1000;
