@@ -7,6 +7,12 @@
 import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind } from "./content-score";
 import {
+  buildEditorialSelfCritiquePrompt,
+  buildEditorialSystemPrompt,
+  EDITORIAL_ENGINE_VERSION,
+  validateEditorialShape,
+} from "./editorial-standard";
+import {
   ensureLockedMarket,
   ensureMarketVerdict,
   generateFromFactSet,
@@ -146,14 +152,7 @@ async function chatComplete(
   }
 }
 
-function systemPrompt(kind: ContentKind, mode: RegenMode): string {
-  const shape =
-    kind === "thread"
-      ? "Write an 8-10 tweet X thread. Number tweets 1/ 2/ 3/. Each tweet must be publishable and under roughly 280 characters."
-      : kind === "article"
-        ? "Write a substantial publishable long-form X Article of roughly 650-950 words with a strong title, deck, purposeful section headings, and a clear conclusion."
-        : "Write one substantial X post of roughly 120-220 words, ready to publish. No title header.";
-
+function systemPrompt(kind: ContentKind, mode: RegenMode, variant: number): string {
   const tone =
     mode === "more_viral" || mode === "stronger_hook"
       ? "Sharp, high-signal crypto-native voice. Strong hook without hype."
@@ -165,26 +164,21 @@ function systemPrompt(kind: ContentKind, mode: RegenMode): string {
             ? "Tight and selective. Keep only the strongest evidence and takeaway."
             : "Natural, intelligent timeline voice. Write like an experienced market writer.";
 
-  return [
-    "You are XPulse's senior crypto editor, not a data summarizer.",
-    "Turn research into original editorial writing. Never copy the order of the supplied facts.",
-    "Think silently before writing: identify the strongest story, the most useful contrast, the editorial thesis, and the minimum evidence needed to support it.",
-    "DATA → SIGNALS → RELATIONSHIPS → INTERPRETATION → NARRATIVE → COPY.",
-    "A metric is useful only when the prose explains why it matters. Do not list every available metric.",
-    "Prefer 2-5 high-value evidence points over a wall of numbers.",
-    "Connect multiple signals when their relationship reveals a meaningful insight.",
-    "Preserve exact supplied values. Never invent facts, events, quotes, partnerships, forecasts, sources, or certainty.",
-    "Market state and risk state are binding. Negative, caution, severe-risk and collapsed states must remain negative/cautious in the copy.",
-    "Price collapse is a fact. A rug-pull claim is only justified when the supplied evidence supports that inference.",
-    "Viral patterns are structural guidance, not templates. Do not imitate wording or recycle example phrases.",
-    "Avoid generic AI language, empty superlatives, fake urgency, repetitive hooks, excessive emojis, hashtag spam and engagement bait.",
-    "Do not write a metric dump disguised as prose.",
-    "Every paragraph or tweet must add information, interpretation, context, contrast, or payoff.",
-    shape,
-    tone,
-    "The requested mode may change voice and structure, but never changes the factual conclusion.",
-    "Return only the final content. No preamble, no analysis, no markdown code fence.",
-  ].join("\n\n");
+  return buildEditorialSystemPrompt(
+    kind,
+    { format: kind, mode, variant },
+    [
+      tone,
+      "Use the strongest story or contradiction first, then choose evidence that advances that thesis. Do not follow source-field order.",
+      kind === "thread"
+        ? "Build 8-10 connected tweets when the evidence supports that depth; hook -> evidence -> relationship -> interpretation -> tension -> payoff. Do not use outline labels."
+        : kind === "article"
+          ? "Build enough depth for a real editorial article: headline -> hook -> context -> evidence -> analysis -> implications -> conclusion. Do not pad to hit an arbitrary word count."
+          : "Build one compact publishable post around one central thesis. Select only the evidence that earns its place.",
+      buildEditorialSelfCritiquePrompt(kind),
+      "The selected mode must materially affect voice, rhythm, evidence selection or structure. Variant is a regeneration choice, not decorative metadata.",
+    ],
+  );
 }
 
 function userPrompt(
@@ -229,6 +223,7 @@ function userPrompt(
     "First find the single strongest story or contradiction. Then build the content around that thesis.",
     "Do not mention every field. Select the evidence that actually advances the argument.",
     "Use viral trend guidance only to improve hook, sequencing, pacing and narrative mechanics. Never copy wording.",
+    "Apply USER SETTINGS as actual writing instructions, not metadata. Format, mode and variant must be observable in the result.",
     "Do not turn the research into a list.",
     "Locked research payload:",
     JSON.stringify(payload),
@@ -382,7 +377,7 @@ export async function writeTokenCopy(
       weight: rule.weight,
     }));
 
-  const system = systemPrompt(kind, mode);
+  const system = systemPrompt(kind, mode, variant);
   const user = userPrompt(
     facts,
     kind,
@@ -437,9 +432,17 @@ export async function writeTokenCopy(
     const candidate = refined && refined.length >= 120 ? refined : draft;
     const cleaned = await polish(sanitize(candidate, facts, kind));
     const composed = await composeGenerated(cleaned, kind, facts);
+    const qualityGate = validateEditorialShape(composed, kind);
+    if (!qualityGate.pass) {
+      applied.push(
+        "Editorial quality gate: rejected " + qualityGate.violations.join(", "),
+      );
+      continue;
+    }
     const score = scoreContent(composed, kind);
 
     applied.push(
+      "Editorial engine: " + EDITORIAL_ENGINE_VERSION,
       "Writer: " + provider.id,
       refined ? "Editorial refinement: passed" : "Editorial refinement: fallback to draft",
       "AI synthesis from token research + active viral guidance",
