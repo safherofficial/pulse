@@ -159,7 +159,7 @@ export async function researchXContentIntel(
   const twitter = intel.identity.twitter;
   if (!twitter) {
     return empty(
-      "No official X link on this token profile — content patterns limited to market research only.",
+      "No official X link on this token profile — content patterns limited to market data only.",
     );
   }
 

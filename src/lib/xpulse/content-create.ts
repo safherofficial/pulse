@@ -133,7 +133,7 @@ function extractFacts(draft: string): string[] {
   return facts.slice(0, 12);
 }
 
-function hasEnoughResearch(draft: string): boolean {
+function hasEnoughSourceMaterial(draft: string): boolean {
   const facts = extractFacts(draft);
   const words = draft.trim().split(/\s+/).length;
   return facts.length >= 2 || words >= 40;
@@ -155,20 +155,20 @@ export function generateFromDraft(
     return {
       kind,
       angle,
-      text: "More research is required before creating a reliable analysis.",
+      text: "More source material is required before creating a reliable analysis.",
       score,
-      applied: ["Blocked: empty research input"],
+      applied: ["Blocked: empty source input"],
     };
   }
 
-  if (!hasEnoughResearch(cleaned) && kind !== "post") {
+  if (!hasEnoughSourceMaterial(cleaned) && kind !== "post") {
     const score = scoreContent(cleaned, kind);
     return {
       kind,
       angle,
-      text: "More research is required before creating a reliable analysis.\n\nAdd concrete facts, numbers, or verified events from your research step, then generate again.",
+      text: "More source material is required before creating a reliable analysis.\n\nAdd concrete facts, numbers, or verified events from your notes, then generate again.",
       score,
-      applied: ["Blocked: insufficient research density"],
+      applied: ["Blocked: insufficient source density"],
     };
   }
 
@@ -200,7 +200,7 @@ export function generateFromDraft(
   }
 
   if (kind === "article") {
-    const title = facts[0] ?? cleaned.split(/\n+/)[0] ?? "Research note";
+    const title = facts[0] ?? cleaned.split(/\n+/)[0] ?? "Market note";
     const sections = [
       title,
       "",
@@ -210,7 +210,7 @@ export function generateFromDraft(
       rewritePost(cleaned.slice(0, 400), variant).text,
       "",
       "Context",
-      facts[1] ?? "Context is limited to what the research step returned.",
+      facts[1] ?? "Context is limited to what the source notes returned.",
       "",
       "Data",
       ...(facts.length ? facts.map((f) => `• ${f}`) : ["• Data unavailable beyond the draft notes."]),
@@ -225,7 +225,7 @@ export function generateFromDraft(
       "Read the numbers in context. Missing fields stay unavailable — no estimates were added.",
       "",
       "Conclusion",
-      "This article only uses facts present in the research input. It is informational, not advice.",
+      "This article only uses facts present in the source notes. It is informational, not advice.",
     ];
     text = sections.join("\n");
   }

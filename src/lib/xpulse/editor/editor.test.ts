@@ -22,15 +22,23 @@ function numbers(text: string): string[] {
   return (text.match(/\d+(?:[.,]\d+)?%?/g) ?? []).filter((token) => token.length >= 2);
 }
 
-test("navigation no longer exposes the Intelligence workspace", () => {
+test("Research workspace is fully removed", () => {
   const nav = read("../../../components/top-nav.tsx");
   const shell = read("../../../components/intel/WorkspaceShell.tsx");
   const home = read("../../../routes/index.tsx");
   const tokens = read("../../../routes/tokens.tsx");
+  const tree = read("../../../routeTree.gen.ts");
+  const researchRoute = new URL("../../../routes/research.tsx", import.meta.url);
+  assert.equal(existsSync(researchRoute), false);
   assert.equal(nav.includes("/research"), false);
   assert.equal(nav.includes("Intelligence"), false);
   assert.equal(shell.includes("/research"), false);
   assert.equal(shell.includes("Intelligence"), false);
+  assert.equal(tree.includes("/research"), false);
+  assert.equal(home.includes("/research"), false);
+  assert.equal(tokens.includes("/research"), false);
+  assert.equal(tokens.includes("Research token"), false);
+  assert.equal(tokens.includes('label: "Research"'), false);
   assert.match(nav, /Token/);
   assert.match(nav, /Analyze/);
   assert.match(nav, /Your Chamber/);
@@ -40,8 +48,7 @@ test("navigation no longer exposes the Intelligence workspace", () => {
   assert.equal(shell.includes('label: "Home"'), false);
   assert.equal(shell.includes('label: "Research"'), false);
   assert.equal(home.includes('kicker: "Intelligence"'), false);
-  assert.equal(existsSync(new URL("../../../routes/research.tsx", import.meta.url)), false);
-  assert.equal(read("../../../routeTree.gen.ts").toLowerCase().includes("research"), false);
+  assert.equal(tree.toLowerCase().includes("research"), false);
   assert.match(tokens, /Viral Intelligence/);
   assert.match(tokens, /Open in Analyze/);
 });

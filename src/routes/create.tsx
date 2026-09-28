@@ -42,10 +42,10 @@ function CreatePage() {
     <WorkspaceShell active="/create" kicker="X content" title="Create & optimize">
       <section className="panel space-y-4 p-4 sm:p-5">
         <label className="block">
-          <span className="kicker">Topic, draft, or research notes</span>
+          <span className="kicker">Topic, draft, or notes</span>
           <textarea
             className="mt-2 min-h-36 w-full rounded-md border border-line bg-surface-2 px-4 py-3 text-fg outline-none ring-accent focus:ring-1"
-            placeholder="Paste a draft, an idea, or notes from token research…"
+            placeholder="Paste a draft, an idea, or notes from a token lookup…"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />

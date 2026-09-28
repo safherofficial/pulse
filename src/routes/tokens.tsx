@@ -196,7 +196,7 @@ function TokenListView({ onOpen }: { onOpen: (address: string) => void }) {
           disabled={busy || !query.trim()}
           onClick={() => void runSearch()}
         >
-          {busy ? "Searching…" : "Research token"}
+          {busy ? "Searching…" : "Look up token"}
         </Button>
         {error ? (
           <p className="mt-3 text-sm text-danger" role="status">
@@ -719,7 +719,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             );
           })()}
 
-          {/* Viral Intelligence is the X-only mention list. It is not the removed workspace. */}
+          {/* Viral Intelligence is the X-only mention list. */}
           <CollapsibleSection
             kicker="Viral Intelligence"
             title="Who is talking about this token on X"
@@ -789,9 +789,9 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             )}
           </CollapsibleSection>
 
-          <CollapsibleSection kicker="Create content from this research" title="Write from locked facts">
+          <CollapsibleSection kicker="Create content from this token" title="Write from locked facts">
             <p className="text-sm text-muted">
-              Facts are locked from the research above. Regeneration rewrites structure and language
+              Facts are locked from the token data above. Regeneration rewrites structure and language
               only — numbers stay the same.
             </p>
             <div className="flex flex-wrap gap-2">

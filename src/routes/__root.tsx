@@ -1,9 +1,11 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { AppNotFoundComponent } from "@/lib/error-component";
 import { ScrollToTop } from "@/components/scroll-to-top";
 import appCss from "../styles.css?url";
 
 export const Route = createRootRoute({
+  notFoundComponent: AppNotFoundComponent,
   head: () => ({
     meta: [
       { charSet: "utf-8" },
