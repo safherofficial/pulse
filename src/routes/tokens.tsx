@@ -541,7 +541,15 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
                     <MetricCell label="Market cap" value={formatMcap(intel.market.marketCap).short} primary />
                     <MetricCell label="24h volume" value={formatUsd(intel.market.volume24h)} primary />
                     <MetricCell label="Liquidity" value={formatMcap(intel.market.liquidityUsd).short} />
-                    <MetricCell label="ATH" value="—" detail="Unavailable from current public market data" />
+                    <MetricCell
+                      label="ATH"
+                      value={formatPrice(intel.market.athPriceUsd)}
+                      detail={
+                        intel.market.athDate
+                          ? "Recorded " + new Date(intel.market.athDate).toLocaleDateString()
+                          : "Unavailable from current public market data"
+                      }
+                    />
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-3 text-xs text-muted">
