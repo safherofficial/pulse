@@ -447,7 +447,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <CollapsibleSection
             kicker="Token overview"
             title="Market data"
-            defaultOpen
+            
             contentClassName="space-y-0"
           >
             <div className="flex flex-wrap items-start gap-4">
@@ -580,7 +580,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             </div>
           </CollapsibleSection>
 
-          <CollapsibleSection kicker="Price chart" title="Market path" defaultOpen>
+          <CollapsibleSection kicker="Price chart" title="Market path" >
             <PriceChartPanel
               embedded
               pairAddress={intel.market.pairAddress}
@@ -591,7 +591,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <CollapsibleSection
             kicker="DEX Paid check"
             title="Public DEX listing signal"
-            defaultOpen
+            
             badge={
               <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[10px] tracking-wide text-subtle uppercase">
                 {intel.market.dexPaid === true
@@ -690,7 +690,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
               <CollapsibleSection
                 kicker="Market state"
                 title={stanceLabel(diagnosis.state)}
-                defaultOpen={severe}
+                
                 badge={
                   <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
                     XPulse {diagnosis.riskScore}/100
@@ -723,7 +723,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
           <CollapsibleSection
             kicker="Viral Intelligence"
             title="Who is talking about this token on X"
-            defaultOpen
+            
             badge={
               <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
                 {intel.mentions.availability === "unavailable"
@@ -841,7 +841,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             <CollapsibleSection
               kicker={`${content.kind} · ${content.angle.label} · ${regenMode}`}
               title="Generated content"
-              defaultOpen
+              
             >
               <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
                 {content.text}
