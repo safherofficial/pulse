@@ -48,6 +48,7 @@ export type PlanItem = {
 
 export type NamedScore = {
   total: number;
+  viral: number;
   hook: number | null;
   clarity: number | null;
   structure: number | null;
@@ -126,8 +127,17 @@ export function isEditorMode(value: unknown): value is EditorMode {
 
 export function namedScore(report: ContentScoreReport): NamedScore {
   const dim = (key: string) => report.dimensions.find((item) => item.key === key)?.score ?? null;
+  const score = (key: string) => report.dimensions.find((item) => item.key === key)?.score ?? 0;
+  const viral = Math.round(
+    score("hook") * 0.3 +
+    score("curiosity") * 0.25 +
+    score("shareability") * 0.25 +
+    score("emotion") * 0.1 +
+    score("structure") * 0.1,
+  );
   return {
     total: report.total,
+    viral,
     hook: dim("hook"),
     clarity: dim("clarity"),
     structure: dim("structure"),
@@ -268,9 +278,6 @@ function applyMode(
             ? "REWRITE"
             : "SCORE_IMPROVE";
   const outKind = mode === "MAKE_POST" ? "post" : mode === "MAKE_THREAD" ? "thread" : mode === "MAKE_ARTICLE" ? "article" : kind;
-  if (isAlreadyStrong(scoreContent(text, outKind)) && (mode === "IMPROVE" || mode === "REWRITE" || mode === "IMPROVE_HOOK")) {
-    return { text, kind: outKind, notes: ["Score is already 80 or higher. Original kept."] };
-  }
   const result = optimizeContent({ text, kind: outKind, mode: optimizeMode, logic });
   const notes = mode === "IMPROVE_STRUCTURE"
     ? ["Structure pass uses the active craft rules. No new facts.", ...result.notes]
