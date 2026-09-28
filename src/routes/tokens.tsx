@@ -478,284 +478,106 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
 
       {intel ? (
         <>
-          <CollapsibleSection
-            kicker="Token overview"
-            title="Market data"
-            activityKey={intel.freshness}
-            
-            contentClassName="space-y-0"
-          >
-            <div className="flex flex-wrap items-start gap-4">
-              {intel.identity.logoUrl ? (
-                <img
-                  src={intel.identity.logoUrl}
-                  alt=""
-                  className="h-16 w-16 rounded-full border border-line"
-                />
-              ) : (
-                <span className="grid h-16 w-16 place-items-center rounded-full border border-line bg-surface-2 font-mono text-sm">
-                  {intel.identity.symbol.slice(0, 3)}
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <h2 className="text-2xl tracking-tight">
-                  {intel.identity.name}{" "}
-                  <span className="text-muted">({intel.identity.symbol})</span>
-                </h2>
-                <p className="mt-1 text-sm text-accent">{chainLabel(intel.identity.chain)}</p>
-                <p className="mt-1 break-all font-mono text-xs text-subtle">
-                  {intel.identity.address}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button type="button" variant="quiet" onClick={copyCa}>
-                    {copied ? "Copied" : "Copy CA"}
-                  </Button>
-                  <a
-                    className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
-                    href={explorerUrl(intel.identity.address, intel.identity.chain)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open explorer
-                  </a>
-                  {intel.market.pairUrl ? (
-                    <a
-                      className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
-                      href={intel.market.pairUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open pair
-                    </a>
-                  ) : null}
-                  {intel.identity.website ? (
-                    <a
-                      className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
-                      href={intel.identity.website}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Website
-                    </a>
-                  ) : null}
-                  {intel.identity.twitter ? (
-                    <a
-                      className="inline-flex h-11 items-center rounded-md border border-line px-4 text-sm text-muted hover:text-fg"
-                      href={intel.identity.twitter}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Official X
-                    </a>
-                  ) : null}
-                </div>
-              </div>
-              <p className="text-xs text-subtle">
-                Data updated{" "}
-                {new Date(intel.freshness).toLocaleTimeString(undefined, {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            </div>
-
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-4 sm:col-span-1">
-                <p className="text-xs tracking-wide text-subtle uppercase">Market cap</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">
-                  {formatMcap(intel.market.marketCap).short}
-                </p>
-                <p className="mt-1 text-xs text-muted">{formatMcap(intel.market.marketCap).full}</p>
-              </div>
-              <div className="rounded-lg border border-line bg-surface-2/50 px-4 py-4">
-                <p className="text-xs tracking-wide text-subtle uppercase">FDV</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">
-                  {formatMcap(intel.market.fdv).short}
-                </p>
-                <p className="mt-1 text-xs text-muted">{formatMcap(intel.market.fdv).full}</p>
-              </div>
-              <div className="rounded-lg border border-line bg-surface-2/50 px-4 py-4">
-                <p className="text-xs tracking-wide text-subtle uppercase">Liquidity</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-fg tabular-nums">
-                  {formatMcap(intel.market.liquidityUsd).short}
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  {intel.market.marketCap && intel.market.liquidityUsd
-                    ? `${((intel.market.liquidityUsd / intel.market.marketCap) * 100).toFixed(1)}% of mcap`
-                    : formatMcap(intel.market.liquidityUsd).full}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {[
-                ["Price", formatPrice(intel.market.priceUsd)],
-                ["24h change", formatPct(intel.market.priceChange24h)],
-                ["6h change", formatPct(intel.market.priceChange6h)],
-                ["1h change", formatPct(intel.market.priceChange1h)],
-                ["Liquidity", formatUsd(intel.market.liquidityUsd)],
-                ["24h volume", formatUsd(intel.market.volume24h)],
-                ["6h volume", formatUsd(intel.market.volume6h)],
-                ["1h volume", formatUsd(intel.market.volume1h)],
-                ["Market cap", formatMcap(intel.market.marketCap).short],
-                ["FDV", formatMcap(intel.market.fdv).short],
-                [
-                  "24h buys / sells",
-                  intel.market.buys24h != null || intel.market.sells24h != null
-                    ? `${intel.market.buys24h ?? "—"} / ${intel.market.sells24h ?? "—"}`
-                    : "Data unavailable",
-                ],
-                ["DEX", intel.market.dexId ? intel.market.dexId.toUpperCase() : "Data unavailable"],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded-md border border-line bg-surface-2/50 px-3 py-3">
-                  <p className="text-xs text-subtle">{label}</p>
-                  <p className="mt-1 font-mono text-sm text-fg">{value}</p>
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-
-          <CollapsibleSection kicker="Price chart" title="Market path"
-            activityKey={intel.freshness} >
-            <PriceChartPanel
-              embedded
-              pairAddress={intel.market.pairAddress}
-              fallback={intel.chart.map((p) => ({ t: p.t, close: p.price }))}
-            />
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            kicker="DEX Paid check"
-            title="Public DEX listing signal"
-            activityKey={intel.freshness}
-            
-            badge={
-              <span className="rounded-full border border-line px-2 py-0.5 font-mono text-[10px] tracking-wide text-subtle uppercase">
-                {intel.market.dexPaid === true
-                  ? "Paid"
-                  : intel.market.dexPaid === false
-                    ? "Not paid"
-                    : "Unknown"}
-              </span>
-            }
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div
-                className={`rounded-md border px-4 py-3 ${
-                  intel.market.dexPaid
-                    ? "border-signal/40 bg-signal/10"
-                    : "border-line bg-surface-2/50"
-                }`}
-              >
-                <p className="text-xs text-subtle">DEX Paid (Enhanced Token Info)</p>
-                <p className="mt-1 text-lg font-medium text-fg">
-                  {intel.market.dexPaid === true
-                    ? "PAID"
-                    : intel.market.dexPaid === false
-                      ? "NOT PAID"
-                      : "UNKNOWN"}
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  {intel.market.dexPaid === true
-                    ? "Enhanced Token Info approved."
-                    : intel.market.dexPaid === false
-                      ? "No approved profile order found."
-                      : "Could not verify paid status from public listing data."}
-                </p>
-              </div>
-              <div className="rounded-md border border-line bg-surface-2/50 px-4 py-3">
-                <p className="text-xs text-subtle">Active boosts</p>
-                <p className="mt-1 text-lg font-medium text-fg">
-                  {intel.market.boostActive != null ? intel.market.boostActive : "—"}
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  {intel.market.boostActive != null
-                    ? "Current public boost count. Not the same as DEX Paid."
-                    : "Boost count unavailable. This is not zero."}
-                </p>
-              </div>
-            </div>
-            <p className="text-sm text-muted">
-              {intel.market.paidListingDetail ?? "Paid-listing detail unavailable."}
-            </p>
-            <p className="text-xs text-subtle">
-              Reads the public orders feed for an approved token profile or community takeover —
-              the same public signal CheckDEX surfaces. Not a CheckDEX API. Marketing signal only.
-            </p>
-          </CollapsibleSection>
-
-          <CollapsibleSection
-            kicker="Virality signals"
-            title="Activity ranking factors"
-            activityKey={intel.freshness}
-            badge={
-              <span className="font-mono text-sm text-accent tabular-nums">
-                {intel.market.viralScore != null ? intel.market.viralScore : "—"}
-              </span>
-            }
-          >
-            {intel.market.viralReasons.length ? (
-              <ul className="space-y-1 text-sm text-muted">
-                {intel.market.viralReasons.map((r) => (
-                  <li key={r}>• {r}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted">No strong virality factors from the current snapshot.</p>
-            )}
-          </CollapsibleSection>
-
-          <CollapsibleSection kicker="Analysis" title="Structure, liquidity, and risks"
-            activityKey={intel.freshness}>
-            <Block title="Snapshot" body={intel.analysis.snapshot} />
-            <Block title="Market structure" body={intel.analysis.marketStructure} />
-            <Block title="Liquidity" body={intel.analysis.liquidity} />
-            <Block title="Activity" body={intel.analysis.activity} />
-            <Block title="Narrative" body={intel.analysis.narrative} />
-            <div>
-              <p className="text-sm text-fg">Risks / flags</p>
-              <ul className="mt-2 space-y-1 text-sm text-muted">
-                {intel.analysis.risks.map((r) => (
-                  <li key={r}>• {r}</li>
-                ))}
-              </ul>
-            </div>
-          </CollapsibleSection>
-
           {(() => {
             const diagnosis = intel.diagnosis ?? analyzeTokenIntel(intel);
-            const severe = diagnosis.state === "SEVERE_RISK" || diagnosis.state === "COLLAPSED" || diagnosis.state === "BEARISH";
             return (
-              <CollapsibleSection
-                kicker="Market state"
-                title={stanceLabel(diagnosis.state)}
-                activityKey={intel.freshness}
-                
-                badge={
-                  <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
-                    XPulse {diagnosis.riskScore}/100
-                  </span>
-                }
-              >
-                <p className="text-sm text-fg">{diagnosis.headline}</p>
-                <p className="text-xs text-subtle">
-                  XPulse-derived reading of this snapshot ({diagnosis.riskBand}). Not an official market score.
-                </p>
-                {diagnosis.signals.length ? (
-                  <ul className="space-y-1 text-sm text-muted">
-                    {diagnosis.signals.map((signal) => (
-                      <li key={`${signal.type}-${signal.explanation}`}>
-                        • {signal.explanation}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted">No extra risk signals in this snapshot.</p>
-                )}
-                <p className="text-sm text-muted">
-                  Rug-pull signal: <span className="text-fg">{rugLabel(diagnosis.rugPullRisk)}</span>
-                </p>
-              </CollapsibleSection>
+              <>
+                <section className="panel p-4 sm:p-5">
+                  <div className="flex flex-wrap items-start gap-4">
+                    {intel.identity.logoUrl ? (
+                      <img
+                        src={intel.identity.logoUrl}
+                        alt=""
+                        className="h-14 w-14 shrink-0 rounded-full border border-line object-cover"
+                      />
+                    ) : (
+                      <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full border border-line bg-surface-2 font-mono text-sm">
+                        {intel.identity.symbol.slice(0, 3)}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-2xl font-semibold tracking-tight">{intel.identity.name}</h2>
+                        <span className="font-mono text-sm text-muted">{intel.identity.symbol}</span>
+                        <span
+                          className={
+                            "inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold tracking-[0.12em] uppercase " +
+                            (intel.market.dexPaid === true
+                              ? "border-signal/40 bg-signal/10 text-signal"
+                              : intel.market.dexPaid === false
+                                ? "border-danger/40 bg-danger/10 text-danger"
+                                : "border-line bg-surface-2 text-muted")
+                          }
+                        >
+                          {intel.market.dexPaid === true
+                            ? "DEX PAID"
+                            : intel.market.dexPaid === false
+                              ? "DEX NOT PAID"
+                              : "DEX UNKNOWN"}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span className="text-accent">{chainLabel(intel.identity.chain)}</span>
+                        <span className="font-mono text-subtle">{intel.identity.address}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="quiet" onClick={copyCa}>
+                        {copied ? "Copied" : "Copy CA"}
+                      </Button>
+                      <a
+                        className="inline-flex h-9 items-center rounded-md border border-line px-3 text-xs text-muted hover:text-fg"
+                        href={explorerUrl(intel.identity.address, intel.identity.chain)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Explorer
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                    <MetricCell label="Price" value={formatPrice(intel.market.priceUsd)} primary />
+                    <MetricCell label="Market cap" value={formatMcap(intel.market.marketCap).short} primary />
+                    <MetricCell label="24h volume" value={formatUsd(intel.market.volume24h)} primary />
+                    <MetricCell label="Liquidity" value={formatMcap(intel.market.liquidityUsd).short} />
+                    <MetricCell label="ATH" value="—" detail="Unavailable from current public market data" />
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line pt-3 text-xs text-muted">
+                    <span>1H <strong className="text-fg">{formatPct(intel.market.priceChange1h)}</strong></span>
+                    <span>6H <strong className="text-fg">{formatPct(intel.market.priceChange6h)}</strong></span>
+                    <span>24H <strong className="text-fg">{formatPct(intel.market.priceChange24h)}</strong></span>
+                    <span>FDV <strong className="text-fg">{formatMcap(intel.market.fdv).short}</strong></span>
+                    <span>Buys/Sells <strong className="text-fg">{intel.market.buys24h ?? "—"} / {intel.market.sells24h ?? "—"}</strong></span>
+                    <span className="ml-auto">Updated {new Date(intel.freshness).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                </section>
+
+                <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,.85fr)]">
+                  <TemporalViralityPanel intel={intel} />
+                  <MarketStatePanel diagnosis={diagnosis} />
+                </div>
+
+                <AiMarketIntelligence intel={intel} diagnosis={diagnosis} />
+
+                <section className="panel overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                    <div>
+                      <p className="kicker">Price chart</p>
+                      <h2 className="mt-1 text-lg">Market path</h2>
+                    </div>
+                    <span className="text-xs text-subtle">{intel.market.dexId?.toUpperCase() ?? "Market"}</span>
+                  </div>
+                  <div className="border-t border-line">
+                    <PriceChartPanel
+                      embedded
+                      pairAddress={intel.market.pairAddress}
+                      fallback={intel.chart.map((p) => ({ t: p.t, close: p.price }))}
+                    />
+                  </div>
+                </section>
+              </>
             );
           })()}
 
@@ -1003,6 +825,259 @@ function Block({ title, body }: { title: string; body: string }) {
     </div>
   );
 }
+
+function MetricCell({
+  label,
+  value,
+  detail,
+  primary = false,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+  primary?: boolean;
+}) {
+  return (
+    <div className={"rounded-lg border px-3 py-3 " + (primary ? "border-accent/30 bg-accent/5" : "border-line bg-surface-2/50")}>
+      <p className="text-[10px] font-medium tracking-[0.12em] text-subtle uppercase">{label}</p>
+      <p className={"mt-1 truncate font-mono tabular-nums " + (primary ? "text-lg font-semibold text-fg" : "text-sm text-fg")}>{value}</p>
+      {detail ? <p className="mt-1 text-[10px] leading-tight text-subtle">{detail}</p> : null}
+    </div>
+  );
+}
+
+type TemporalWindow = {
+  hours: 1 | 6 | 12 | 24;
+  priceChange: number | null;
+  previousPriceChange: number | null;
+  volume: number | null;
+  previousVolume: number | null;
+  volumeAcceleration: number | null;
+};
+
+function buildTemporalWindow(candles: OhlcvCandle[], hours: TemporalWindow["hours"]): TemporalWindow {
+  const current = candles.slice(-hours);
+  const previous = candles.slice(-(hours * 2), -hours);
+  const priceChange = current.length >= 2 && current[0]?.open > 0 && current.at(-1)?.close != null
+    ? ((current.at(-1)!.close - current[0]!.open) / current[0]!.open) * 100
+    : null;
+  const previousPriceChange = previous.length >= 2 && previous[0]?.open > 0 && previous.at(-1)?.close != null
+    ? ((previous.at(-1)!.close - previous[0]!.open) / previous[0]!.open) * 100
+    : null;
+  const volume = current.length ? current.reduce((sum, row) => sum + (row.volume ?? 0), 0) : null;
+  const previousVolume = previous.length ? previous.reduce((sum, row) => sum + (row.volume ?? 0), 0) : null;
+  const volumeAcceleration =
+    volume != null && previousVolume != null && previousVolume > 0
+      ? ((volume - previousVolume) / previousVolume) * 100
+      : null;
+  return { hours, priceChange, previousPriceChange, volume, previousVolume, volumeAcceleration };
+}
+
+function temporalLabel(change: number | null): string {
+  if (change == null) return "UNAVAILABLE";
+  if (change >= 1) return "UP";
+  if (change <= -1) return "DOWN";
+  return "FLAT";
+}
+
+function temporalStrength(row: TemporalWindow): string {
+  const move = Math.abs(row.priceChange ?? 0);
+  const accel = Math.abs(row.volumeAcceleration ?? 0);
+  if (move >= 10 && accel >= 50) return "STRONG";
+  if (move >= 5 || accel >= 30) return "MODERATE";
+  if (row.priceChange != null || row.volumeAcceleration != null) return "WEAK";
+  return "UNAVAILABLE";
+}
+
+function TemporalViralityPanel({ intel }: { intel: TokenIntel }) {
+  const [selected, setSelected] = useState<TemporalWindow["hours"]>(1);
+  const [candles, setCandles] = useState<OhlcvCandle[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (intel.identity.chain !== "solana" || !intel.market.pairAddress) {
+      setCandles([]);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    void fetchTokenOhlcv(intel.market.pairAddress, "1h")
+      .then((rows) => {
+        if (cancelled) return;
+        setCandles(rows);
+        if (rows.length < 24) setError("Historical hourly coverage is limited; unavailable fields are not estimated.");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Temporal market history is temporarily unavailable.");
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [intel.identity.chain, intel.market.pairAddress]);
+
+  const fallback = (hours: TemporalWindow["hours"]): TemporalWindow => {
+    const priceChange =
+      hours === 1 ? intel.market.priceChange1h :
+      hours === 6 ? intel.market.priceChange6h :
+      hours === 24 ? intel.market.priceChange24h :
+      null;
+    const volume =
+      hours === 1 ? intel.market.volume1h :
+      hours === 6 ? intel.market.volume6h :
+      hours === 24 ? intel.market.volume24h :
+      null;
+    return {
+      hours,
+      priceChange,
+      previousPriceChange: null,
+      volume,
+      previousVolume: null,
+      volumeAcceleration: null,
+    };
+  };
+
+  const row = candles.length >= 2 ? buildTemporalWindow(candles, selected) : fallback(selected);
+  const mentionCount = intel.mentions.items.filter((m) => {
+    if (!m.at) return false;
+    const age = Date.now() - new Date(m.at).getTime();
+    return age >= 0 && age <= selected * 60 * 60 * 1000;
+  }).length;
+  const direction = temporalLabel(row.priceChange);
+  const strength = temporalStrength(row);
+
+  return (
+    <section className="panel p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="kicker">Virality signals</p>
+          <h2 className="mt-1 text-lg">Momentum by timeframe</h2>
+        </div>
+        {busy ? <span className="text-xs text-accent" role="status">Analyzing…</span> : null}
+      </div>
+
+      <div className="mt-4 grid grid-cols-4 rounded-lg border border-line bg-surface-2/40 p-1">
+        {([1, 6, 12, 24] as const).map((hours) => (
+          <button
+            key={hours}
+            type="button"
+            onClick={() => setSelected(hours)}
+            className={"rounded-md px-2 py-2 text-xs font-medium transition " + (selected === hours ? "bg-accent/15 text-accent" : "text-muted hover:text-fg")}
+          >
+            {hours}H
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <MetricCell label="Direction" value={direction} />
+        <MetricCell label="Price move" value={formatPct(row.priceChange)} />
+        <MetricCell label="Volume" value={formatUsd(row.volume)} />
+        <MetricCell label="Signal" value={strength} />
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="rounded-md border border-line bg-surface-2/30 px-3 py-2">
+          <p className="text-[10px] tracking-[0.12em] text-subtle uppercase">Volume acceleration</p>
+          <p className="mt-1 text-sm text-fg">{formatPct(row.volumeAcceleration)}</p>
+          <p className="mt-1 text-[11px] text-subtle">vs the preceding {selected}H window</p>
+        </div>
+        <div className="rounded-md border border-line bg-surface-2/30 px-3 py-2">
+          <p className="text-[10px] tracking-[0.12em] text-subtle uppercase">Public X sample</p>
+          <p className="mt-1 text-sm text-fg">{mentionCount} mention{mentionCount === 1 ? "" : "s"} in {selected}H</p>
+          <p className="mt-1 text-[11px] text-subtle">Sample coverage, not total platform activity</p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-subtle">
+        <span>Liquidity movement: unavailable</span>
+        <span>Market-cap movement: unavailable</span>
+        {error ? <span className="text-muted">{error}</span> : null}
+      </div>
+    </section>
+  );
+}
+
+function MarketStatePanel({ diagnosis }: { diagnosis: ReturnType<typeof analyzeTokenIntel> }) {
+  const riskClass =
+    diagnosis.rugPullRisk === "critical" || diagnosis.rugPullRisk === "high"
+      ? "border-danger/40 bg-danger/10 text-danger"
+      : diagnosis.rugPullRisk === "elevated"
+        ? "border-warning/40 bg-warning/10 text-warning"
+        : "border-signal/40 bg-signal/10 text-signal";
+  return (
+    <section className="panel p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="kicker">Market state</p>
+          <h2 className="mt-1 text-lg">{stanceLabel(diagnosis.state)}</h2>
+        </div>
+        <span className="font-mono text-xs text-subtle">XPulse {diagnosis.riskScore}/100</span>
+      </div>
+
+      <div className={"mt-4 rounded-lg border p-4 " + riskClass}>
+        <p className="text-[10px] font-semibold tracking-[0.14em] uppercase">Rug Pull Risk</p>
+        <p className="mt-1 text-2xl font-semibold tracking-tight">{rugLabel(diagnosis.rugPullRisk)}</p>
+        <p className="mt-2 text-xs leading-relaxed text-fg/80">
+          {diagnosis.rugLine ?? "No rug-pull inference is supported by the current snapshot."}
+        </p>
+      </div>
+
+      <p className="mt-4 text-sm text-fg">{diagnosis.headline}</p>
+      <ul className="mt-3 space-y-2">
+        {diagnosis.signals.slice(0, 3).map((signal) => (
+          <li key={signal.type + "-" + signal.explanation} className="text-xs leading-relaxed text-muted">
+            <span className="text-fg">{signal.type.replaceAll("_", " ")}:</span> {signal.explanation}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[11px] text-subtle">Derived from the available market snapshot; not proof of wrongdoing.</p>
+    </section>
+  );
+}
+
+function AiMarketIntelligence({
+  intel,
+  diagnosis,
+}: {
+  intel: TokenIntel;
+  diagnosis: ReturnType<typeof analyzeTokenIntel>;
+}) {
+  const insights = [
+    ...diagnosis.conclusions.filter((x) => x !== diagnosis.headline),
+    ...intel.analysis.risks.slice(0, 2),
+  ].filter(Boolean).slice(0, 4);
+  return (
+    <section className="panel p-4 sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="kicker">Intelligence</p>
+          <h2 className="mt-1 text-lg">AI Market Intelligence Summary</h2>
+        </div>
+        <span className="rounded-full border border-accent/30 bg-accent/5 px-2 py-1 text-[10px] tracking-wide text-accent uppercase">
+          Interpretive
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-fg">{diagnosis.headline}</p>
+      {insights.length ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {insights.map((insight) => (
+            <div key={insight} className="rounded-md border border-line bg-surface-2/30 px-3 py-2 text-xs leading-relaxed text-muted">
+              {insight}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-muted">No additional interpretation is supported by the current data.</p>
+      )}
+    </section>
+  );
+}
+
 
 const TIMEFRAMES: { id: ChartTimeframe; label: string }[] = [
   { id: "1m", label: "1m" },
