@@ -22,6 +22,8 @@ type Rewrite = (input: {
   kind: "post" | "thread" | "article";
   language: string;
   plan: string[];
+  request?: string;
+  attempt?: number;
 }) => Promise<{ text: string; source: string } | null>;
 
 export type EditorRequest = {
@@ -178,63 +180,77 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       : deps.rewrite;
   if (!rewriteMode || !text.trim() || !writer) return cacheSet(cacheKey, deterministic);
 
-  let candidate: { text: string; source: string } | null = null;
-  try {
-    candidate = await writer({
+  const plans = deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`);
+  const candidates: EditorDossier[] = [];
+
+  for (const attempt of [1, 2, 3]) {
+    let candidate: { text: string; source: string } | null = null;
+    try {
+      candidate = await writer({
+        text,
+        mode,
+        kind: deterministic.output.kind,
+        language: deterministic.input.language,
+        request,
+        plan: plans,
+        attempt,
+      });
+    } catch {
+      candidate = null;
+    }
+    if (!candidate?.text.trim()) continue;
+
+    let proposed = candidate.text;
+    try {
+      const polish =
+        deps.polish ??
+        (async (value: string) => {
+          const { polishDraft } = await import("../content-improve.ts");
+          return polishDraft(value);
+        });
+      const polished = await polish(proposed);
+      if (polished.text.trim()) proposed = polished.text;
+    } catch {
+      /* polishing is optional */
+    }
+
+    const trial = runEditorPipeline({
       text,
       mode,
-      kind: deterministic.output.kind,
-      language: deterministic.input.language,
+      kind,
       request,
-      plan: deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`),
+      logic,
+      url: urlResult,
+      proposed: { text: proposed, source: candidate.source },
     });
-  } catch {
-    candidate = null;
+
+    if (
+      !trial.output.keptOriginal &&
+      trial.validation.factsPreserved &&
+      trial.validation.numbersPreserved &&
+      trial.validation.languageKept &&
+      !trial.validation.promoAdded
+    ) {
+      candidates.push(trial);
+    }
   }
-  if (!candidate?.text.trim()) {
+
+  const originalScore = deterministic.score.original.total;
+  const best = [deterministic, ...candidates].sort(
+    (a, b) => b.score.improved.total - a.score.improved.total,
+  )[0];
+
+  if (best.score.improved.total <= originalScore || best.output.keptOriginal) {
     deterministic.output.notes = [
       ...deterministic.output.notes,
-      "Configured writer unavailable. Deterministic analysis kept.",
+      "No validated transformation improved the measured score. Original facts were preserved.",
     ];
     return cacheSet(cacheKey, deterministic);
   }
 
-  let proposed = candidate.text;
-  try {
-    const polish =
-      deps.polish ??
-      (async (value: string) => {
-        const { polishDraft } = await import("../content-improve.ts");
-        return polishDraft(value);
-      });
-    const polished = await polish(proposed);
-    if (polished.text.trim()) proposed = polished.text;
-  } catch {
-    /* public polish APIs are optional */
-  }
-
-  const trial = runEditorPipeline({
-    text,
-    mode,
-    kind,
-    request,
-    logic,
-    url: urlResult,
-    proposed: { text: proposed, source: candidate.source },
-  });
-  const accepted =
-    !trial.output.keptOriginal &&
-    trial.validation.factsPreserved &&
-    trial.validation.numbersPreserved &&
-    trial.validation.languageKept &&
-    !trial.validation.promoAdded &&
-    trial.score.improved.total > deterministic.score.improved.total;
-  if (!accepted) {
-    deterministic.output.notes = [
-      ...deterministic.output.notes,
-      "Configured model failed the critic or did not raise the measured score. Deterministic result kept.",
-    ];
-    return cacheSet(cacheKey, deterministic);
-  }
-  return cacheSet(cacheKey, trial);
+  best.output.notes = [
+    ...best.output.notes,
+    `Validated improvement: ${originalScore} → ${best.score.improved.total} (+${best.score.improved.total - originalScore}).`,
+  ];
+  return cacheSet(cacheKey, best);
 }
