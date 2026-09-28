@@ -382,7 +382,6 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
     window.setTimeout(() => setCopied(false), 1500);
   }
 
-
   async function createContent(kind: ContentKind) {
     if (!intel || contentBusy) return;
     setContentBusy(kind);
@@ -402,8 +401,20 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
 
       setFactSet(facts);
       const next = await writeTokenContent({
-        data:
-  async function regenerate() {
+        data: { facts, kind, mode: regenMode, variant },
+      });
+      setContent(next);
+      setVariant((v) => v + 1);
+    } catch (err: unknown) {
+      setContentError(
+        err instanceof Error
+          ? err.message
+          : "Content generation failed. Try again shortly.",
+      );
+    } finally {
+      setContentBusy(null);
+    }
+  }  async function regenerate() {
     if (!content || !factSet || contentBusy) return;
     setContentBusy(content.kind);
     setContentError(null);
@@ -817,8 +828,7 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
             )}
           </CollapsibleSection>
 
-          
-          <CollapsibleSection kicker="Create content from this token" title="Write from locked facts">
+                    <CollapsibleSection kicker="Create content from this token" title="Write from locked facts">
             <p className="text-sm text-muted">
               Facts are locked from the token research above. The writer synthesizes the strongest
               story and relationships in the evidence instead of copying the metric list.
