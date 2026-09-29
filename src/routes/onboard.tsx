@@ -107,8 +107,7 @@ function OnboardPage() {
         <p className="kicker">Your account</p>
         <h1 className="mt-2 text-2xl">Wallet verified.</h1>
         <p className="mt-2 text-sm text-muted">
-          Your Solana wallet is your XPulse identity. Connect your X account to identify your personal Chamber. XPulse imports your public posts through a
-          credit-free public resolver, so syncing your library does not depend on X API credits. Public-link
+          Your Solana wallet is your XPulse identity. Connect your X account to identify your personal Chamber. Public-link
           analysis remains available without X connection.
         </p>
       </section>
@@ -120,7 +119,7 @@ function OnboardPage() {
             <h2 className="mt-2 text-xl">Import your posts directly from X</h2>
             <p className="mt-2 text-sm text-muted">
               Authorize XPulse with X OAuth. Your X identity is tied to this XPulse wallet account;
-              after connection, Sync X reads your public timeline without consuming X API credits.
+              after connection, Sync X imports your available public posts.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
@@ -135,7 +134,6 @@ function OnboardPage() {
             )}
           </div>
         </div>
-        {xLinked ? <p className="mt-4 text-xs text-accent">X account connected. Sync uses the public timeline resolver — no X API credits.</p> : null}
         {xNotice ? <p className="mt-2 text-sm text-muted" role="status">{xNotice}</p> : null}
       </section>
 
