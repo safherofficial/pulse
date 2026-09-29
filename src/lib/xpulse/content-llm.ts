@@ -147,10 +147,10 @@ async function chatComplete(
       json.choices?.[0]?.text ??
       (typeof json.content === "string" ? json.content : "");
     const output = text?.trim() ? text.trim() : null;
-    if (process.env.XPULSE_LLM_DEBUG === "1") console.info("[XPULSE_LLM]", JSON.stringify({ provider: provider.id, model: provider.model, durationMs: Date.now() - started, attempt: 1, rawOutput: output ?? "" }));
+    if (process.env.XPULSE_LLM_DEBUG === "1") console.info("[XPULSE_LLM]", JSON.stringify({ provider: provider.id, model: provider.model, durationMs: Date.now() - started, attempt: 1, rawOutput: output ?? "", prompt: messages }));
     return output;
   } catch (error) {
-    if (process.env.XPULSE_LLM_DEBUG === "1") console.info("[XPULSE_LLM]", JSON.stringify({ provider: provider.id, model: provider.model, durationMs: Date.now() - started, attempt: 1, rawOutput: "", error: error instanceof Error ? error.message : "LLM request failed" }));
+    if (process.env.XPULSE_LLM_DEBUG === "1") console.info("[XPULSE_LLM]", JSON.stringify({ provider: provider.id, model: provider.model, durationMs: Date.now() - started, attempt: 1, rawOutput: "", prompt: messages, error: error instanceof Error ? error.message : "LLM request failed" }));
     return null;
   } finally {
     clearTimeout(timer);
