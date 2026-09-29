@@ -8,7 +8,7 @@ import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind } from "./content-score";
 import { validateGeneratedContent } from "./content-validator";
 import { detectEcho } from "./echo-detector.ts";
-import { memoryPromptContextAsync } from "./memory.ts";
+import { loadMemory, memoryPromptContextAsync } from "./memory.ts";
 import {
   buildEditorialSelfCritiquePrompt,
   buildEditorialSystemPrompt,
@@ -31,7 +31,9 @@ async function composeGenerated(text: string, kind: ContentKind, facts: TokenFac
   try {
     const { loadActiveContentLogic } = await import("./optimize/store.ts");
     const { optimizeContent } = await import("./optimize/compose.ts");
-    const logic = await loadActiveContentLogic();
+    const active = await loadActiveContentLogic();
+    const memory = loadMemory();
+    const logic = { ...active, scoreWeights: active.scoreWeights ?? memory.weights.criteria, scoreTypeMultipliers: active.scoreTypeMultipliers ?? memory.weights.contentTypes };
     const required = [facts.market.headline, facts.market.rugLine].filter((line): line is string => Boolean(line));
     return optimizeContent({
       text,
