@@ -226,6 +226,61 @@ async function fetchSyndication(id: string): Promise<PublicXPost> {
   return normalizeSyndication(payload, id);
 }
 
+
+export async function resolvePublicXProfileStatuses(handle: string, count = 100): Promise<PublicXPost[]> {
+  const cleanHandle = handle.trim().replace(/^@/, "");
+  if (!cleanHandle) {
+    throw new PublicXError("The connected X account has no public username.", "INVALID_URL");
+  }
+
+  const capped = Math.max(1, Math.min(100, Math.floor(count)));
+  const payload = await fetchJson(
+    `https://api.fxtwitter.com/2/profile/${encodeURIComponent(cleanHandle)}/statuses?count=${capped}`,
+  );
+
+  const root =
+    payload && typeof payload === "object"
+      ? (payload as Record<string, unknown>)
+      : {};
+  const results = Array.isArray(root.results) ? root.results : [];
+
+  const posts: PublicXPost[] = [];
+  for (const item of results) {
+    if (!item || typeof item !== "object") continue;
+    const status = item as Record<string, unknown>;
+    const id = asString(status.id);
+    if (!id || !STATUS_ID.test(id)) continue;
+
+    const author =
+      status.author && typeof status.author === "object"
+        ? (status.author as Record<string, unknown>)
+        : null;
+
+    const post: PublicXPost = {
+      id,
+      text: asString(status.text) ?? "",
+      createdAt: createdAt(status.created_at),
+      authorId: asString(author?.id),
+      authorName: asString(author?.name),
+      authorUsername:
+        asString(author?.screen_name) ??
+        asString(author?.username) ??
+        cleanHandle,
+      likes: asCount(status.likes),
+      replies: asCount(status.replies),
+      reposts: asCount(status.reposts),
+      quotes: asCount(status.quotes),
+      bookmarks: asNullableCount(status.bookmarks) ?? 0,
+      views: asNullableCount(status.views),
+      provider: "fxtwitter",
+    };
+
+    posts.push(post);
+  }
+
+  return posts;
+}
+
 /**
  * Resolves public X post data without OAuth, an X API token, or an X login.
  * FxTwitter is the primary adapter; X's public syndication endpoint is the fallback.
