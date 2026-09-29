@@ -1,6 +1,8 @@
 import { callLlm, parseJsonObject, type LlmResult } from "./llm-runtime.ts";
 import { scoreContent, type ContentScoreReport } from "./content-score.ts";
 import type { EditorDossier } from "./editor/pipeline.ts";
+import { memoryPromptContext } from "./memory.ts";
+import { detectEcho } from "./echo-detector.ts";
 
 export type AiSuggestion = {
   id: string;
@@ -112,12 +114,13 @@ export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis
           "Explain why each score makes sense using only the supplied text, facts, claims, database-derived plan and rules.",
           "Return JSON only with: summary, motivations[{criterion,score,reason}], strengths[], weaknesses[], suggestions[{id,position,problem,correction,criterion}].",
           "Suggestions must be concrete edits, not generic advice. Never invent facts or numbers.",
+          "The purpose is to identify changes that materially improve the draft. Do not suggest keeping the text unchanged.",
           "Keep every reason under 500 characters and every correction under 700 characters.",
         ].join("\n"),
       },
       {
         role: "user",
-        content: JSON.stringify(factsPayload(dossier)),
+        content: JSON.stringify({ ...factsPayload(dossier), memory: memoryPromptContext(dossier.input.text, dossier.output.kind) }),
       },
     ],
     {
@@ -156,6 +159,7 @@ export async function reviseWithLlm(
         role: "system",
         content: [
           "You are XPulse's revision writer.",
+          "TRANSFORM THE DRAFT. Do not return it verbatim. Apply the selected interventions and make every selected change visible in changed[].",
           "Apply ONLY the selected interventions to the supplied draft.",
           "Preserve all facts, numbers, names, URLs, tickers and meaning.",
           "Return JSON only: {text:string,changed:[{id,before,after,reason}]}",
@@ -165,7 +169,7 @@ export async function reviseWithLlm(
       },
       {
         role: "user",
-        content: JSON.stringify({ draft: dossier.output.text || dossier.input.text, selected }),
+        content: JSON.stringify({ draft: dossier.output.text || dossier.input.text, selected, memory: memoryPromptContext(dossier.output.text || dossier.input.text, dossier.output.kind) }),
       },
     ],
     {
@@ -180,6 +184,8 @@ export async function reviseWithLlm(
   if (!result) return null;
   const obj = parseJsonObject(result.text);
   if (!obj || typeof obj.text !== "string" || !Array.isArray(obj.changed)) return null;
+  const sourceText = dossier.output.text || dossier.input.text;
+  if (detectEcho(sourceText, obj.text).isEcho) return null;
   const changed = obj.changed.flatMap((item) => {
     const row = item as Record<string, unknown>;
     return typeof row.id === "string" && typeof row.before === "string" && typeof row.after === "string" && typeof row.reason === "string"
