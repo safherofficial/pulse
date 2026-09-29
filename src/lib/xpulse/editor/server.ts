@@ -321,14 +321,15 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     })[0];
 
   if (!best || best.output.keptOriginal) {
-    const localFallback = deterministic.output.keptOriginal ? "" : deterministic.output.text;
+    // Never return an empty editor result. If no validated rewrite improves the
+    // measured score, preserve the source text so the UI can continue editing.
     deterministic.output = {
       ...deterministic.output,
-      text: localFallback,
-      keptOriginal: false,
+      text: deterministic.input.text,
+      keptOriginal: true,
       notes: [
         ...deterministic.output.notes,
-        "No validated LLM transformation improved the measured score. Original text was not returned as generated output.",
+        "No validated LLM transformation improved the measured score. Original text preserved.",
       ],
     };
     return cacheSet(cacheKey, deterministic);
