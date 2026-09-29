@@ -15,7 +15,7 @@ const EMPTY_WINDOW = {
   medianEngagementPerHour: null,
 };
 
-export const BASELINE_WEIGHTS: Record<string, number> = {
+export const BASELINE_SCORE_WEIGHTS: Record<string, number> = { hook: 1.25, clarity: 1.1, density: 1, curiosity: 1.05, emotion: 0.8, shareability: 1.1, structure: 1.1, readability: 0.9, thread_craft: 1.15, human: 1, anti_spam: 0.95 };\n\nexport const BASELINE_WEIGHTS: Record<string, number> = {
   core_engagement: 1,
   reply_density: 1,
   repost_signal: 1,
@@ -87,6 +87,8 @@ export function baselineContent(now = "1970-01-01T00:00:00.000Z"): ContentLogicV
     changesFromPreviousVersion: [],
     status: "active",
     benchmark: null,
+    scoreWeights: { ...BASELINE_SCORE_WEIGHTS },
+    scoreTypeMultipliers: { post: 1, thread: 1.05, article: 0.95 },
   };
 }
 
