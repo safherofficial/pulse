@@ -1,6 +1,6 @@
 import { callLlm, parseJsonObject, type LlmResult } from "./llm-runtime.ts";
 import { scoreContent, type ContentScoreReport } from "./content-score.ts";
-import type { EditorDossier, PlanItem } from "./editor/pipeline.ts";
+import type { EditorDossier } from "./editor/pipeline.ts";
 
 export type AiSuggestion = {
   id: string;
