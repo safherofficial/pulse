@@ -215,6 +215,43 @@ export const writeTokenContent = createServerFn({ method: "POST" })
     return writeTokenCopy(payload.facts, kind, mode, variant);
   });
 
+export const reviseEditor = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { executeEditor } = await import("./editor/server");
+    const { reviseWithLlm } = await import("./editor-llm");
+    const payload = data as {
+      dossier?: import("./editor/pipeline").EditorDossier;
+      selected?: import("./editor-llm").AiSuggestion[];
+    };
+    if (!payload?.dossier || !Array.isArray(payload.selected) || !payload.selected.length) {
+      throw new Error("A dossier and at least one selected intervention are required.");
+    }
+    const revision = await reviseWithLlm(payload.dossier, payload.selected);
+    if (!revision?.text?.trim()) {
+      throw new Error("The AI revision was unavailable or failed validation.");
+    }
+    const result = await executeEditor({
+      text: payload.dossier.input.text,
+      mode: "REWRITE",
+      kind: payload.dossier.output.kind,
+      request: "Apply only the selected editorial interventions.",
+    }, {
+      rewrite: async () => ({ text: revision.text, source: revision.trace.provider }),
+    });
+    return {
+      ...result,
+      output: {
+        ...result.output,
+        notes: [
+          ...result.output.notes,
+          `AI revision: ${revision.trace.provider} / ${revision.trace.model} / ${revision.trace.durationMs}ms`,
+        ],
+      },
+      aiRevision: revision,
+    };
+  });
+
 export const optimizationStatus = createServerFn({ method: "GET" }).handler(async () => {
   const { getOptimizationSummary } = await import("./optimize/store");
   return getOptimizationSummary();
