@@ -169,6 +169,10 @@ export function namedScore(report: ContentScoreReport, trend?: ViralTrendVersion
   };
 }
 
+function scoreWithLogic(text: string, kind: ContentKind, logic: ContentLogicVersion | null | undefined): ContentScoreReport {
+  return scoreContent(text, kind, logic?.scoreWeights ?? undefined, logic?.scoreTypeMultipliers?.[kind] ?? 1);
+}
+
 export function runEditorPipeline(input: {
   text: string;
   mode: EditorMode;
@@ -190,7 +194,7 @@ export function runEditorPipeline(input: {
   const intent = detectIntent(text);
   const entities = extractEntities(text);
   const statements = extractStatements(text);
-  const before = text ? scoreContent(text, kind) : emptyReport();
+  const before = text ? scoreWithLogic(text, kind, logic) : emptyReport();
   const plan = buildPlan(before, text, statements.claims, request);
   const logic = input.logic ?? baselineContent();
   const drafted = input.proposed?.text.trim()
@@ -204,7 +208,7 @@ export function runEditorPipeline(input: {
   const editorialGate = validateEditorialShape(drafted.text, drafted.kind);
   const accepted = validated.ok && editorialGate.pass;
   const finalText = accepted ? drafted.text : text;
-  const after = scoreContent(finalText, drafted.kind);
+  const after = scoreWithLogic(finalText, drafted.kind, logic);
   const original = namedScore(before, input.trend, input.liveTrends, text);
   const improved = namedScore(after, input.trend, input.liveTrends, finalText);
   const activePatterns = logic.rules
