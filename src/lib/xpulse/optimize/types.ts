@@ -137,6 +137,8 @@ export type ContentLogicVersion = {
   changesFromPreviousVersion: string[];
   status: "active" | "superseded" | "rejected";
   benchmark: ScoreBenchmark | null;
+  scoreWeights?: Record<string, number>;
+  scoreTypeMultipliers?: Record<ContentFormat, number>;
 };
 
 export type DailyReport = {
