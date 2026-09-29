@@ -4,7 +4,7 @@ import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { runEditor, optimizationStatus } from "@/lib/xpulse/api";
+import { runEditor, reviseEditor, optimizationStatus } from "@/lib/xpulse/api";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import { baselineContent } from "@/lib/xpulse/optimize/baseline";
 import {
@@ -64,6 +64,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
   const [busy, setBusy] = useState<EditorMode | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [optimization, setOptimization] = useState<OptimizationView | null>(null);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +115,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
         throw new Error("Editor returned an invalid dossier.");
       }
       setDossier(result);
+      setSelectedSuggestions([]);
     } catch {
       try {
         const fallback = runEditorPipeline({
@@ -214,7 +216,21 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
         ) : null}
       </CollapsibleSection>
 
-      {dossier ? <DossierView dossier={dossier} beats={beats} onUse={() => {
+      {dossier ? <DossierView dossier={dossier} beats={beats} selectedSuggestions={selectedSuggestions} onToggleSuggestion={(id) => setSelectedSuggestions((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} onRevise={async () => {
+        if (!selectedSuggestions.length || !dossier.analysis.ai?.suggestions.length) return;
+        setBusy("REWRITE");
+        setNotice(null);
+        try {
+          const selected = dossier.analysis.ai.suggestions.filter((item) => selectedSuggestions.includes(item.id));
+          const result = (await reviseEditor({ data: { dossier, selected } })) as EditorDossier;
+          setDossier(result);
+          setSelectedSuggestions([]);
+        } catch {
+          setNotice("AI revision failed validation or the model was unavailable. The original draft was kept.");
+        } finally {
+          setBusy(null);
+        }
+      }} onUse={() => {
         setText(dossier.output.text);
         setKind(dossier.output.kind);
       }} /> : null}
@@ -273,10 +289,16 @@ function DossierView({
   dossier,
   beats,
   onUse,
+  selectedSuggestions,
+  onToggleSuggestion,
+  onRevise,
 }: {
   dossier: EditorDossier;
   beats: string[];
   onUse: () => void;
+  selectedSuggestions: string[];
+  onToggleSuggestion: (id: string) => void;
+  onRevise: () => void;
 }) {
   const activityKey = [
     dossier.input.text,
@@ -384,6 +406,43 @@ function DossierView({
         <List title="Why" items={dossier.analysis.why} />
         <List title="Risk" items={dossier.analysis.risks} />
         <List title="Viral patterns" items={dossier.analysis.viral} />
+        {dossier.analysis.ai ? (
+          <div className="mt-5 rounded-md border border-accent/30 bg-accent/5 p-4">
+            <p className="kicker">Live model analysis</p>
+            <p className="mt-2 text-sm text-fg">{dossier.analysis.ai.summary}</p>
+            <p className="mt-2 font-mono text-[10px] text-subtle">
+              {dossier.analysis.ai.trace.provider} · {dossier.analysis.ai.trace.model} · {dossier.analysis.ai.trace.durationMs}ms · attempt {dossier.analysis.ai.trace.attempt}
+            </p>
+            {dossier.analysis.ai.motivations.length ? (
+              <div className="mt-4 space-y-2">
+                {dossier.analysis.ai.motivations.slice(0, 8).map((item) => (
+                  <div key={item.criterion} className="border-t border-line pt-2">
+                    <p className="text-xs text-fg">{item.criterion} · {item.score}/100</p>
+                    <p className="text-xs text-muted">{item.reason}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {dossier.analysis.ai.suggestions.length ? (
+              <div className="mt-4 space-y-2">
+                <p className="kicker">Select interventions</p>
+                {dossier.analysis.ai.suggestions.map((item) => (
+                  <label key={item.id} className="flex cursor-pointer gap-3 rounded-md border border-line p-3">
+                    <input type="checkbox" checked={selectedSuggestions.includes(item.id)} onChange={() => onToggleSuggestion(item.id)} />
+                    <span className="text-xs">
+                      <span className="block text-fg">{item.criterion} · {item.position || "targeted edit"}</span>
+                      <span className="block text-muted">{item.problem}</span>
+                      <span className="mt-1 block text-subtle">→ {item.correction}</span>
+                    </span>
+                  </label>
+                ))}
+                <Button type="button" variant="primary" disabled={!selectedSuggestions.length} onClick={onRevise}>
+                  Apply selected AI changes
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {dossier.input.entities.tickers.length ? (
           <p className="text-xs text-muted">Tickers: {dossier.input.entities.tickers.join(" ")}</p>
         ) : null}
