@@ -48,7 +48,7 @@ import type {
   PulsePost,
   WalletStatus
 } from "./types";
-import { extractPublicXPostId, PublicXError, resolvePublicXPost } from "./x-public";
+import { extractPublicXPostId, PublicXError, resolvePublicXPost, resolvePublicXProfileStatuses } from "./x-public";
 
 export class PulseError extends Error {
   readonly code: string;
@@ -2349,6 +2349,58 @@ async function saveXPost(
   return id;
 }
 
+async function savePublicXPost(
+  userId: string,
+  post: PublicXPost
+) {
+  const metrics: PostMetrics = {
+    impressions: post.views ?? 0,
+    likes: post.likes,
+    replies: post.replies,
+    reposts: post.reposts,
+    bookmarks: post.bookmarks,
+    profileClicks: 0,
+    linkClicks: 0,
+    detailExpands: null,
+    dwellMs: null
+  };
+
+  const sql = await getSql();
+  const rows = await sql<{ id: string }>`
+    insert into xpulse_posts (
+      id,
+      user_id,
+      x_post_id,
+      type,
+      text,
+      metrics,
+      published_at
+    )
+    values (
+      ${randomHex(16)},
+      ${userId},
+      ${post.id},
+      'tweet',
+      ${post.text},
+      ${metricsJson(metrics)}::jsonb,
+      ${new Date(post.createdAt).toISOString()}
+    )
+    on conflict (user_id, x_post_id)
+    do update set
+      type = excluded.type,
+      text = excluded.text,
+      metrics = excluded.metrics,
+      published_at = excluded.published_at
+    returning id
+  `;
+
+  const id = rows[0]?.id;
+  if (id) {
+    await snapshot(userId, id, metrics);
+  }
+  return id;
+}
+
 export async function runSync(
   userId: string
 ) {
@@ -2356,164 +2408,55 @@ export async function runSync(
     await requireOpen(userId);
     limit(userId, "sync", 4);
 
-    const token =
-      await accessToken(userId);
+    const profile = await profileFor(userId);
+    const handle = profile?.x_username?.trim().replace(/^@/, "") || "";
 
-    const meResponse =
-      await fetch(
-        "https://api.x.com/2/users/me?user.fields=id,name,username",
-        {
-          headers: {
-            authorization:
-              `Bearer ${token}`
-          },
-          cache: "no-store",
-          signal:
-            AbortSignal.timeout(
-              15_000
-            )
-        }
-      );
-
-    if (!meResponse.ok) {
+    if (!handle) {
       throw new PulseError(
-        `X profile request failed (${meResponse.status}).`,
-        "X_PROFILE_FAILED"
+        "Connect an X account with a public username first.",
+        "X_USERNAME_MISSING"
       );
     }
 
-    const mePayload =
-      (await meResponse.json()) as {
-        data?: {
-          id?: string;
-          name?: string;
-          username?: string;
-        };
-      };
+    const publicPosts = await resolvePublicXProfileStatuses(handle, 100);
 
-    const me =
-      mePayload.data;
-
-    if (!me?.id) {
-      throw new PulseError(
-        "X profile could not be resolved.",
-        "X_PROFILE_FAILED"
-      );
-    }
-
-    const fullParams =
-      new URLSearchParams({
-        max_results: "100",
-        exclude:
-          "retweets,replies",
-        "tweet.fields":
-          "id,text,created_at,public_metrics,non_public_metrics,organic_metrics,note_tweet,entities"
-      });
-
-    let postsResponse =
-      await fetch(
-        `https://api.x.com/2/users/${encodeURIComponent(me.id)}/tweets?${fullParams.toString()}`,
-        {
-          headers: {
-            authorization:
-              `Bearer ${token}`
-          },
-          cache: "no-store",
-          signal:
-            AbortSignal.timeout(
-              15_000
-            )
-        }
-      );
-
-    if (!postsResponse.ok) {
-      const fallbackParams =
-        new URLSearchParams({
-          max_results: "100",
-          exclude:
-            "retweets,replies",
-          "tweet.fields":
-            "id,text,created_at,public_metrics,note_tweet,entities"
-        });
-
-      postsResponse =
-        await fetch(
-          `https://api.x.com/2/users/${encodeURIComponent(me.id)}/tweets?${fallbackParams.toString()}`,
-          {
-            headers: {
-              authorization:
-                `Bearer ${token}`
-            },
-            cache: "no-store",
-            signal:
-              AbortSignal.timeout(
-                15_000
-              )
-          }
-        );
-    }
-
-    if (!postsResponse.ok) {
-      const body =
-        await postsResponse.text();
-
-      throw new PulseError(
-        `X posts request failed (${postsResponse.status}): ${body.slice(0, 160)}`,
-        "X_POSTS_FAILED"
-      );
-    }
-
-    const payload =
-      (await postsResponse.json()) as {
-        data?: any[];
-      };
-
-    const tweets =
-      Array.isArray(
-        payload.data
-      )
-        ? payload.data
-        : [];
-
-    for (const tweet of tweets) {
-      await saveXPost(
-        userId,
-        tweet
-      );
+    for (const post of publicPosts) {
+      await savePublicXPost(userId, post);
     }
 
     const sql = await getSql();
 
-    await sql`
-      update xpulse_profiles
-      set
-        x_id = ${me.id},
-        x_username = ${me.username || null},
-        updated_at = now()
-      where user_id = ${userId}
-    `;
+    if (publicPosts[0]?.authorId) {
+      await sql`
+        update xpulse_profiles
+        set
+          x_id = coalesce(x_id, ${publicPosts[0].authorId}),
+          x_username = ${publicPosts[0].authorUsername || handle},
+          updated_at = now()
+        where user_id = ${userId}
+      `;
+    } else {
+      await sql`
+        update xpulse_profiles
+        set
+          x_username = ${handle},
+          updated_at = now()
+        where user_id = ${userId}
+      `;
+    }
 
-    const posts =
-      await loadPosts(userId);
-
-    await saveHeat(
-      userId,
-      posts
-    );
+    const posts = await loadPosts(userId);
+    await saveHeat(userId, posts);
 
     return {
       ok: true as const,
-      imported:
-        tweets.length,
+      imported: publicPosts.length,
       posts,
-      heatmap:
-        inferHeatmap(posts),
+      heatmap: inferHeatmap(posts),
       x: {
-        id: me.id,
-        username:
-          me.username || null,
-        name:
-          me.name || null
+        id: publicPosts[0]?.authorId || profile?.x_id || null,
+        username: publicPosts[0]?.authorUsername || handle,
+        name: publicPosts[0]?.authorName || null
       }
     };
   } catch (error) {
