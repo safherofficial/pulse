@@ -14,8 +14,9 @@ import { WalletPortfolio } from "@/components/chamber/WalletPortfolio";
 import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
-import { beginXConnect, clearPosts, compareXUrls, deletePosts, enrichAnalysis, rewriteEnriched, syncPosts } from "@/lib/xpulse/api";
-import type { EnrichedAnalysis, EnrichedRewrite } from "@/lib/xpulse/enrich";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
+import { beginXConnect, clearPosts, compareXUrls, deletePosts, runEditor, syncPosts } from "@/lib/xpulse/api";
+import type { EditorDossier } from "@/lib/xpulse/editor/pipeline";
 import {
   formatCompact,
   formatDwell,
@@ -25,7 +26,7 @@ import {
   formatWhen,
 } from "@/lib/xpulse/format";
 import { engagementRate, publicMetricsEngagement, writingSignals } from "@/lib/xpulse/metrics";
-import { scoreDelta, suggestEdits } from "@/lib/xpulse/rewrite";
+
 import { usePulseStore, type ChamberView } from "@/lib/xpulse/store";
 import type {
   PublicCompareResult,
@@ -36,7 +37,7 @@ import type {
 } from "@/lib/xpulse/types";
 
 const VIEWS: { id: ChamberView; label: string; short: string; key: string }[] = [
-  { id: "overview", label: "Overview", short: "Overview", key: "1" },
+  { id: "overview", label: "Selected post", short: "Post", key: "1" },
   { id: "graph", label: "Signals", short: "Signals", key: "2" },
   { id: "compare", label: "Compare", short: "Compare", key: "3" },
   { id: "library", label: "Library", short: "Library", key: "4" },
@@ -266,9 +267,14 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
           className="mx-auto w-full max-w-6xl flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8"
         >
           {model.mode === "account" ? (
-            <div className="mt-4">
+            <CollapsibleSection
+              kicker="Wallet"
+              title="Portfolio"
+              activityKey={model.handle ?? "portfolio"}
+              className="mb-4"
+            >
               <WalletPortfolio />
-            </div>
+            </CollapsibleSection>
           ) : null}
           {selectedPost && view !== "library" ? (
             <FocusBanner post={selectedPost} onOpenLibrary={() => setView("library")} />
@@ -427,252 +433,161 @@ function OverviewPane({
 }
 
 function RewriteCoach({ post }: { post: PulsePost }) {
-  const localSuggestions = suggestEdits(post.text);
-  const [enrichment, setEnrichment] = useState<EnrichedAnalysis | null>(null);
-  const [enrichBusy, setEnrichBusy] = useState(false);
-  const [enrichError, setEnrichError] = useState<string | null>(null);
-  const [result, setResult] = useState<EnrichedRewrite | null>(null);
-  const [variant, setVariant] = useState(0);
-  const [rewriteBusy, setRewriteBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [analysis, setAnalysis] = useState<EditorDossier | null>(null);
+  const [result, setResult] = useState<EditorDossier | null>(null);
+  const [busy, setBusy] = useState<"analyze" | "rewrite" | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setEnrichBusy(true);
-    setEnrichError(null);
-    void enrichAnalysis({
+    setAnalysis(null);
+    setResult(null);
+    setError(null);
+    setBusy("analyze");
+    void runEditor({
       data: {
         text: post.text,
-        xPostId: post.xPostId,
-        metrics: {
-          impressions: post.metrics.impressions,
-          likes: post.metrics.likes,
-          replies: post.metrics.replies,
-          reposts: post.metrics.reposts,
-          bookmarks: post.metrics.bookmarks,
-          profileClicks: post.metrics.profileClicks,
-          linkClicks: post.metrics.linkClicks,
-          detailExpands: post.metrics.detailExpands,
-          dwellMs: post.metrics.dwellMs,
-        },
+        kind: "post",
+        mode: "ANALYZE",
+        request: "Analyze this post and identify the highest-impact changes. Do not rewrite it yet.",
       },
     })
-      .then((payload) => {
-        if (!cancelled) setEnrichment(payload as EnrichedAnalysis);
+      .then((value) => {
+        if (!cancelled) setAnalysis(value as EditorDossier);
       })
       .catch((reason: unknown) => {
-        if (!cancelled) {
-          setEnrichError(reason instanceof Error ? reason.message : "Enrichment unavailable.");
-        }
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "AI analysis unavailable.");
       })
       .finally(() => {
-        if (!cancelled) setEnrichBusy(false);
+        if (!cancelled) setBusy(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [post.id, post.text, post.xPostId]);
+  }, [post.id, post.text]);
 
-  const suggestions = enrichment?.suggestions ?? localSuggestions;
-  const fixes = suggestions.filter((s) => s.priority !== "keep");
-  const delta = result ? scoreDelta(result.before, result.after) : null;
+  const suggestions = analysis?.analysis.ai?.suggestions ?? [];
+  const weakest = analysis?.score.original
+    ? Object.entries(analysis.score.original)
+        .filter(([, value]) => typeof value === "number" && value < 70)
+        .sort((a, b) => Number(a[1]) - Number(b[1]))
+        .slice(0, 4)
+    : [];
 
   async function runRewrite() {
-    setRewriteBusy(true);
-    setCopied(false);
+    setBusy("rewrite");
+    setError(null);
     try {
-      const nextVariant = variant;
-      const payload = (await rewriteEnriched({ data: { text: post.text, variant: nextVariant } })) as EnrichedRewrite;
-      setResult(payload);
-      setVariant((v) => v + 1);
-    } catch (reason) {
-      setEnrichError(reason instanceof Error ? reason.message : "Rewrite failed.");
+      const next = await runEditor({
+        data: {
+          text: post.text,
+          kind: "post",
+          mode: "REWRITE",
+          request: [
+            "Rewrite this post materially.",
+            "Use the highest-impact weaknesses found by the editorial analysis.",
+            "Preserve every fact, number, name, ticker and URL.",
+            "Only accept a transformation that passes deterministic validation and improves the measured score.",
+          ].join(" "),
+        },
+      });
+      setResult(next as EditorDossier);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : "AI rewrite unavailable.");
     } finally {
-      setRewriteBusy(false);
+      setBusy(null);
     }
   }
 
   async function copyRewrite() {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.text);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      setCopied(false);
-    }
+    const text = result?.output.text;
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
   }
 
   return (
-    <div className="panel p-5">
-      <p className="kicker">Coach · public enrichment</p>
-      <h2 className="mt-1 text-xl tracking-tight">Suggested edits</h2>
-      <p className="mt-2 text-sm text-muted">
-        Local viral signals plus free public APIs (LanguageTool, Datamuse, VxTwitter / FxTwitter mirrors).
-      </p>
-
-      {enrichBusy ? (
-        <p className="mt-3 font-mono text-xs text-subtle skeleton">Pulling public enrichments…</p>
-      ) : null}
-      {enrichError ? (
-        <p className="mt-3 text-xs text-muted" role="status">
-          {enrichError} — local coach still works.
-        </p>
-      ) : null}
-
-      {enrichment?.viral ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
-            <p className="text-[11px] text-subtle uppercase">Viral score</p>
-            <p className="mt-1 font-mono text-xl text-accent tabular-nums">{enrichment.viral.score}</p>
-          </div>
-          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
-            <p className="text-[11px] text-subtle uppercase">Eng. rate</p>
-            <p className="mt-1 font-mono text-xl text-fg tabular-nums">
-              {enrichment.viral.metrics.engagementRate == null
-                ? "—"
-                : `${enrichment.viral.metrics.engagementRate}%`}
+    <div className="panel overflow-hidden">
+      <div className="border-b border-line px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="kicker">AI coach · Groq</p>
+            <h2 className="mt-1 text-xl tracking-tight">Make this post stronger</h2>
+            <p className="mt-1 text-sm text-muted">
+              The AI explains the deterministic score first, then rewrites only when the validated score can improve.
             </p>
           </div>
-          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
-            <p className="text-[11px] text-subtle uppercase">LT issues</p>
-            <p className="mt-1 font-mono text-xl text-fg tabular-nums">{enrichment.languageTool.length}</p>
-          </div>
-          <div className="rounded-lg border border-line/70 bg-bg/40 px-3 py-2">
-            <p className="text-[11px] text-subtle uppercase">Sources</p>
-            <p className="mt-1 font-mono text-[11px] leading-snug text-muted">
-              {enrichment.sources.slice(0, 3).join(" · ")}
-            </p>
-          </div>
+          <span className="rounded-full border border-accent/30 bg-accent/5 px-2.5 py-1 font-mono text-[10px] tracking-wide text-accent uppercase">
+            {busy ? (busy === "analyze" ? "Analyzing" : "Rewriting") : "Ready"}
+          </span>
         </div>
-      ) : null}
-
-      {enrichment?.viral?.detected?.length ? (
-        <ul className="mt-3 flex flex-wrap gap-1.5">
-          {enrichment.viral.detected.map((tag) => (
-            <li
-              key={tag}
-              className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 font-mono text-[10px] tracking-wide text-accent"
-            >
-              {tag}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {fixes.length === 0 ? (
-        <p className="mt-4 text-sm text-accent">Signals are solid. A rewrite will only polish structure.</p>
-      ) : (
-        <ul className="mt-4 space-y-2">
-          {fixes.map((item) => (
-            <li
-              key={item.signal}
-              className={`rounded-lg border px-3 py-3 ${
-                item.priority === "fix"
-                  ? "border-danger/40 bg-danger/5"
-                  : "border-line/70 bg-bg/40"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-medium text-fg">{item.label}</span>
-                <span
-                  className={`font-mono text-xs tabular-nums ${
-                    item.priority === "fix" ? "text-danger" : "text-muted"
-                  }`}
-                >
-                  {item.score}
-                  <span className="ml-2 uppercase tracking-wider opacity-70">{item.priority}</span>
-                </span>
-              </div>
-              <p className="mt-1.5 text-sm text-muted">{item.action}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {enrichment?.languageTool?.length ? (
-        <div className="mt-4">
-          <p className="font-mono text-[11px] tracking-widest text-subtle uppercase">LanguageTool</p>
-          <ul className="mt-2 space-y-1.5">
-            {enrichment.languageTool.slice(0, 5).map((match, index) => (
-              <li key={`${match.ruleId}-${index}`} className="text-sm text-muted">
-                <span className="text-fg">{match.shortMessage || match.category}</span>
-                {" — "}
-                {match.message}
-                {match.replacements[0] ? (
-                  <span className="font-mono text-xs text-accent"> → {match.replacements[0]}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {enrichment?.vocabulary && Object.keys(enrichment.vocabulary).length > 0 ? (
-        <div className="mt-4">
-          <p className="font-mono text-[11px] tracking-widest text-subtle uppercase">Datamuse lexicon</p>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {Object.entries(enrichment.vocabulary).map(([word, alts]) => (
-              <li key={word} className="rounded-md border border-line/70 bg-bg/40 px-2 py-1 text-xs text-muted">
-                <span className="text-fg">{word}</span>
-                {alts.length ? ` → ${alts.slice(0, 3).join(", ")}` : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        <Button type="button" disabled={rewriteBusy} onClick={() => void runRewrite()}>
-          {rewriteBusy ? "Rewriting…" : result ? `Rewrite again · v${variant + 1}` : "Rewrite this post"}
-        </Button>
-        {result ? (
-          <Button type="button" variant="quiet" onClick={() => void copyRewrite()}>
-            {copied ? "Copied" : "Copy rewrite"}
-          </Button>
-        ) : null}
       </div>
 
-      {result ? (
-        <div className="mt-5 rounded-lg border border-accent/35 bg-accent/5 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="font-mono text-[11px] tracking-[0.14em] text-accent uppercase">
-              Autonomous rewrite · enriched
-            </p>
-            {delta ? (
-              <p className="font-mono text-xs text-muted tabular-nums">
-                Score {delta.avgBefore} → <span className="text-accent">{delta.avgAfter}</span>
-                {result.viral ? (
-                  <span className="ml-2">· viral {result.viral.score}</span>
-                ) : null}
-              </p>
-            ) : null}
+      <div className="space-y-4 p-4 sm:p-5">
+        {error ? (
+          <p className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger" role="status">{error}</p>
+        ) : null}
+
+        {analysis?.analysis.ai?.summary ? (
+          <div className="rounded-lg border border-line bg-surface-2/40 p-4">
+            <p className="kicker">Diagnosis</p>
+            <p className="mt-2 text-sm leading-relaxed text-fg">{analysis.analysis.ai.summary}</p>
           </div>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-fg">{result.text}</p>
-          {result.applied.length > 0 ? (
-            <ul className="mt-3 flex flex-wrap gap-1.5">
-              {result.applied.map((note) => (
-                <li
-                  key={note}
-                  className="rounded-full border border-line/80 bg-bg/50 px-2.5 py-0.5 font-mono text-[10px] tracking-wide text-muted"
-                >
-                  {note}
+        ) : null}
+
+        {suggestions.length ? (
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="kicker">Highest-impact interventions</p>
+              <span className="font-mono text-[10px] text-subtle">{suggestions.length} signals</span>
+            </div>
+            <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+              {suggestions.slice(0, 4).map((item) => (
+                <li key={item.id} className="rounded-lg border border-line bg-bg/30 p-3">
+                  <p className="text-xs font-medium text-fg">{item.criterion}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{item.problem}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-accent">{item.correction}</p>
                 </li>
               ))}
             </ul>
+          </div>
+        ) : null}
+
+        {weakest.length ? (
+          <div className="flex flex-wrap gap-2">
+            {weakest.map(([key, value]) => (
+              <span key={key} className="rounded-full border border-line bg-bg/30 px-2.5 py-1 font-mono text-[10px] text-muted">
+                {key}: {String(value)}
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" disabled={busy !== null} onClick={() => void runRewrite()}>
+            {busy === "rewrite" ? "Rewriting…" : result ? "Rewrite again" : "Rewrite with AI"}
+          </Button>
+          {result?.output.text ? (
+            <Button type="button" variant="quiet" onClick={() => void copyRewrite()}>
+              Copy rewrite
+            </Button>
           ) : null}
-          {result.sources?.length ? (
-            <p className="mt-3 font-mono text-[10px] tracking-wide text-subtle">
-              Sources: {result.sources.join(" · ")}
-            </p>
+          {result ? (
+            <span className="font-mono text-xs text-subtle">
+              {result.score.original.total} → <span className="text-accent">{result.score.improved.total}</span>
+            </span>
           ) : null}
         </div>
-      ) : (
-        <p className="mt-4 text-xs text-subtle">
-          One click runs LanguageTool + Datamuse vocabulary swaps, then the viral rewrite engine (hook,
-          specificity, structure, stakes).
-        </p>
-      )}
+
+        {result?.output.text ? (
+          <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
+            <p className="kicker">Validated rewrite</p>
+            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-fg">{result.output.text}</p>
+            <p className="mt-3 text-[11px] text-subtle">
+              {result.output.notes.slice(-3).join(" · ")}
+            </p>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
