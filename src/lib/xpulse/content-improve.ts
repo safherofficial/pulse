@@ -13,7 +13,6 @@ import { optimizeContent, type CompositionResult } from "./optimize/compose.ts";
 import { preservesAuthorFacts } from "./optimize/benchmarks.ts";
 import type { ContentLogicVersion } from "./optimize/types.ts";
 import { loadMemory, memoryPromptContext } from "./memory.ts";
-import { detectEcho } from "./echo-detector.ts";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
