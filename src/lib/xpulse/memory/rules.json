@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "limits": {
+    "postMaxChars": 280,
+    "threadMaxPosts": 8,
+    "threadTweetMaxChars": 280,
+    "articleMaxChars": 16000
+  },
+  "rules": [
+    {
+      "id": "weak-opening",
+      "severity": "high",
+      "pattern": "^(oggi voglio parlare di|in questo post|vorrei parlarvi di)",
+      "fix": "Apri con la tesi, il dato già presente o una domanda concreta."
+    },
+    {
+      "id": "filler-important",
+      "severity": "medium",
+      "pattern": "\\b(è importante notare|in definitiva|in conclusione)\\b",
+      "fix": "Elimina il riempitivo e porta subito l'osservazione utile."
+    },
+    {
+      "id": "generic-hype",
+      "severity": "high",
+      "pattern": "\\b(game changer|rivoluzionario|incredibile)\\b",
+      "fix": "Sostituisci l'aggettivo con l'effetto concreto già supportato dal testo."
+    },
+    {
+      "id": "long-hook",
+      "severity": "medium",
+      "pattern": "^.{100,}$",
+      "fix": "Riduci il gancio a una frase leggibile e specifica."
+    },
+    {
+      "id": "hashtag-overload",
+      "severity": "medium",
+      "pattern": "(?:#\\w+\\s*){4,}",
+      "fix": "Mantieni solo gli hashtag pertinenti."
+    },
+    {
+      "id": "engagement-bait",
+      "severity": "high",
+      "pattern": "\\b(like e retweet|commenta sì|drop a like)\\b",
+      "fix": "Chiudi con un punto di vista o una domanda reale."
+    },
+    {
+      "id": "thread-numbering",
+      "severity": "medium",
+      "pattern": "^\\s*\\d+\\/",
+      "fix": "Usa numerazione coerente 1/ 2/ 3/ per thread."
+    },
+    {
+      "id": "outline-label",
+      "severity": "medium",
+      "pattern": "^(hook|context|insight|summary|implicazione):",
+      "fix": "Trasforma l'etichetta in una frase naturale."
+    }
+  ]
+}
