@@ -1091,7 +1091,7 @@ function AiMarketIntelligence({
     return () => {
       cancelled = true;
     };
-  }, [intel.identity.address, intel.freshness, diagnosis]);
+  }, [intel.identity.address, intel.freshness, diagnosis.headline, diagnosis.riskScore, diagnosis.state]);
 
   const fallbackInsights = [
     ...diagnosis.conclusions.filter((x) => x !== diagnosis.headline),
