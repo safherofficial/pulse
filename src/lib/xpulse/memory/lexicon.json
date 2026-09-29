@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "tones": {
+    "direct": {
+      "strongVerbs": [
+        "dimostra",
+        "taglia",
+        "sposta",
+        "accelera",
+        "blocca",
+        "rivela",
+        "confronta",
+        "misura"
+      ],
+      "connectors": [
+        "ma",
+        "perché",
+        "quindi",
+        "invece"
+      ],
+      "openers": [
+        "Il punto è",
+        "La parte che conta",
+        "C'è un dettaglio"
+      ],
+      "closers": [
+        "Il test è semplice:",
+        "La domanda ora è:"
+      ]
+    },
+    "technical": {
+      "strongVerbs": [
+        "misura",
+        "isola",
+        "confronta",
+        "verifica",
+        "quantifica",
+        "scompone",
+        "vincola"
+      ],
+      "connectors": [
+        "tuttavia",
+        "di conseguenza",
+        "in pratica",
+        "a parità di"
+      ],
+      "openers": [
+        "Il dato interessante è",
+        "Tecnicamente, il problema è",
+        "La variabile chiave è"
+      ],
+      "closers": [
+        "La verifica decisiva è:",
+        "Il limite resta:"
+      ]
+    },
+    "degen": {
+      "strongVerbs": [
+        "spinge",
+        "scarica",
+        "rompe",
+        "rimbalza",
+        "brucia",
+        "assorbe",
+        "scommette"
+      ],
+      "connectors": [
+        "però",
+        "qui",
+        "quindi",
+        "intanto"
+      ],
+      "openers": [
+        "Qui c'è il punto:",
+        "Il mercato sta dicendo una cosa precisa:",
+        "Occhio a questo:"
+      ],
+      "closers": [
+        "Ora conta una sola cosa:",
+        "Vediamo se regge:"
+      ]
+    }
+  }
+}
