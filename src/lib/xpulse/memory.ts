@@ -85,7 +85,7 @@ async function connectedXStyleContext(): Promise<string> {
     const rows = await sql<{ text: string; metrics: unknown; published_at: unknown }>`
       select text, metrics, published_at
       from xpulse_posts
-      where user_id = \${session.id}
+      where user_id = ${session.id}
         and trim(text) <> ''
       order by published_at desc
       limit 30
