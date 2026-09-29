@@ -48,11 +48,10 @@ function parseAnalysis(raw: string, report: ContentScoreReport, trace: LlmResult
   const motivations = Array.isArray(obj.motivations)
     ? obj.motivations.map((item) => item as Record<string, unknown>).flatMap((item) => {
         const criterion = typeof item.criterion === "string" ? item.criterion : "";
-        const score = deterministic.get(criterion)?.score ?? (
-          typeof item.score === "number" && Number.isFinite(item.score) ? item.score : null
-        );
+        const dimension = deterministic.get(criterion);
+        const score = dimension?.score ?? null;
         const reason = typeof item.reason === "string" ? item.reason.trim() : "";
-        if (!criterion || score == null || !reason) return [];
+        if (!criterion || !dimension || score == null || !reason) return [];
         return [{ criterion, score, reason: reason.slice(0, 500) }];
       }).slice(0, 12)
     : [];
