@@ -320,6 +320,30 @@ function sanitize(text: string, facts: TokenFactSet, kind: ContentKind): string 
     .join("\n\n");
 }
 
+function repairPrompt(facts: TokenFactSet, kind: ContentKind, draft: string, violations: string[]): string {
+  return [
+    "Repair this XPulse draft after deterministic validation failed.",
+    "Keep only claims supported by the supplied research.",
+    "Remove or rewrite every unsupported numeric claim.",
+    "Preserve token identity and the existing market diagnosis.",
+    "Do not add facts, numbers, dates, performance claims, holders, social metrics or catalysts.",
+    "Return only the repaired publishable content.",
+    "Format: " + kind,
+    "Validation violations: " + violations.join(", "),
+    "Research:",
+    JSON.stringify({
+      identity: facts.identity,
+      metrics: facts.metrics,
+      findings: facts.findings,
+      story: facts.story,
+      risks: facts.risks,
+      market: facts.market,
+    }),
+    "Draft:",
+    draft,
+  ].join("\n\n");
+}
+
 async function polish(text: string): Promise<string> {
   try {
     const matches = await checkLanguageTool(text);
@@ -439,16 +463,43 @@ export async function writeTokenCopy(
       maxTokens,
     );
 
-    const candidate = refined && refined.length >= 120 ? refined : draft;
-    const cleaned = await polish(sanitize(candidate, facts, kind));
-    const composed = await composeGenerated(cleaned, kind, facts);
-    const qualityGate = validateEditorialShape(composed, kind);
-    if (!qualityGate.pass) {
+    let candidate = refined && refined.length >= 120 ? refined : draft;
+    let cleaned = await polish(sanitize(candidate, facts, kind));
+    let composed = await composeGenerated(cleaned, kind, facts);
+    let validation = validateGeneratedContent(composed, kind, facts);
+
+    // Controlled repair: one deterministic retry per provider, then reject and move to the next provider.
+    if (!validation.pass) {
       applied.push(
-        "Editorial quality gate: rejected " + qualityGate.violations.join(", "),
+        "Deterministic validation: rejected " + validation.violations.join(", "),
+      );
+      const repaired = await chatComplete(
+        provider,
+        [
+          { role: "system", content: system },
+          {
+            role: "user",
+            content: repairPrompt(facts, kind, composed, validation.violations),
+          },
+        ],
+        Math.max(0.35, temperature - 0.3),
+        maxTokens,
+      );
+      if (repaired && repaired.length >= 120) {
+        cleaned = await polish(sanitize(repaired, facts, kind));
+        composed = await composeGenerated(cleaned, kind, facts);
+        validation = validateGeneratedContent(composed, kind, facts);
+      }
+    }
+
+    if (!validation.pass) {
+      applied.push(
+        "Deterministic validation: provider rejected after retry " +
+          validation.violations.join(", "),
       );
       continue;
     }
+
     const score = scoreContent(composed, kind);
 
     applied.push(
@@ -456,6 +507,10 @@ export async function writeTokenCopy(
       "Writer: " + provider.id,
       refined ? "Editorial refinement: passed" : "Editorial refinement: fallback to draft",
       "AI synthesis from token research + active viral guidance",
+      "Deterministic validation: passed",
+      validation.warnings.length
+        ? "Validation warnings: " + validation.warnings.join(", ")
+        : "Validation warnings: none",
       "Market state locked: " + facts.market.state,
       "Viral patterns supplied: " + trendGuidance.length,
       "Content rules supplied: " + contentGuidance.length,
