@@ -518,7 +518,7 @@ export async function writeTokenCopy(
       continue;
     }
 
-    const score = scoreContent(composed, kind);
+    const score = scoreContent(composed, kind, logic.scoreWeights, logic.scoreTypeMultipliers?.[kind] ?? 1);
 
     applied.push(
       "Editorial engine: " + EDITORIAL_ENGINE_VERSION,
