@@ -17,7 +17,8 @@ const cache = new Map<string, unknown>();
 function loadJson<T>(name: string): T {
   const hit = cache.get(name);
   if (hit) return hit as T;
-  const raw = readFileSync(new URL("./memory/" + name, import.meta.url), "utf8");
+  const fileUrl = name === "weights.json" ? new URL("./memory/weights.json", import.meta.url) : name === "rules.json" ? new URL("./memory/rules.json", import.meta.url) : name === "lexicon.json" ? new URL("./memory/lexicon.json", import.meta.url) : name === "hooks_templates.json" ? new URL("./memory/hooks_templates.json", import.meta.url) : name === "examples.json" ? new URL("./memory/examples.json", import.meta.url) : new URL("./memory/style_profile.json", import.meta.url);
+  const raw = readFileSync(fileUrl, "utf8");
   const value = JSON.parse(raw) as T;
   cache.set(name, value);
   return value;
