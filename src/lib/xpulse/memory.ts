@@ -1,5 +1,10 @@
-import { readFileSync } from "node:fs";
-
+import weightsJson from "./memory/weights.json";
+import rulesJson from "./memory/rules.json";
+import lexiconJson from "./memory/lexicon.json";
+import hooksJson from "./memory/hooks_templates.json";
+import examplesJson from "./memory/examples.json";
+import styleJson from "./memory/style_profile.json";
+import memoryLogJson from "./memory/memory_log.json";
 export type MemoryWeights = {
   criteria: Record<string, number>;
   thresholds: { weak: number; good: number; target: number };
@@ -14,15 +19,20 @@ export type MemoryBundle = {
   style: Record<string, unknown>;
   memoryLog: { schemaVersion: number; maxEntries: number; accepted: unknown[]; rejected: unknown[]; history: unknown[] };
 };
-const cache = new Map<string, unknown>();
+const MEMORY_FILES: Record<string, unknown> = {
+  "weights.json": weightsJson,
+  "rules.json": rulesJson,
+  "lexicon.json": lexiconJson,
+  "hooks_templates.json": hooksJson,
+  "examples.json": examplesJson,
+  "style_profile.json": styleJson,
+  "memory_log.json": memoryLogJson,
+};
+
 function loadJson<T>(name: string): T {
-  const hit = cache.get(name);
-  if (hit) return hit as T;
-  const fileUrl = name === "weights.json" ? new URL("./memory/weights.json", import.meta.url) : name === "rules.json" ? new URL("./memory/rules.json", import.meta.url) : name === "lexicon.json" ? new URL("./memory/lexicon.json", import.meta.url) : name === "hooks_templates.json" ? new URL("./memory/hooks_templates.json", import.meta.url) : name === "examples.json" ? new URL("./memory/examples.json", import.meta.url) : name === "style_profile.json" ? new URL("./memory/style_profile.json", import.meta.url) : new URL("./memory/memory_log.json", import.meta.url);
-  const raw = readFileSync(fileUrl, "utf8");
-  const value = JSON.parse(raw) as T;
-  cache.set(name, value);
-  return value;
+  const value = MEMORY_FILES[name];
+  if (value === undefined) throw new Error("Missing bundled memory file: " + name);
+  return value as T;
 }
 export function loadMemory(): MemoryBundle {
   const weights = loadJson<MemoryWeights>("weights.json");
