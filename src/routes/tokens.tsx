@@ -4,7 +4,7 @@ import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { ScoreCard } from "@/components/intel/ScoreCard";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { researchTokenIntel, writeTokenContent } from "@/lib/xpulse/api";
+import { researchTokenIntel, tokenMarketIntelligence, writeTokenContent } from "@/lib/xpulse/api";
 import {
   attachXPatterns,
   buildTokenFactSet,
@@ -1055,33 +1055,80 @@ function AiMarketIntelligence({
   intel: TokenIntel;
   diagnosis: ReturnType<typeof analyzeTokenIntel>;
 }) {
-  const insights = [
+  const [ai, setAi] = useState<{ summary: string; insights: string[]; trace?: { provider: string; model: string; durationMs: number } } | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setBusy(true);
+    setError(false);
+    void tokenMarketIntelligence({
+      data: {
+        token: {
+          name: intel.identity.name,
+          symbol: intel.identity.symbol,
+          chain: intel.identity.chain,
+        },
+        market: intel.market,
+        diagnosis,
+      },
+    })
+      .then((value) => {
+        if (cancelled) return;
+        setAi(value as typeof ai);
+        setError(!value);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAi(null);
+          setError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [intel.identity.address, intel.freshness, diagnosis]);
+
+  const fallbackInsights = [
     ...diagnosis.conclusions.filter((x) => x !== diagnosis.headline),
     ...intel.analysis.risks.slice(0, 2),
   ].filter(Boolean).slice(0, 4);
+
   return (
-    <section className="panel p-4 sm:p-5">
-      <div className="flex items-center justify-between gap-3">
+    <section className="panel overflow-hidden p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="kicker">Intelligence</p>
-          <h2 className="mt-1 text-lg">AI Market Intelligence Summary</h2>
+          <h2 className="mt-1 text-lg">Market read</h2>
         </div>
-        <span className="rounded-full border border-accent/30 bg-accent/5 px-2 py-1 text-[10px] tracking-wide text-accent uppercase">
-          Interpretive
+        <span className="rounded-full border border-accent/30 bg-accent/5 px-2 py-1 font-mono text-[10px] tracking-wide text-accent uppercase">
+          {busy ? "Groq · working" : ai ? `Groq · ${ai.trace?.model ?? "AI"}` : "Deterministic fallback"}
         </span>
       </div>
-      <p className="mt-3 text-sm leading-relaxed text-fg">{diagnosis.headline}</p>
-      {insights.length ? (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {insights.map((insight) => (
-            <div key={insight} className="rounded-md border border-line bg-surface-2/30 px-3 py-2 text-xs leading-relaxed text-muted">
-              {insight}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="mt-3 text-xs text-muted">No additional interpretation is supported by the current data.</p>
-      )}
+
+      <p className="mt-3 text-sm leading-relaxed text-fg">
+        {ai?.summary ?? diagnosis.headline}
+      </p>
+
+      {busy ? (
+        <p className="mt-3 text-xs text-subtle skeleton">Building the interpretation from the verified snapshot…</p>
+      ) : null}
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {(ai?.insights.length ? ai.insights : fallbackInsights).map((insight, index) => (
+          <div key={`${index}-${insight}`} className="rounded-lg border border-line bg-surface-2/30 px-3 py-3 text-xs leading-relaxed text-muted">
+            {insight}
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-3 text-[10px] text-subtle">
+        {error ? "AI interpretation unavailable; deterministic market diagnosis is shown." : "Numbers and risk state come from the verified market snapshot. AI only interprets them."}
+      </p>
     </section>
   );
 }
