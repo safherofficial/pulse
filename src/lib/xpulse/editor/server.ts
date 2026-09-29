@@ -13,6 +13,7 @@ import { extractPublicXPostId, resolvePublicXPost } from "../x-public.ts";
 import { isEditorMode, runEditorPipeline, type EditorDossier, type EditorMode } from "./pipeline.ts";
 import { classifyUrl, extractPublicPage, type UrlExtraction } from "./url.ts";
 import { getTrendSnapshot } from "../trends.ts";
+import { loadMemory, memoryPromptContext } from "../memory.ts";
 
 const ANALYSIS_CACHE = new Map<string, { at: number; value: EditorDossier }>();
 const TTL_MS = 5 * 60 * 1000;
@@ -106,7 +107,9 @@ export async function readEditorUrl(
 async function defaultLogic(): Promise<ContentLogicVersion> {
   try {
     const { loadActiveContentLogic } = await import("../optimize/store.ts");
-    return await loadActiveContentLogic();
+    const active = await loadActiveContentLogic();
+    const memory = loadMemory();
+    return { ...active, scoreWeights: active.scoreWeights ?? memory.weights.criteria, scoreTypeMultipliers: active.scoreTypeMultipliers ?? memory.weights.contentTypes };
   } catch {
     return baselineContent();
   }
