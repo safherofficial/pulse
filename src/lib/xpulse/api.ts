@@ -215,6 +215,27 @@ export const writeTokenContent = createServerFn({ method: "POST" })
     return writeTokenCopy(payload.facts, kind, mode, variant);
   });
 
+export const improveLoop = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { executeImproveLoop } = await import("./editor/server");
+    const payload = data as {
+      text?: string;
+      url?: string;
+      kind?: import("./content-score").ContentKind;
+      target?: number;
+    };
+    if (!(payload?.text?.trim() || payload?.url?.trim())) {
+      throw new Error("Text or URL is required.");
+    }
+    return executeImproveLoop({
+      text: payload.text ?? "",
+      url: payload.url ?? "",
+      kind: payload.kind ?? "post",
+      request: "Automatically improve this content using analyze → suggest → revise → analyze.",
+    }, {}, Math.max(1, Math.min(100, Number(payload.target ?? 80) || 80)));
+  });
+
 export const reviseEditor = createServerFn({ method: "POST" })
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {
