@@ -175,19 +175,26 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     loadActiveViralTrend(),
     getTrendSnapshot().catch(() => null),
   ]);
+  let effectiveLogic = logic;
+  let deterministic: EditorDossier;
+  try {
+    deterministic = runEditorPipeline({ text, mode, kind, request, logic: effectiveLogic, url: urlResult, trend, liveTrends });
+  } catch {
+    effectiveLogic = baselineContent();
+    deterministic = runEditorPipeline({ text, mode, kind, request, logic: effectiveLogic, url: urlResult, trend, liveTrends });
+  }
+
   const cacheKey = JSON.stringify({
     mode,
     kind,
     request,
-    version: logic.version,
+    version: effectiveLogic.version,
     text,
     url: urlResult?.status ?? null,
     body: urlResult?.text ?? null,
   });
   const cached = cacheGet(cacheKey);
   if (cached) return cached;
-
-  const deterministic = runEditorPipeline({ text, mode, kind, request, logic, url: urlResult, trend, liveTrends });
 
   if (text.trim() && (mode === "ANALYZE" || mode === "SCORE" || mode === "FACT_CHECK")) {
     try {
@@ -226,10 +233,16 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       : deps.rewrite;
   if (!rewriteMode || !text.trim() || !writer) return cacheSet(cacheKey, deterministic);
 
+  let memoryContext = "";
+  try {
+    memoryContext = memoryPromptContext(text, deterministic.output.kind);
+  } catch {
+    // Optional enrichment must never block rewriting.
+  }
   const plans = [
     ...deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`),
-    memoryPromptContext(text, deterministic.output.kind),
-  ];
+    memoryContext,
+  ].filter(Boolean);
   const candidates: EditorDossier[] = [];
 
   for (const attempt of [1, 2]) {
@@ -351,13 +364,18 @@ export async function executeImproveLoop(input: EditorRequest, deps: EditorDeps 
       return { target, rounds, final: current, stoppedReason: "target_reached" };
     }
 
-    const { analyzeWithLlm, reviseWithLlm } = await import("../editor-llm.ts");
-    const ai = current.analysis.ai ?? await analyzeWithLlm(current);
-    if (!ai?.suggestions.length) {
-      return { target, rounds, final: current, stoppedReason: "no_suggestions" };
+    let ai: Awaited<ReturnType<typeof import("../editor-llm.ts")["analyzeWithLlm"]>> = current.analysis.ai ?? null;
+    let revision: Awaited<ReturnType<typeof import("../editor-llm.ts")["reviseWithLlm"]>> = null;
+    try {
+      const { analyzeWithLlm, reviseWithLlm } = await import("../editor-llm.ts");
+      ai = ai ?? await analyzeWithLlm(current);
+      if (!ai?.suggestions.length) {
+        return { target, rounds, final: current, stoppedReason: "no_suggestions" };
+      }
+      revision = await reviseWithLlm(current, ai.suggestions);
+    } catch {
+      return { target, rounds, final: current, stoppedReason: "revision_failed" };
     }
-
-    const revision = await reviseWithLlm(current, ai.suggestions);
     if (!revision?.text.trim()) {
       return { target, rounds, final: current, stoppedReason: "revision_failed" };
     }
