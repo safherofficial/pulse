@@ -14,6 +14,7 @@ import { isEditorMode, runEditorPipeline, type EditorDossier, type EditorMode } 
 import { classifyUrl, extractPublicPage, type UrlExtraction } from "./url.ts";
 import { getTrendSnapshot } from "../trends.ts";
 import { loadMemory, memoryPromptContext } from "../memory.ts";
+import { detectEcho } from "../echo-detector.ts";
 
 const ANALYSIS_CACHE = new Map<string, { at: number; value: EditorDossier }>();
 const TTL_MS = 5 * 60 * 1000;
@@ -225,7 +226,10 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       : deps.rewrite;
   if (!rewriteMode || !text.trim() || !writer) return cacheSet(cacheKey, deterministic);
 
-  const plans = deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`);
+  const plans = [
+    ...deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`),
+    memoryPromptContext(text, deterministic.output.kind),
+  ];
   const candidates: EditorDossier[] = [];
 
   for (const attempt of [1, 2]) {
@@ -246,6 +250,11 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     if (!candidate?.text.trim()) continue;
 
     let proposed = candidate.text;
+    const echoBeforePolish = detectEcho(text, proposed);
+    if (echoBeforePolish.isEcho) {
+      deterministic.output.notes = [...deterministic.output.notes, `LLM echo rejected: ${echoBeforePolish.combinedSimilarity.toFixed(3)} similarity (attempt ${attempt}).`];
+      continue;
+    }
     try {
       const polish =
         deps.polish ??
@@ -257,6 +266,12 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       if (polished.text.trim()) proposed = polished.text;
     } catch {
       /* polishing is optional */
+    }
+
+    const echoAfterPolish = detectEcho(text, proposed);
+    if (echoAfterPolish.isEcho) {
+      deterministic.output.notes = [...deterministic.output.notes, `LLM echo rejected after polish: ${echoAfterPolish.combinedSimilarity.toFixed(3)} similarity.`];
+      continue;
     }
 
     const trial = runEditorPipeline({
@@ -293,10 +308,16 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     })[0];
 
   if (!best || best.output.keptOriginal) {
-    deterministic.output.notes = [
-      ...deterministic.output.notes,
-      "No validated transformation improved the measured score. Original facts were preserved.",
-    ];
+    const localFallback = deterministic.output.keptOriginal ? "" : deterministic.output.text;
+    deterministic.output = {
+      ...deterministic.output,
+      text: localFallback,
+      keptOriginal: false,
+      notes: [
+        ...deterministic.output.notes,
+        "No validated LLM transformation improved the measured score. Original text was not returned as generated output.",
+      ],
+    };
     return cacheSet(cacheKey, deterministic);
   }
 
