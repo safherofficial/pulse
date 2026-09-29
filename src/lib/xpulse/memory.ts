@@ -64,7 +64,6 @@ export async function memoryPromptContextAsync(text: string, kind: "post" | "thr
   const staticContext = memoryPromptContext(text, kind);
   try {
     const { getSql } = await import("@/lib/db");
-    const { getSql } = await import("@/lib/db");
     const sql = getSql();
     const rows = await sql<{ before_text: string; after_text: string; status: string; before_score: number; after_score: number }>`
       select before_text, after_text, status, before_score, after_score
