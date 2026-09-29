@@ -94,3 +94,41 @@ export async function recordMemoryExample(input: { kind: "post" | "thread" | "ar
     )
   `;
 }
+export async function exportMemorySnapshot(): Promise<string> {
+  const memory = loadMemory();
+  try {
+    const sql = getSql();
+    const rows = await sql<{ kind: string; status: string; before_text: string; after_text: string; before_score: number; after_score: number; criteria: unknown; created_at: string | Date }>`
+      select kind, status, before_text, after_text, before_score, after_score, criteria, created_at
+      from xpulse_editor_memory
+      order by created_at desc
+      limit 500
+    `;
+    return JSON.stringify({ ...memory, learned: rows }, null, 2);
+  } catch {
+    return JSON.stringify(memory, null, 2);
+  }
+}
+
+export async function importMemorySnapshot(snapshot: unknown): Promise<number> {
+  if (!snapshot || typeof snapshot !== "object") throw new Error("Invalid memory snapshot.");
+  const learned = Array.isArray((snapshot as { learned?: unknown }).learned) ? (snapshot as { learned: unknown[] }).learned : [];
+  const sql = getSql();
+  let inserted = 0;
+  for (const item of learned.slice(0, 500)) {
+    const row = item as Record<string, unknown>;
+    if (
+      (row.kind === "post" || row.kind === "thread" || row.kind === "article") &&
+      (row.status === "accepted" || row.status === "rejected") &&
+      typeof row.before_text === "string" && typeof row.after_text === "string" &&
+      Number.isFinite(Number(row.before_score)) && Number.isFinite(Number(row.after_score))
+    ) {
+      await sql`
+        insert into xpulse_editor_memory (id, kind, status, before_text, after_text, before_score, after_score, criteria)
+        values (${crypto.randomUUID()}, ${row.kind}, ${row.status}, ${row.before_text}, ${row.after_text}, ${Number(row.before_score)}, ${Number(row.after_score)}, ${JSON.stringify(Array.isArray(row.criteria) ? row.criteria : [])}::jsonb)
+      `;
+      inserted++;
+    }
+  }
+  return inserted;
+}
