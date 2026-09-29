@@ -1,5 +1,5 @@
 import { callLlm, parseJsonObject, type LlmResult } from "./llm-runtime.ts";
-import type { ContentKind, ContentScoreReport } from "./content-score.ts";
+import { scoreContent, type ContentScoreReport } from "./content-score.ts";
 import type { EditorDossier, PlanItem } from "./editor/pipeline.ts";
 
 export type AiSuggestion = {
@@ -102,7 +102,7 @@ function factsPayload(dossier: EditorDossier) {
 }
 
 export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis | null> {
-  const report = dossier.score.original;
+  const report = scoreContent(dossier.input.text, dossier.output.kind);
   const result = await callLlm(
     [
       {
@@ -130,33 +130,7 @@ export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis
       maxAttempts: 2,
     },
   );
-  return result ? parseAnalysis(result.text, reportFromDossier(dossier), result.trace) : null;
-}
-
-function reportFromDossier(dossier: EditorDossier): ContentScoreReport {
-  return {
-    total: dossier.score.original.total,
-    dimensions: dossier.score.original.total === 0 ? [] : dossier.score.dimensions.map((d) => ({
-      key: d.key,
-      label: d.label,
-      score: d.before,
-      note: "",
-    })),
-    working: dossier.analysis.works,
-    limiting: dossier.analysis.limits,
-    improvements: [],
-    signals: {
-      hook: dossier.score.original.hook ?? 0,
-      clarity: dossier.score.original.clarity ?? 0,
-      structure: dossier.score.original.structure ?? 0,
-      specificity: dossier.score.original.specificity,
-      curiosity: 0,
-      emotion: 0,
-      shareability: dossier.score.original.engagementPotential ?? 0,
-      structureScore: dossier.score.original.structure ?? 0,
-      readability: dossier.score.original.readability ?? 0,
-    } as ContentScoreReport["signals"],
-  };
+  return result ? parseAnalysis(result.text, report, result.trace) : null;
 }
 
 export async function suggestWithLlm(dossier: EditorDossier): Promise<AiSuggestion[] | null> {
