@@ -236,6 +236,19 @@ export const improveLoop = createServerFn({ method: "POST" })
     }, {}, Math.max(1, Math.min(100, Number(payload.target ?? 80) || 80)));
   });
 
+export const exportEditorMemory = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { exportMemorySnapshot } = await import("./memory");
+    return exportMemorySnapshot();
+  });
+
+export const importEditorMemory = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { importMemorySnapshot } = await import("./memory");
+    return { inserted: await importMemorySnapshot(data) };
+  });
+
 export const recordEditorMemory = createServerFn({ method: "POST" })
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {
