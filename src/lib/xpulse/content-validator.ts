@@ -75,12 +75,18 @@ export function validateGeneratedContent(
   }
 
   const allowedNumbers = sourceNumericTokens(facts);
-  const unsupportedNumbers = numericTokens(text).filter(
+  const numericText =
+    kind === "thread"
+      ? text
+          .split(/\n+/)
+          .map((line) => line.replace(/^\s*\d+\s*[/.)-]\s*/, ""))
+          .join("\n")
+      : text;
+  const unsupportedNumbers = numericTokens(numericText).filter(
     (token) => !allowedNumbers.has(token),
   );
 
-  // Thread numbering (1/, 2/, ...) is structure, not a market claim.
-  const claimNumbers = unsupportedNumbers.filter((token) => !/^([1-9]|10)$/.test(token));
+  const claimNumbers = unsupportedNumbers;
   if (claimNumbers.length) {
     violations.push(
       "unsupported_numeric_claim:" + [...new Set(claimNumbers)].slice(0, 6).join(","),
