@@ -95,6 +95,7 @@ async function chatComplete(
   provider: Provider,
   messages: ChatMessage[],
   temperature: number,
+  maxTokens = 1600,
 ): Promise<string | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 18_000);
@@ -112,7 +113,7 @@ async function chatComplete(
       body: JSON.stringify({
         model: provider.model,
         temperature,
-        max_tokens: 900,
+        max_tokens: maxTokens,
         messages,
       }),
     });
@@ -396,7 +397,7 @@ export async function rewriteWithConfiguredModel(input: {
     },
   ];
   for (const provider of available) {
-    const raw = await chatComplete(provider, messages, 0.15);
+    const raw = await chatComplete(provider, messages, 0.7, input.kind === "article" ? 3000 : input.kind === "thread" ? 2200 : 1400);
     if (raw && raw.length >= 20) return { text: stripFence(raw), source: provider.id };
   }
   return null;
