@@ -119,6 +119,7 @@ async function chatComplete(
 ): Promise<string | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 18_000);
+  const started = Date.now();
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -145,8 +146,11 @@ async function chatComplete(
       json.choices?.[0]?.message?.content ??
       json.choices?.[0]?.text ??
       (typeof json.content === "string" ? json.content : "");
-    return text?.trim() ? text.trim() : null;
-  } catch {
+    const output = text?.trim() ? text.trim() : null;
+    if (process.env.XPULSE_LLM_DEBUG === "1") console.info("[XPULSE_LLM]", JSON.stringify({ provider: provider.id, model: provider.model, durationMs: Date.now() - started, attempt: 1, rawOutput: output ?? "" }));
+    return output;
+  } catch (error) {
+    if (process.env.XPULSE_LLM_DEBUG === "1") console.info("[XPULSE_LLM]", JSON.stringify({ provider: provider.id, model: provider.model, durationMs: Date.now() - started, attempt: 1, rawOutput: "", error: error instanceof Error ? error.message : "LLM request failed" }));
     return null;
   } finally {
     clearTimeout(timer);
