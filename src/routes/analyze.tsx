@@ -4,7 +4,7 @@ import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { improveLoop, runEditor, reviseEditor, optimizationStatus } from "@/lib/xpulse/api";
+import { improveLoop, recordEditorMemory, runEditor, reviseEditor, optimizationStatus } from "@/lib/xpulse/api";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import { baselineContent } from "@/lib/xpulse/optimize/baseline";
 import {
@@ -66,6 +66,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
   const [optimization, setOptimization] = useState<OptimizationView | null>(null);
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
   const [loopResult, setLoopResult] = useState<{ target: number; rounds: Array<{ round: number; before: EditorDossier; after: EditorDossier }>; final: EditorDossier; stoppedReason: string } | null>(null);
+  const [revisionCandidate, setRevisionCandidate] = useState<{ before: EditorDossier; after: EditorDossier } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -254,7 +255,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
         </CollapsibleSection>
       ) : null}
 
-{dossier ? <DossierView dossier={dossier} beats={beats} selectedSuggestions={selectedSuggestions} onToggleSuggestion={(id) => setSelectedSuggestions((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} onRevise={async () => {
+{dossier ? <DossierView dossier={dossier} beats={beats} selectedSuggestions={selectedSuggestions} onToggleSuggestion={(id) => setSelectedSuggestions((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} revisionCandidate={revisionCandidate} onAcceptRevision={async () => { if (!revisionCandidate) return; try { await recordEditorMemory({ data: { status: "accepted", before: revisionCandidate.before, after: revisionCandidate.after } }); setNotice("AI revision accepted and saved to editorial memory."); setRevisionCandidate(null); } catch { setNotice("Revision was applied, but memory could not be saved."); } }} onRejectRevision={async () => { if (!revisionCandidate) return; try { await recordEditorMemory({ data: { status: "rejected", before: revisionCandidate.before, after: revisionCandidate.after } }); } catch {} setDossier(revisionCandidate.before); setRevisionCandidate(null); setNotice("AI revision rejected. Original restored."); }} onRevise={async () => {
         if (!selectedSuggestions.length || !dossier.analysis.ai?.suggestions.length) return;
         setBusy("REWRITE");
         setNotice(null);
@@ -262,6 +263,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
           const selected = dossier.analysis.ai.suggestions.filter((item) => selectedSuggestions.includes(item.id));
           const result = (await reviseEditor({ data: { dossier, selected } })) as EditorDossier;
           setDossier(result);
+          setRevisionCandidate({ before: dossier, after: result });
           setSelectedSuggestions([]);
         } catch {
           setNotice("AI revision failed validation or the model was unavailable. The original draft was kept.");
@@ -330,6 +332,9 @@ function DossierView({
   selectedSuggestions,
   onToggleSuggestion,
   onRevise,
+  revisionCandidate,
+  onAcceptRevision,
+  onRejectRevision,
 }: {
   dossier: EditorDossier;
   beats: string[];
@@ -337,6 +342,9 @@ function DossierView({
   selectedSuggestions: string[];
   onToggleSuggestion: (id: string) => void;
   onRevise: () => void;
+  revisionCandidate: { before: EditorDossier; after: EditorDossier } | null;
+  onAcceptRevision: () => void;
+  onRejectRevision: () => void;
 }) {
   const activityKey = [
     dossier.input.text,
@@ -380,6 +388,12 @@ function DossierView({
               <Button type="button" variant="quiet" onClick={onUse}>
                 Use as draft
               </Button>
+              {revisionCandidate ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button type="button" variant="primary" onClick={() => void onAcceptRevision()}>Accept & save to memory</Button>
+                  <Button type="button" variant="quiet" onClick={() => void onRejectRevision()}>Reject & restore original</Button>
+                </div>
+              ) : null}
               <Button type="button" variant="primary" onClick={() => {
                 sessionStorage.setItem(EDITOR_HANDOFF_KEY, JSON.stringify({ text: dossier.output.text, kind: dossier.output.kind, token: null, at: Date.now() } satisfies EditorHandoff));
                 window.location.href = "/rewrite";
