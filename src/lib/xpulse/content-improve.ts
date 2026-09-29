@@ -12,6 +12,7 @@ import { baselineContent } from "./optimize/baseline.ts";
 import { optimizeContent, type CompositionResult } from "./optimize/compose.ts";
 import { preservesAuthorFacts } from "./optimize/benchmarks.ts";
 import type { ContentLogicVersion } from "./optimize/types.ts";
+import { loadMemory, memoryPromptContext } from "./memory.ts";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -194,7 +195,9 @@ async function writeWithLlm(system: string, user: string): Promise<{ text: strin
 async function loadLogic(): Promise<ContentLogicVersion> {
   try {
     const { loadActiveContentLogic } = await import("./optimize/store.ts");
-    return await loadActiveContentLogic();
+    const active = await loadActiveContentLogic();
+    const memory = loadMemory();
+    return { ...active, scoreWeights: active.scoreWeights ?? memory.weights.criteria, scoreTypeMultipliers: active.scoreTypeMultipliers ?? memory.weights.contentTypes };
   } catch {
     return baselineContent();
   }
