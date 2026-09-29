@@ -535,13 +535,19 @@ export async function writeTokenCopy(
 
   const fallback = generateFromFactSet(facts, kind, mode, variant);
   const text = await polish(await composeGenerated(fallback.text, kind, facts));
+  const fallbackValidation = validateGeneratedContent(text, kind, facts);
 
   return {
     ...fallback,
     text,
+    score: scoreContent(text, kind),
     applied: [
       ...fallback.applied,
       "Fallback: local fact-grounded copywriter (AI providers unavailable)",
+      fallbackValidation.pass
+        ? "Deterministic validation: passed"
+        : "Deterministic validation: fallback retained with violations " +
+          fallbackValidation.violations.join(", "),
     ],
   };
 }
