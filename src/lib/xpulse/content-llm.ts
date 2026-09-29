@@ -6,6 +6,7 @@
 
 import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind } from "./content-score";
+import { validateGeneratedContent } from "./content-validator";
 import {
   buildEditorialSelfCritiquePrompt,
   buildEditorialSystemPrompt,
