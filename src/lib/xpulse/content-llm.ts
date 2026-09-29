@@ -379,6 +379,9 @@ export async function writeTokenCopy(
   mode: RegenMode = "default",
   variant = 0,
 ): Promise<GeneratedContent> {
+  const { reserveAiAction } = await import("./ai-gateway");
+  await reserveAiAction();
+
   const { loadActiveViralTrend, loadActiveContentLogic } = await import("./optimize/store.ts");
   const [trend, logic] = await Promise.all([
     loadActiveViralTrend(),
