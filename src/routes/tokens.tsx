@@ -702,19 +702,15 @@ function TokenDetailView({ address: rawAddress }: { address: string }) {
               </p>
             ) : null}
 
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
               {(
                 [
                   ["default", "Default"],
                   ["stronger_hook", "Stronger hook"],
-                  ["more_professional", "More professional"],
-                  ["more_viral", "More viral"],
-                  ["more_technical", "More technical"],
-                  ["more_human", "More human"],
-                  ["more_concise", "More concise"],
-                  ["more_data", "More data-driven"],
-                  ["more_story", "More story"],
-                  ["different_angle", "Different angle"],
+                  ["more_data", "Data-first"],
+                  ["more_technical", "Technical"],
+                  ["more_human", "Human"],
+                  ["more_concise", "Concise"],
                 ] as [RegenMode, string][]
               ).map(([id, label]) => (
                 <button
