@@ -98,6 +98,7 @@ export async function recordMemoryExample(input: { kind: "post" | "thread" | "ar
 export async function exportMemorySnapshot(): Promise<string> {
   const memory = loadMemory();
   try {
+    const { getSql } = await import("@/lib/db");
     const sql = getSql();
     const rows = await sql<{ kind: string; status: string; before_text: string; after_text: string; before_score: number; after_score: number; criteria: unknown; created_at: string | Date }>`
       select kind, status, before_text, after_text, before_score, after_score, criteria, created_at
