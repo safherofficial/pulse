@@ -259,9 +259,10 @@ export async function improveDraftCopy(text: string, kind: ContentKind): Promise
   if (live?.text) {
     const polished = await polish(live.text);
     const candidate = polished.text;
-    const report = scoreContent(candidate, kind);
+    const report = scoreContent(candidate, kind, logic.scoreWeights, logic.scoreTypeMultipliers?.[kind] ?? 1);
     const gate = validateEditorialShape(candidate, kind);
-    if (gate.pass && report.total > chosen.after.total && preservesAuthorFacts(text, candidate)) {
+    const echo = detectEcho(text, candidate);
+    if (gate.pass && !echo.isEcho && report.total > chosen.after.total && preservesAuthorFacts(text, candidate)) {
       chosen = {
         ...chosen,
         text: candidate,
@@ -306,14 +307,16 @@ export async function strongerHookCopy(text: string, kind: ContentKind): Promise
         buildEditorialSelfCritiquePrompt(kind),
       ],
     ),
-    text,
+    memoryPromptContext(text, kind) + "\nDRAFT:\n" + text,
+    0.7,
   );
   let chosen = fromComposition(local, "local-hook");
   if (live?.text) {
     const polished = await polish(live.text);
-    const report = scoreContent(polished.text, kind);
+    const report = scoreContent(polished.text, kind, logic.scoreWeights, logic.scoreTypeMultipliers?.[kind] ?? 1);
     const gate = validateEditorialShape(polished.text, kind);
-    if (gate.pass && report.total > chosen.after.total && preservesAuthorFacts(text, polished.text)) {
+    const echo = detectEcho(text, polished.text);
+    if (gate.pass && !echo.isEcho && report.total > chosen.after.total && preservesAuthorFacts(text, polished.text)) {
       chosen = {
         ...chosen,
         text: polished.text,
