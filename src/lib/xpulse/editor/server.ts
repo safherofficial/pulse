@@ -184,6 +184,34 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   if (cached) return cached;
 
   const deterministic = runEditorPipeline({ text, mode, kind, request, logic, url: urlResult, trend, liveTrends });
+
+  if (text.trim() && (mode === "ANALYZE" || mode === "SCORE" || mode === "FACT_CHECK")) {
+    try {
+      const { analyzeWithLlm } = await import("../editor-llm.ts");
+      const ai = await analyzeWithLlm(deterministic);
+      if (ai) {
+        deterministic.analysis = {
+          ...deterministic.analysis,
+          ai,
+          why: [...deterministic.analysis.why, ai.summary],
+        };
+        deterministic.output.notes = [
+          ...deterministic.output.notes,
+          `AI analysis: ${ai.trace.provider} / ${ai.trace.model} / ${ai.trace.durationMs}ms`,
+        ];
+      } else {
+        deterministic.output.notes = [
+          ...deterministic.output.notes,
+          "AI analysis unavailable: deterministic scoring and rule analysis retained.",
+        ];
+      }
+    } catch {
+      deterministic.output.notes = [
+        ...deterministic.output.notes,
+        "AI analysis failed: deterministic scoring and rule analysis retained.",
+      ];
+    }
+  }
   const rewriteMode = mode !== "ANALYZE" && mode !== "SCORE" && mode !== "FACT_CHECK";
   const writer: Rewrite | null =
     deps.rewrite === undefined
