@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { generateFromFactSet, type TokenFactSet } from "./content-create.ts";
-import { buildEditorialSystemPrompt, EDITORIAL_ENGINE_BASELINE, EDITORIAL_ENGINE_VERSION, validateEditorialShape, preferenceSignature } from "./editorial-standard.ts";
+import { buildEditorialSystemPrompt, EDITORIAL_ENGINE_BASELINE, EDITORIAL_ENGINE_VERSION, validateEditorialShape, preferenceSignature } from "./editorial-standard.ts";\nimport { validateGeneratedContent } from "./content-validator.ts";
 
 function makeFacts(state: TokenFactSet["market"]["state"] = "POSITIVE"): TokenFactSet {
   const severe = state === "SEVERE_RISK";
@@ -168,4 +168,25 @@ test("draft generator keeps format identity and avoids outline-label threads", (
     "post",
   );
   assert.equal(postGate.pass, true);
+});\n
+test("deterministic validator rejects unsupported numeric claims", () => {
+  const valid = generateFromFactSet(makeFacts(), "post");
+  const checked = validateGeneratedContent(valid.text, "post", makeFacts());
+  assert.equal(checked.pass, true);
+
+  const tampered = valid.text + "\n\nThe next move is +999.9%.";
+  const rejected = validateGeneratedContent(tampered, "post", makeFacts());
+  assert.equal(rejected.pass, false);
+  assert.ok(rejected.violations.some((item) => item.startsWith("unsupported_numeric_claim:")));
+});
+
+test("deterministic validator requires token identity", () => {
+  const facts = makeFacts();
+  const result = validateGeneratedContent(
+    "EXT is showing constructive momentum. The measured signals remain mixed.\n\nNFA.",
+    "post",
+    facts,
+  );
+  assert.equal(result.pass, false);
+  assert.ok(result.violations.includes("token_contract_missing"));
 });
