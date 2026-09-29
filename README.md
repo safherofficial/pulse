@@ -9,7 +9,7 @@ Access is a single Solana payment of **0.15 SOL**. No subscription. The wallet t
 - Sign in with a Solana wallet. The wallet signs a short login challenge and the resulting session stays bound to that wallet account.
 - Connect Phantom, Solflare, Backpack, or Glow.
 - Pay 0.15 SOL. The server reads the transaction from Solana RPC and checks that the treasury balance rose by at least 0.15 SOL and that your wallet signed and spent it.
-- After unlock: import posts, sync from the X API when credentials exist, and link one thread to one article.
+- After unlock: import posts, sync your connected public X timeline into the Chamber, use the synced posts as personal writing-style memory, and link one thread to one article.
 ## How the app is put together
 
 The running app is one TanStack Start service (interface + server functions + Postgres). That is the deployable shape of this workspace. The pieces map to the modules you would split in a larger monorepo:
@@ -49,6 +49,17 @@ Wallet authentication identifies you. Reading posts needs a separate OAuth 2.0 P
 | `X_REDIRECT_URI` | Optional. Defaults to `{origin}/api/x/callback` |
 
 Until those are set, sync explains that and you can import a post by URL or id. Rate limits from X (HTTP 429) stop the sync and say so. Tokens stay on the server.
+
+## Groq writer
+
+XPulse can use Groq as its keyed LLM writer/analysis provider. The deterministic scoring engine remains authoritative: Groq receives the draft, scoring signals, editorial rules, database memory, and — when the user is authenticated and has synced/imported posts — a small selection of the user's own X posts as style examples. Those posts are used for voice, rhythm, vocabulary and structure only; their facts and wording are not copied.
+
+| Variable | Meaning |
+| --- | --- |
+| `GROQ_API_KEY` | Groq API key. Required to enable the Groq provider. |
+| `GROQ_MODEL` | Optional model id. Default: `openai/gpt-oss-20b`. |
+
+Groq is called server-side through its OpenAI-compatible API. The API key is never exposed to the browser. If Groq is not configured, XPulse can use another configured provider already supported by the runtime.
 ## Local setup
 
 ```bash
