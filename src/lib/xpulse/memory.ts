@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { getSql } from "@/lib/db";
 
 export type MemoryWeights = {
   criteria: Record<string, number>;
@@ -59,4 +60,37 @@ export function memoryPromptContext(text: string, kind: "post" | "thread" | "art
     "Hook templates: " + JSON.stringify(hit.memory.hooks.templates.slice(0, 5)),
     "Use examples as patterns only. Never copy their facts or wording.",
   ].join("\n");
+}
+export async function memoryPromptContextAsync(text: string, kind: "post" | "thread" | "article"): Promise<string> {
+  const staticContext = memoryPromptContext(text, kind);
+  try {
+    const sql = getSql();
+    const rows = await sql<{ before_text: string; after_text: string; status: string; before_score: number; after_score: number }>`
+      select before_text, after_text, status, before_score, after_score
+      from xpulse_editor_memory
+      where kind = ${kind}
+      order by created_at desc
+      limit 12
+    `;
+    const source = tokenSet(text);
+    const relevant = rows.map((row) => ({ ...row, similarity: jaccard(source, tokenSet(row.before_text)) })).sort((a, b) => b.similarity - a.similarity).slice(0, 4);
+    return staticContext + "\nPersisted accepted/rejected examples: " + JSON.stringify(relevant.map((row) => ({ status: row.status, before: row.before_text, after: row.after_text, beforeScore: row.before_score, afterScore: row.after_score, similarity: Number(row.similarity.toFixed(3)) })));
+  } catch {
+    return staticContext + "\nPersisted memory unavailable; use static memory only.";
+  }
+}
+
+export async function recordMemoryExample(input: { kind: "post" | "thread" | "article"; status: "accepted" | "rejected"; beforeText: string; afterText: string; beforeScore: number; afterScore: number; criteria: string[] }): Promise<void> {
+  const sql = getSql();
+  await sql`
+    insert into xpulse_editor_memory (id, kind, status, before_text, after_text, before_score, after_score, criteria)
+    values (${crypto.randomUUID()}, ${input.kind}, ${input.status}, ${input.beforeText}, ${input.afterText}, ${input.beforeScore}, ${input.afterScore}, ${JSON.stringify(input.criteria)}::jsonb)
+  `;
+  await sql`
+    delete from xpulse_editor_memory
+    where id in (
+      select id from xpulse_editor_memory order by created_at asc
+      offset 500
+    )
+  `;
 }
