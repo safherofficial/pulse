@@ -28,6 +28,12 @@ function OnboardPage() {
   }, []);
 
   useEffect(() => {
+    if (search.x !== "error") return;
+    const reason = typeof search.reason === "string" ? search.reason.replaceAll("_", " ") : "unknown error";
+    setXNotice(`X connection was not completed (${reason}). You can try again.`);
+  }, [search.reason, search.x]);
+
+  useEffect(() => {
     if (search.x !== "linked") return;
     let live = true;
     setXBusy(true);
