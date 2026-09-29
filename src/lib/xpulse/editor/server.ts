@@ -225,7 +225,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   const plans = deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`);
   const candidates: EditorDossier[] = [];
 
-  for (const attempt of [1, 2, 3]) {
+  for (const attempt of [1, 2]) {
     let candidate: { text: string; source: string } | null = null;
     try {
       candidate = await writer({
@@ -303,4 +303,58 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     `Viral score: ${originalViral} → ${best.score.improved.viral} (+${best.score.improved.viral - originalViral}).`,
   ];
   return cacheSet(cacheKey, best);
+}
+
+export type ImproveLoopResult = {
+  target: number;
+  rounds: Array<{
+    round: number;
+    before: EditorDossier;
+    after: EditorDossier;
+    selected: number;
+    revisionApplied: boolean;
+  }>;
+  final: EditorDossier;
+  stoppedReason: "target_reached" | "max_rounds" | "no_suggestions" | "revision_failed";
+};
+
+export async function executeImproveLoop(input: EditorRequest, deps: EditorDeps = {}, target = 80): Promise<ImproveLoopResult> {
+  const rounds: ImproveLoopResult["rounds"] = [];
+  let current = await executeEditor({ ...input, mode: "ANALYZE" }, deps);
+
+  for (let round = 1; round <= 3; round += 1) {
+    if (current.score.improved.total >= target) {
+      return { target, rounds, final: current, stoppedReason: "target_reached" };
+    }
+
+    const { analyzeWithLlm, reviseWithLlm } = await import("../editor-llm.ts");
+    const ai = current.analysis.ai ?? await analyzeWithLlm(current);
+    if (!ai?.suggestions.length) {
+      return { target, rounds, final: current, stoppedReason: "no_suggestions" };
+    }
+
+    const revision = await reviseWithLlm(current, ai.suggestions);
+    if (!revision?.text.trim()) {
+      return { target, rounds, final: current, stoppedReason: "revision_failed" };
+    }
+
+    const next = await executeEditor({
+      text: revision.text,
+      mode: "ANALYZE",
+      kind: current.output.kind,
+      request: "Re-analyze the revised content after the selected interventions.",
+    }, deps);
+
+    rounds.push({
+      round,
+      before: current,
+      after: next,
+      selected: ai.suggestions.length,
+      revisionApplied: next.output.text.trim() !== current.output.text.trim(),
+    });
+
+    current = next;
+  }
+
+  return { target, rounds, final: current, stoppedReason: "max_rounds" };
 }
