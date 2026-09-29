@@ -2555,36 +2555,6 @@ function publicPostToMetrics(post: PublicXPost): PostMetrics {
   };
 }
 
-async function savePublicXPost(userId: string, post: PublicXPost) {
-  const metrics = publicPostToMetrics(post);
-  const sql = await getSql();
-  const type = /\b1\/\d+/.test(post.text) ? "thread" : "tweet";
-  const rows = await sql<{ id: string }>`
-    insert into xpulse_posts (
-      id, user_id, x_post_id, type, text, metrics, published_at
-    )
-    values (
-      ${randomHex(16)},
-      ${userId},
-      ${post.id},
-      ${type},
-      ${post.text},
-      ${metricsJson(metrics)}::jsonb,
-      ${new Date(post.createdAt).toISOString()}
-    )
-    on conflict (user_id, x_post_id)
-    do update set
-      type = excluded.type,
-      text = excluded.text,
-      metrics = excluded.metrics,
-      published_at = excluded.published_at
-    returning id
-  `;
-  const id = rows[0]?.id;
-  if (id) await snapshot(userId, id, metrics);
-  return id;
-}
-
 async function fetchPublicXPost(input: string): Promise<PublicXPost> {
   try {
     const raw = await resolvePublicXPost(input);
