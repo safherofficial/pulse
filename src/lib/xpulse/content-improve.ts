@@ -12,7 +12,7 @@ import { baselineContent } from "./optimize/baseline.ts";
 import { optimizeContent, type CompositionResult } from "./optimize/compose.ts";
 import { preservesAuthorFacts } from "./optimize/benchmarks.ts";
 import type { ContentLogicVersion } from "./optimize/types.ts";
-import { loadMemory, memoryPromptContext } from "./memory.ts";
+import { loadMemory, memoryPromptContext, memoryPromptContextAsync } from "./memory.ts";
 import { detectEcho } from "./echo-detector.ts";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -254,7 +254,7 @@ export async function improveDraftCopy(text: string, kind: ContentKind): Promise
         buildEditorialSelfCritiquePrompt(kind),
       ],
     ),
-    "Kind: " + kind + "\nScore now: " + before.total + "/100\n" + memoryPromptContext(text, kind) + "\nDRAFT:\n" + text,
+    "Kind: " + kind + "\nScore now: " + before.total + "/100\n" + (await memoryPromptContextAsync(text, kind)) + "\nDRAFT:\n" + text,
     0.7,
   );
   let chosen = fromComposition(local, "local-score");
@@ -309,7 +309,7 @@ export async function strongerHookCopy(text: string, kind: ContentKind): Promise
         buildEditorialSelfCritiquePrompt(kind),
       ],
     ),
-    memoryPromptContext(text, kind) + "\nDRAFT:\n" + text,
+    (await memoryPromptContextAsync(text, kind)) + "\nDRAFT:\n" + text,
     0.7,
   );
   let chosen = fromComposition(local, "local-hook");
