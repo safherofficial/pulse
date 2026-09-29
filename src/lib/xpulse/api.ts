@@ -236,6 +236,30 @@ export const improveLoop = createServerFn({ method: "POST" })
     }, {}, Math.max(1, Math.min(100, Number(payload.target ?? 80) || 80)));
   });
 
+export const recordEditorMemory = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const { recordMemoryExample } = await import("./memory");
+    const payload = data as {
+      status?: "accepted" | "rejected";
+      before?: import("./editor/pipeline").EditorDossier;
+      after?: import("./editor/pipeline").EditorDossier;
+    };
+    if (!payload.before || !payload.after || (payload.status !== "accepted" && payload.status !== "rejected")) {
+      throw new Error("Invalid memory feedback.");
+    }
+    await recordMemoryExample({
+      kind: payload.after.output.kind,
+      status: payload.status,
+      beforeText: payload.before.output.text || payload.before.input.text,
+      afterText: payload.after.output.text || payload.after.input.text,
+      beforeScore: payload.before.score.improved.total,
+      afterScore: payload.after.score.improved.total,
+      criteria: payload.after.analysis.ai?.suggestions.map((item) => item.criterion) ?? [],
+    });
+    return { ok: true };
+  });
+
 export const reviseEditor = createServerFn({ method: "POST" })
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {
