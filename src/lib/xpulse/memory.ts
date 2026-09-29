@@ -74,8 +74,53 @@ export function memoryPromptContext(text: string, kind: "post" | "thread" | "art
     "Use examples as patterns only. Never copy their facts or wording.",
   ].join("\n");
 }
+async function connectedXStyleContext(): Promise<string> {
+  try {
+    const { getSessionUser } = await import("@/lib/auth/verify.server");
+    const session = await getSessionUser();
+    if (!session?.id) return "";
+
+    const { getSql } = await import("@/lib/db");
+    const sql = await getSql();
+    const rows = await sql<{ text: string; metrics: unknown; published_at: unknown }>`
+      select text, metrics, published_at
+      from xpulse_posts
+      where user_id = \${session.id}
+        and trim(text) <> ''
+      order by published_at desc
+      limit 30
+    `;
+
+    const ranked = rows
+      .map((row) => {
+        const metrics = row.metrics && typeof row.metrics === "object"
+          ? row.metrics as Record<string, unknown>
+          : {};
+        const engagement = ["likes", "replies", "reposts", "bookmarks", "profileClicks", "linkClicks"]
+          .reduce((sum, key) => sum + Number(metrics[key] ?? 0), 0);
+        return {
+          text: String(row.text).trim().slice(0, 700),
+          engagement: Number.isFinite(engagement) ? engagement : 0,
+          publishedAt: String(row.published_at ?? ""),
+        };
+      })
+      .filter((row) => row.text.length >= 20)
+      .sort((a, b) => b.engagement - a.engagement)
+      .slice(0, 6);
+
+    if (!ranked.length) return "";
+    return [
+      "CONNECTED X WRITING MEMORY — examples from the authenticated user own synced/imported posts:",
+      "Use these only to learn voice, rhythm, vocabulary, structure and recurring devices. Never copy facts, claims, numbers or wording.",
+      JSON.stringify(ranked.map((row) => ({ text: row.text, observedEngagement: row.engagement, publishedAt: row.publishedAt }))),
+    ].join("\n");
+  } catch {
+    return "";
+  }
+}
 export async function memoryPromptContextAsync(text: string, kind: "post" | "thread" | "article"): Promise<string> {
   const staticContext = memoryPromptContext(text, kind);
+  const ownXMemory = await connectedXStyleContext();
   try {
     const { getSql } = await import("@/lib/db");
     const sql = getSql();
@@ -88,9 +133,9 @@ export async function memoryPromptContextAsync(text: string, kind: "post" | "thr
     `;
     const source = tokenSet(text);
     const relevant = rows.map((row) => ({ ...row, similarity: jaccard(source, tokenSet(row.before_text)) })).sort((a, b) => b.similarity - a.similarity).slice(0, 4);
-    return staticContext + "\nPersisted accepted/rejected examples: " + JSON.stringify(relevant.map((row) => ({ status: row.status, before: row.before_text, after: row.after_text, beforeScore: row.before_score, afterScore: row.after_score, similarity: Number(row.similarity.toFixed(3)) })));
+    return staticContext + (ownXMemory ? "\n" + ownXMemory : "") + "\nPersisted accepted/rejected examples: " + JSON.stringify(relevant.map((row) => ({ status: row.status, before: row.before_text, after: row.after_text, beforeScore: row.before_score, afterScore: row.after_score, similarity: Number(row.similarity.toFixed(3)) })));
   } catch {
-    return staticContext + "\nPersisted memory unavailable; use static memory only.";
+    return staticContext + (ownXMemory ? "\n" + ownXMemory : "") + "\nPersisted memory unavailable; use static memory only.";
   }
 }
 
