@@ -215,6 +215,73 @@ export const writeTokenContent = createServerFn({ method: "POST" })
     return writeTokenCopy(payload.facts, kind, mode, variant);
   });
 
+export const tokenMarketIntelligence = createServerFn({ method: "POST" })
+  .validator((input: unknown) => input)
+  .handler(async ({ data }) => {
+    const payload = data as {
+      token?: { name?: string; symbol?: string; chain?: string };
+      market?: Record<string, unknown>;
+      diagnosis?: Record<string, unknown>;
+    };
+    if (!payload?.token?.name || !payload?.token?.symbol || !payload?.diagnosis) {
+      throw new Error("Token intelligence context is required.");
+    }
+
+    const { callLlm, parseJsonObject } = await import("./llm-runtime");
+    const result = await callLlm(
+      [
+        {
+          role: "system",
+          content: [
+            "You are XPulse's token market intelligence layer.",
+            "The supplied market numbers and deterministic diagnosis are authoritative.",
+            "Do not invent, estimate, forecast or change any metric.",
+            "Do not give trading instructions or investment recommendations.",
+            "Return JSON only: {summary:string, insights:string[]}.",
+            "summary must be one concise market read under 500 characters.",
+            "insights must contain at most 4 concrete interpretations, each under 260 characters.",
+            "Clearly distinguish observed facts from interpretation.",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            token: payload.token,
+            market: payload.market,
+            deterministicDiagnosis: payload.diagnosis,
+          }),
+        },
+      ],
+      {
+        json: true,
+        temperature: 0.15,
+        maxTokens: 900,
+        validate: (raw) => {
+          const obj = parseJsonObject(raw);
+          return Boolean(
+            obj &&
+              typeof obj.summary === "string" &&
+              Array.isArray(obj.insights),
+          );
+        },
+        repairPrompt: "Return valid JSON with summary and insights[]. Use only the supplied market data and diagnosis.",
+        maxAttempts: 2,
+      },
+    );
+
+    if (!result) return null;
+    const obj = parseJsonObject(result.text);
+    if (!obj || typeof obj.summary !== "string" || !Array.isArray(obj.insights)) return null;
+    return {
+      summary: obj.summary.trim().slice(0, 500),
+      insights: obj.insights
+        .filter((item): item is string => typeof item === "string" && item.trim())
+        .map((item) => item.trim().slice(0, 260))
+        .slice(0, 4),
+      trace: result.trace,
+    };
+  });
+
 export const improveLoop = createServerFn({ method: "POST" })
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {
