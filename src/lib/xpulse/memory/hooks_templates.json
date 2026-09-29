@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "templates": [
+    {
+      "id": "problem-solution",
+      "structure": "[Problema concreto]. [Perché conta]. [Soluzione/lettura già supportata].",
+      "use": "Problema e risposta presenti nel testo."
+    },
+    {
+      "id": "contrarian",
+      "structure": "[Assunzione comune] è incompleta. [Dato/contrasto]. [Implicazione].",
+      "use": "Esiste un contrasto verificabile."
+    },
+    {
+      "id": "data",
+      "structure": "[Dato]. [Cosa cambia]. [Perché interessa].",
+      "use": "Il testo contiene numeri o misure."
+    },
+    {
+      "id": "story",
+      "structure": "[Evento]. [Svolta]. [Lezione].",
+      "use": "Il testo contiene una sequenza reale."
+    },
+    {
+      "id": "list",
+      "structure": "[3] cose da guardare: 1) ... 2) ... 3) ...",
+      "use": "Almeno tre elementi distinti."
+    }
+  ],
+  "thread": {
+    "maxPosts": 8,
+    "flow": [
+      "hook",
+      "context",
+      "tension",
+      "evidence",
+      "turn",
+      "payoff",
+      "close"
+    ]
+  }
+}
