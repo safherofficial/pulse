@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "tone": "direct, technical, degen when appropriate",
+  "language": "it",
+  "sentenceWordsTarget": {
+    "min": 7,
+    "max": 22
+  },
+  "emoji": "sparse",
+  "hashtags": "0-2 only when useful",
+  "register": "natural, concrete, editorial",
+  "avoid": [
+    "corporate filler",
+    "generic hype",
+    "empty engagement bait"
+  ]
+}
