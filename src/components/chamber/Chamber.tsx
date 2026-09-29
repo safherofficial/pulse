@@ -147,7 +147,7 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
     setXNotice(null);
     try {
       const result = await syncPosts();
-      setXNotice(result.imported > 0 ? `Imported ${result.imported} posts from X.` : "X is connected, but no eligible posts were returned.");
+      setXNotice(result.imported > 0 ? `Imported ${result.imported} public posts from X.` : "X is connected, but no public posts were returned.");
       onReload?.();
     } catch (error: unknown) {
       setXNotice(error instanceof Error ? error.message : "X sync failed.");
@@ -192,7 +192,7 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
                 <div className="hidden items-center gap-2 sm:flex">
                   <span className={`h-1.5 w-1.5 rounded-full ${model.xApiLinked ? "bg-accent" : "bg-muted"}`} aria-hidden />
                   <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
-                    {model.xApiLinked ? "X API linked" : "X API not linked"}
+                    {model.xApiLinked ? "X linked" : "X not linked"}
                   </span>
                 </div>
               ) : null}
