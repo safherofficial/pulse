@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "targetScore": 80,
+  "criteria": {
+    "hook": 1.25,
+    "clarity": 1.1,
+    "density": 1,
+    "curiosity": 1.05,
+    "emotion": 0.8,
+    "shareability": 1.1,
+    "structure": 1.1,
+    "readability": 0.9,
+    "thread_craft": 1.15,
+    "human": 1,
+    "anti_spam": 0.95
+  },
+  "thresholds": {
+    "weak": 65,
+    "good": 72,
+    "target": 80
+  },
+  "contentTypes": {
+    "post": 1,
+    "thread": 1.05,
+    "article": 0.95
+  }
+}
