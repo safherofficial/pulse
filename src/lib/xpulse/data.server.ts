@@ -1978,7 +1978,7 @@ export async function runBeginX(
     return {
       ok: true as const,
       url:
-        `https://twitter.com/i/oauth2/authorize?${params.toString()}`
+        `https://x.com/i/oauth2/authorize?${params.toString()}`
     };
   } catch (error) {
     return fail(error);
