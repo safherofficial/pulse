@@ -1,5 +1,4 @@
 import { readFileSync } from "node:fs";
-import { getSql } from "@/lib/db";
 
 export type MemoryWeights = {
   criteria: Record<string, number>;
@@ -64,6 +63,8 @@ export function memoryPromptContext(text: string, kind: "post" | "thread" | "art
 export async function memoryPromptContextAsync(text: string, kind: "post" | "thread" | "article"): Promise<string> {
   const staticContext = memoryPromptContext(text, kind);
   try {
+    const { getSql } = await import("@/lib/db");
+    const { getSql } = await import("@/lib/db");
     const sql = getSql();
     const rows = await sql<{ before_text: string; after_text: string; status: string; before_score: number; after_score: number }>`
       select before_text, after_text, status, before_score, after_score
@@ -81,6 +82,7 @@ export async function memoryPromptContextAsync(text: string, kind: "post" | "thr
 }
 
 export async function recordMemoryExample(input: { kind: "post" | "thread" | "article"; status: "accepted" | "rejected"; beforeText: string; afterText: string; beforeScore: number; afterScore: number; criteria: string[] }): Promise<void> {
+  const { getSql } = await import("@/lib/db");
   const sql = getSql();
   await sql`
     insert into xpulse_editor_memory (id, kind, status, before_text, after_text, before_score, after_score, criteria)
