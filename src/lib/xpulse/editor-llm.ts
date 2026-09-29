@@ -103,7 +103,9 @@ function factsPayload(dossier: EditorDossier) {
 }
 
 export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis | null> {
-  const report = scoreContent(dossier.input.text, dossier.output.kind);
+  const memory = memoryPromptContext(dossier.input.text, dossier.output.kind);
+  const memoryJson = JSON.parse(JSON.stringify(memory));
+  const report = scoreContent(dossier.input.text, dossier.output.kind, (memoryJson as { memory: { weights: { criteria: Record<string, number>; contentTypes: Record<string, number> } } }).memory.weights.criteria, (memoryJson as { memory: { weights: { contentTypes: Record<string, number> } } }).memory.weights.contentTypes[dossier.output.kind] ?? 1);
   const result = await callLlm(
     [
       {
@@ -120,12 +122,12 @@ export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis
       },
       {
         role: "user",
-        content: JSON.stringify({ ...factsPayload(dossier), memory: memoryPromptContext(dossier.input.text, dossier.output.kind) }),
+        content: JSON.stringify({ ...factsPayload(dossier), memory }),
       },
     ],
     {
       json: true,
-      temperature: 0.25,
+      temperature: 0.1,
       maxTokens: 1800,
       validate: (raw) => validateAnalysis(raw),
       repairPrompt: "Return valid JSON matching the exact requested schema. Do not change deterministic scores and do not add unsupported facts.",
@@ -174,7 +176,7 @@ export async function reviseWithLlm(
     ],
     {
       json: true,
-      temperature: 0.35,
+      temperature: 0.7,
       maxTokens: dossier.output.kind === "article" ? 3000 : 1800,
       validate: (raw) => validateRevision(raw, maxLength),
       repairPrompt: "Return only valid JSON with text and changed[]. Apply only selected interventions and preserve all factual content.",
