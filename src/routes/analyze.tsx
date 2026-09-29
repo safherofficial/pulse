@@ -4,7 +4,7 @@ import { WorkspaceShell } from "@/components/intel/WorkspaceShell";
 import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { runEditor, reviseEditor, optimizationStatus } from "@/lib/xpulse/api";
+import { improveLoop, runEditor, reviseEditor, optimizationStatus } from "@/lib/xpulse/api";
 import type { ContentKind } from "@/lib/xpulse/content-score";
 import { baselineContent } from "@/lib/xpulse/optimize/baseline";
 import {
@@ -65,6 +65,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
   const [notice, setNotice] = useState<string | null>(null);
   const [optimization, setOptimization] = useState<OptimizationView | null>(null);
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
+  const [loopResult, setLoopResult] = useState<{ target: number; rounds: Array<{ round: number; before: EditorDossier; after: EditorDossier }>; final: EditorDossier; stoppedReason: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,6 +108,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
     setBusy(nextMode);
     setMode(nextMode);
     setNotice(null);
+    setLoopResult(null);
     try {
       const result = (await runEditor({
         data: { text: draft, url: page, mode: nextMode, kind: nextKind, request: nextRequest },
@@ -207,6 +209,26 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
             >
               {busy === item.id ? "Working…" : item.label}
             </Button>
+            <Button
+              type="button"
+              variant="quiet"
+              disabled={busy !== null || (!text.trim() && !url.trim())}
+              onClick={async () => {
+                setBusy("REWRITE");
+                setNotice(null);
+                try {
+                  const result = await improveLoop({ data: { text, url, kind, target: 80 } }) as typeof loopResult;
+                  setLoopResult(result);
+                  setDossier(result.final);
+                } catch {
+                  setNotice("Automatic improvement could not complete. The deterministic analysis remains available.");
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              Auto improve → 80
+            </Button>
           ))}
         </div>
         {notice ? (
@@ -216,7 +238,23 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
         ) : null}
       </CollapsibleSection>
 
-      {dossier ? <DossierView dossier={dossier} beats={beats} selectedSuggestions={selectedSuggestions} onToggleSuggestion={(id) => setSelectedSuggestions((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} onRevise={async () => {
+            {loopResult ? (
+        <CollapsibleSection kicker="Improve loop" title={`Before → after · ${loopResult.final.score.improved.total}/100`} activityKey={String(loopResult.final.score.improved.total)}>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Meter label="Initial" value={loopResult.rounds[0]?.before.score.improved.total ?? loopResult.final.score.original.total} />
+            <Meter label="Final" value={loopResult.final.score.improved.total} />
+            <Meter label="Rounds" value={loopResult.rounds.length} />
+          </div>
+          <p className="mt-3 text-xs text-subtle">Stopped: {loopResult.stoppedReason}. Target: {loopResult.target}/100.</p>
+          {loopResult.rounds.map((round) => (
+            <p key={round.round} className="mt-1 text-xs text-muted">
+              Round {round.round}: {round.before.score.improved.total} → {round.after.score.improved.total}
+            </p>
+          ))}
+        </CollapsibleSection>
+      ) : null}
+
+{dossier ? <DossierView dossier={dossier} beats={beats} selectedSuggestions={selectedSuggestions} onToggleSuggestion={(id) => setSelectedSuggestions((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])} onRevise={async () => {
         if (!selectedSuggestions.length || !dossier.analysis.ai?.suggestions.length) return;
         setBusy("REWRITE");
         setNotice(null);
