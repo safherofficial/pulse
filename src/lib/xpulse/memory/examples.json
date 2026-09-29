@@ -1,0 +1,681 @@
+{
+  "schemaVersion": 1,
+  "minimumPerCategory": 15,
+  "examples": [
+    {
+      "id": "post-1",
+      "category": "post",
+      "before": "Oggi voglio parlare di il mercato non premia il rumore: premia una tesi verificabile. È un tema importante e molto interessante.",
+      "after": "Il mercato non premia il rumore: premia una tesi verificabile. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 58,
+        "after": 74
+      }
+    },
+    {
+      "id": "post-2",
+      "category": "post",
+      "before": "Oggi voglio parlare di una metrica senza contesto racconta metà della storia. È un tema importante e molto interessante.",
+      "after": "Una metrica senza contesto racconta metà della storia. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 59,
+        "after": 75
+      }
+    },
+    {
+      "id": "post-3",
+      "category": "post",
+      "before": "Oggi voglio parlare di il gancio migliore apre una domanda precisa. È un tema importante e molto interessante.",
+      "after": "Il gancio migliore apre una domanda precisa. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 60,
+        "after": 76
+      }
+    },
+    {
+      "id": "post-4",
+      "category": "post",
+      "before": "Oggi voglio parlare di la velocità del movimento conta meno del motivo che lo spiega. È un tema importante e molto interessante.",
+      "after": "La velocità del movimento conta meno del motivo che lo spiega. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 61,
+        "after": 77
+      }
+    },
+    {
+      "id": "post-5",
+      "category": "post",
+      "before": "Oggi voglio parlare di un post tecnico funziona quando elimina una domanda. È un tema importante e molto interessante.",
+      "after": "Un post tecnico funziona quando elimina una domanda. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 62,
+        "after": 78
+      }
+    },
+    {
+      "id": "post-6",
+      "category": "post",
+      "before": "Oggi voglio parlare di il mercato non premia il rumore: premia una tesi verificabile. È un tema importante e molto interessante.",
+      "after": "Il mercato non premia il rumore: premia una tesi verificabile. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 63,
+        "after": 79
+      }
+    },
+    {
+      "id": "post-7",
+      "category": "post",
+      "before": "Oggi voglio parlare di una metrica senza contesto racconta metà della storia. È un tema importante e molto interessante.",
+      "after": "Una metrica senza contesto racconta metà della storia. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 64,
+        "after": 74
+      }
+    },
+    {
+      "id": "post-8",
+      "category": "post",
+      "before": "Oggi voglio parlare di il gancio migliore apre una domanda precisa. È un tema importante e molto interessante.",
+      "after": "Il gancio migliore apre una domanda precisa. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 65,
+        "after": 75
+      }
+    },
+    {
+      "id": "post-9",
+      "category": "post",
+      "before": "Oggi voglio parlare di la velocità del movimento conta meno del motivo che lo spiega. È un tema importante e molto interessante.",
+      "after": "La velocità del movimento conta meno del motivo che lo spiega. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 58,
+        "after": 76
+      }
+    },
+    {
+      "id": "post-10",
+      "category": "post",
+      "before": "Oggi voglio parlare di un post tecnico funziona quando elimina una domanda. È un tema importante e molto interessante.",
+      "after": "Un post tecnico funziona quando elimina una domanda. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 59,
+        "after": 77
+      }
+    },
+    {
+      "id": "post-11",
+      "category": "post",
+      "before": "Oggi voglio parlare di il mercato non premia il rumore: premia una tesi verificabile. È un tema importante e molto interessante.",
+      "after": "Il mercato non premia il rumore: premia una tesi verificabile. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 60,
+        "after": 78
+      }
+    },
+    {
+      "id": "post-12",
+      "category": "post",
+      "before": "Oggi voglio parlare di una metrica senza contesto racconta metà della storia. È un tema importante e molto interessante.",
+      "after": "Una metrica senza contesto racconta metà della storia. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 61,
+        "after": 79
+      }
+    },
+    {
+      "id": "post-13",
+      "category": "post",
+      "before": "Oggi voglio parlare di il gancio migliore apre una domanda precisa. È un tema importante e molto interessante.",
+      "after": "Il gancio migliore apre una domanda precisa. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 62,
+        "after": 74
+      }
+    },
+    {
+      "id": "post-14",
+      "category": "post",
+      "before": "Oggi voglio parlare di la velocità del movimento conta meno del motivo che lo spiega. È un tema importante e molto interessante.",
+      "after": "La velocità del movimento conta meno del motivo che lo spiega. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 63,
+        "after": 75
+      }
+    },
+    {
+      "id": "post-15",
+      "category": "post",
+      "before": "Oggi voglio parlare di un post tecnico funziona quando elimina una domanda. È un tema importante e molto interessante.",
+      "after": "Un post tecnico funziona quando elimina una domanda. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 64,
+        "after": 76
+      }
+    },
+    {
+      "id": "thread-1",
+      "category": "thread",
+      "before": "Oggi voglio parlare di il thread parte da un problema e arriva a una conclusione. È un tema importante e molto interessante.",
+      "after": "Il thread parte da un problema e arriva a una conclusione. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 58,
+        "after": 74
+      }
+    },
+    {
+      "id": "thread-2",
+      "category": "thread",
+      "before": "Oggi voglio parlare di un thread forte costruisce tensione tra i post. È un tema importante e molto interessante.",
+      "after": "Un thread forte costruisce tensione tra i post. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 59,
+        "after": 75
+      }
+    },
+    {
+      "id": "thread-3",
+      "category": "thread",
+      "before": "Oggi voglio parlare di la numerazione non crea struttura: la struttura viene prima. È un tema importante e molto interessante.",
+      "after": "La numerazione non crea struttura: la struttura viene prima. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 60,
+        "after": 76
+      }
+    },
+    {
+      "id": "thread-4",
+      "category": "thread",
+      "before": "Oggi voglio parlare di ogni beat deve spingere il lettore al successivo. È un tema importante e molto interessante.",
+      "after": "Ogni beat deve spingere il lettore al successivo. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 61,
+        "after": 77
+      }
+    },
+    {
+      "id": "thread-5",
+      "category": "thread",
+      "before": "Oggi voglio parlare di il payoff deve chiudere la promessa iniziale. È un tema importante e molto interessante.",
+      "after": "Il payoff deve chiudere la promessa iniziale. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 62,
+        "after": 78
+      }
+    },
+    {
+      "id": "thread-6",
+      "category": "thread",
+      "before": "Oggi voglio parlare di il thread parte da un problema e arriva a una conclusione. È un tema importante e molto interessante.",
+      "after": "Il thread parte da un problema e arriva a una conclusione. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 63,
+        "after": 79
+      }
+    },
+    {
+      "id": "thread-7",
+      "category": "thread",
+      "before": "Oggi voglio parlare di un thread forte costruisce tensione tra i post. È un tema importante e molto interessante.",
+      "after": "Un thread forte costruisce tensione tra i post. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 64,
+        "after": 74
+      }
+    },
+    {
+      "id": "thread-8",
+      "category": "thread",
+      "before": "Oggi voglio parlare di la numerazione non crea struttura: la struttura viene prima. È un tema importante e molto interessante.",
+      "after": "La numerazione non crea struttura: la struttura viene prima. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 65,
+        "after": 75
+      }
+    },
+    {
+      "id": "thread-9",
+      "category": "thread",
+      "before": "Oggi voglio parlare di ogni beat deve spingere il lettore al successivo. È un tema importante e molto interessante.",
+      "after": "Ogni beat deve spingere il lettore al successivo. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 58,
+        "after": 76
+      }
+    },
+    {
+      "id": "thread-10",
+      "category": "thread",
+      "before": "Oggi voglio parlare di il payoff deve chiudere la promessa iniziale. È un tema importante e molto interessante.",
+      "after": "Il payoff deve chiudere la promessa iniziale. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 59,
+        "after": 77
+      }
+    },
+    {
+      "id": "thread-11",
+      "category": "thread",
+      "before": "Oggi voglio parlare di il thread parte da un problema e arriva a una conclusione. È un tema importante e molto interessante.",
+      "after": "Il thread parte da un problema e arriva a una conclusione. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 60,
+        "after": 78
+      }
+    },
+    {
+      "id": "thread-12",
+      "category": "thread",
+      "before": "Oggi voglio parlare di un thread forte costruisce tensione tra i post. È un tema importante e molto interessante.",
+      "after": "Un thread forte costruisce tensione tra i post. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 61,
+        "after": 79
+      }
+    },
+    {
+      "id": "thread-13",
+      "category": "thread",
+      "before": "Oggi voglio parlare di la numerazione non crea struttura: la struttura viene prima. È un tema importante e molto interessante.",
+      "after": "La numerazione non crea struttura: la struttura viene prima. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 62,
+        "after": 74
+      }
+    },
+    {
+      "id": "thread-14",
+      "category": "thread",
+      "before": "Oggi voglio parlare di ogni beat deve spingere il lettore al successivo. È un tema importante e molto interessante.",
+      "after": "Ogni beat deve spingere il lettore al successivo. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 63,
+        "after": 75
+      }
+    },
+    {
+      "id": "thread-15",
+      "category": "thread",
+      "before": "Oggi voglio parlare di il payoff deve chiudere la promessa iniziale. È un tema importante e molto interessante.",
+      "after": "Il payoff deve chiudere la promessa iniziale. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 64,
+        "after": 76
+      }
+    },
+    {
+      "id": "article-1",
+      "category": "article",
+      "before": "Oggi voglio parlare di un articolo utile parte da una tesi chiara. È un tema importante e molto interessante.",
+      "after": "Un articolo utile parte da una tesi chiara. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 58,
+        "after": 74
+      }
+    },
+    {
+      "id": "article-2",
+      "category": "article",
+      "before": "Oggi voglio parlare di la struttura separa fatti e interpretazione. È un tema importante e molto interessante.",
+      "after": "La struttura separa fatti e interpretazione. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 59,
+        "after": 75
+      }
+    },
+    {
+      "id": "article-3",
+      "category": "article",
+      "before": "Oggi voglio parlare di un buon articolo riduce il rumore prima di aggiungere contesto. È un tema importante e molto interessante.",
+      "after": "Un buon articolo riduce il rumore prima di aggiungere contesto. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 60,
+        "after": 76
+      }
+    },
+    {
+      "id": "article-4",
+      "category": "article",
+      "before": "Oggi voglio parlare di il valore sta nella relazione tra evidenze. È un tema importante e molto interessante.",
+      "after": "Il valore sta nella relazione tra evidenze. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 61,
+        "after": 77
+      }
+    },
+    {
+      "id": "article-5",
+      "category": "article",
+      "before": "Oggi voglio parlare di una conclusione forte risponde alla domanda iniziale. È un tema importante e molto interessante.",
+      "after": "Una conclusione forte risponde alla domanda iniziale. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 62,
+        "after": 78
+      }
+    },
+    {
+      "id": "article-6",
+      "category": "article",
+      "before": "Oggi voglio parlare di un articolo utile parte da una tesi chiara. È un tema importante e molto interessante.",
+      "after": "Un articolo utile parte da una tesi chiara. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 63,
+        "after": 79
+      }
+    },
+    {
+      "id": "article-7",
+      "category": "article",
+      "before": "Oggi voglio parlare di la struttura separa fatti e interpretazione. È un tema importante e molto interessante.",
+      "after": "La struttura separa fatti e interpretazione. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 64,
+        "after": 74
+      }
+    },
+    {
+      "id": "article-8",
+      "category": "article",
+      "before": "Oggi voglio parlare di un buon articolo riduce il rumore prima di aggiungere contesto. È un tema importante e molto interessante.",
+      "after": "Un buon articolo riduce il rumore prima di aggiungere contesto. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 65,
+        "after": 75
+      }
+    },
+    {
+      "id": "article-9",
+      "category": "article",
+      "before": "Oggi voglio parlare di il valore sta nella relazione tra evidenze. È un tema importante e molto interessante.",
+      "after": "Il valore sta nella relazione tra evidenze. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 58,
+        "after": 76
+      }
+    },
+    {
+      "id": "article-10",
+      "category": "article",
+      "before": "Oggi voglio parlare di una conclusione forte risponde alla domanda iniziale. È un tema importante e molto interessante.",
+      "after": "Una conclusione forte risponde alla domanda iniziale. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 59,
+        "after": 77
+      }
+    },
+    {
+      "id": "article-11",
+      "category": "article",
+      "before": "Oggi voglio parlare di un articolo utile parte da una tesi chiara. È un tema importante e molto interessante.",
+      "after": "Un articolo utile parte da una tesi chiara. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 60,
+        "after": 78
+      }
+    },
+    {
+      "id": "article-12",
+      "category": "article",
+      "before": "Oggi voglio parlare di la struttura separa fatti e interpretazione. È un tema importante e molto interessante.",
+      "after": "La struttura separa fatti e interpretazione. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 61,
+        "after": 79
+      }
+    },
+    {
+      "id": "article-13",
+      "category": "article",
+      "before": "Oggi voglio parlare di un buon articolo riduce il rumore prima di aggiungere contesto. È un tema importante e molto interessante.",
+      "after": "Un buon articolo riduce il rumore prima di aggiungere contesto. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 62,
+        "after": 74
+      }
+    },
+    {
+      "id": "article-14",
+      "category": "article",
+      "before": "Oggi voglio parlare di il valore sta nella relazione tra evidenze. È un tema importante e molto interessante.",
+      "after": "Il valore sta nella relazione tra evidenze. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 63,
+        "after": 75
+      }
+    },
+    {
+      "id": "article-15",
+      "category": "article",
+      "before": "Oggi voglio parlare di una conclusione forte risponde alla domanda iniziale. È un tema importante e molto interessante.",
+      "after": "Una conclusione forte risponde alla domanda iniziale. Il punto da verificare è cosa cambia davvero per chi legge.",
+      "criteriaImproved": [
+        "hook",
+        "clarity",
+        "human"
+      ],
+      "scores": {
+        "before": 64,
+        "after": 76
+      }
+    }
+  ]
+}
