@@ -87,6 +87,14 @@ export type EditorDossier = {
     why: string[];
     risks: string[];
     viral: string[];
+    ai?: {
+      summary: string;
+      motivations: Array<{ criterion: string; score: number; reason: string }>;
+      strengths: string[];
+      weaknesses: string[];
+      suggestions: Array<{ id: string; position: string; problem: string; correction: string; criterion: string }>;
+      trace: { provider: string; model: string; durationMs: number; attempt: number };
+    };
   };
   plan: PlanItem[];
   output: {
