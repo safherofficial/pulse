@@ -13,6 +13,7 @@ import { optimizeContent, type CompositionResult } from "./optimize/compose.ts";
 import { preservesAuthorFacts } from "./optimize/benchmarks.ts";
 import type { ContentLogicVersion } from "./optimize/types.ts";
 import { loadMemory, memoryPromptContext } from "./memory.ts";
+import { detectEcho } from "./echo-detector.ts";
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
@@ -180,13 +181,13 @@ async function polish(text: string): Promise<{ text: string; notes: string[] }> 
   return { text: stripFence(next), notes };
 }
 
-async function writeWithLlm(system: string, user: string): Promise<{ text: string; source: string } | null> {
+async function writeWithLlm(system: string, user: string, temperature = 0.7): Promise<{ text: string; source: string } | null> {
   const messages: ChatMessage[] = [
     { role: "system", content: system },
     { role: "user", content: user },
   ];
   for (const provider of providers()) {
-    const raw = await chatComplete(provider, messages, 0.25);
+    const raw = await chatComplete(provider, messages, temperature);
     if (raw && raw.length >= 60) return { text: stripFence(raw), source: provider.id };
   }
   return null;
@@ -252,7 +253,8 @@ export async function improveDraftCopy(text: string, kind: ContentKind): Promise
         buildEditorialSelfCritiquePrompt(kind),
       ],
     ),
-    "Kind: " + kind + "\nScore now: " + before.total + "/100\nDRAFT:\n" + text,
+    "Kind: " + kind + "\nScore now: " + before.total + "/100\n" + memoryPromptContext(text, kind) + "\nDRAFT:\n" + text,
+    0.7,
   );
   let chosen = fromComposition(local, "local-score");
   if (live?.text) {
@@ -366,6 +368,8 @@ export async function rewriteWithConfiguredModel(input: {
         },
         [
           "You are the writer stage of an editorial pipeline. A critic will reject you if you invent or flip facts.",
+          "TRANSFORM THE DRAFT. Do not return the input verbatim. If the draft is already strong, improve its hook, compression, specificity, or progression while preserving meaning.",
+          input.attempt === 2 ? "The previous candidate was too close to the input. Make a materially different editorial transformation now." : "",
           "Keep the author's language, names, tickers, mentions, hashtags, URLs, emoji, and numbers unless the task explicitly asks for a format transformation.",
           "Do not add a statistic, quote, source, partnership, price, or market-cap figure.",
           "Do not turn a bearish, severe, or collapsed read into a bullish one.",
@@ -385,7 +389,7 @@ export async function rewriteWithConfiguredModel(input: {
     },
     {
       role: "user",
-      content: `Mode: ${input.mode}\nAttempt: ${input.attempt ?? 1}\nKind: ${input.kind}\nLanguage: ${input.language}\nUser request: ${input.request ?? "General editorial analysis"}\nPlan:\n${input.plan.join("\n")}\n\nDRAFT:\n${input.text}`,
+      content: `Mode: ${input.mode}\nAttempt: ${input.attempt ?? 1}\nKind: ${input.kind}\nLanguage: ${input.language}\nUser request: ${input.request ?? "General editorial analysis"}\nPlan:\n${input.plan.join("\n")}\n\n${memoryPromptContext(input.text, input.kind)}\n\nDRAFT:\n${input.text}`,
     },
   ];
   for (const provider of available) {
