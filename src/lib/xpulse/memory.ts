@@ -137,5 +137,9 @@ export async function importMemorySnapshot(snapshot: unknown): Promise<number> {
       inserted++;
     }
   }
+  await sql`
+    delete from xpulse_editor_memory
+    where id in (select id from xpulse_editor_memory order by created_at asc offset 500)
+  `;
   return inserted;
 }
