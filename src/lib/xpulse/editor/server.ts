@@ -292,7 +292,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       mode,
       kind,
       request,
-      logic,
+      logic: effectiveLogic,
       url: urlResult,
       proposed: { text: proposed, source: candidate.source },
       trend,
