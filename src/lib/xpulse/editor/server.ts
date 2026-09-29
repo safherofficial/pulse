@@ -364,8 +364,8 @@ export async function executeImproveLoop(input: EditorRequest, deps: EditorDeps 
       return { target, rounds, final: current, stoppedReason: "target_reached" };
     }
 
-    let ai: Awaited<ReturnType<typeof import("../editor-llm.ts")["analyzeWithLlm"]>> = current.analysis.ai ?? null;
-    let revision: Awaited<ReturnType<typeof import("../editor-llm.ts")["reviseWithLlm"]>> = null;
+    let ai = current.analysis.ai ?? null;
+    let revision: { text: string } | null = null;
     try {
       const { analyzeWithLlm, reviseWithLlm } = await import("../editor-llm.ts");
       ai = ai ?? await analyzeWithLlm(current);
