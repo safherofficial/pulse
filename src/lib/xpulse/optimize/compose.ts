@@ -121,15 +121,15 @@ function applyLever(text: string, lever: string, kind: ContentFormat, mode: Opti
   return text;
 }
 
-function bestExistingOrder(text: string, kind: ContentFormat): string {
+function bestExistingOrder(text: string, kind: ContentFormat, scoreWeights?: Record<string, number>, typeMultiplier = 1): string {
   const parts = sentencesOf(text);
   if (parts.length < 2 || parts.length > 12) return text;
-  const originalScore = scoreContent(text, kind as ContentKind).total;
+  const originalScore = scoreContent(text, kind as ContentKind, scoreWeights, typeMultiplier).total;
   let best = text;
   let bestScore = originalScore;
   for (let i = 0; i < parts.length; i += 1) {
     const candidate = [parts[i], ...parts.filter((_, index) => index !== i)].join("\n\n");
-    const score = scoreContent(candidate, kind as ContentKind).total;
+    const score = scoreContent(candidate, kind as ContentKind, scoreWeights, typeMultiplier).total;
     if (score > bestScore && preservesAuthorFacts(text, candidate)) {
       best = candidate;
       bestScore = score;
@@ -172,8 +172,10 @@ export function composeWithRules(
   mode: OptimizeMode,
   commit: "measure" | "keep_best",
   requiredPhrases: string[] = [],
+  scoreWeights?: Record<string, number>,
+  typeMultiplier = 1,
 ): CompositionResult {
-  const before = scoreContent(text, kind as ContentKind);
+  const before = scoreContent(text, kind as ContentKind, scoreWeights, typeMultiplier);
   const notes: string[] = [];
   let next = text.trim();
   const applied: string[] = [];
@@ -203,7 +205,7 @@ export function composeWithRules(
       }
     }
     if (["SCORE_IMPROVE", "OPTIMIZE", "REWRITE", "HOOK_OPTIMIZE"].includes(mode)) {
-      const reordered = bestExistingOrder(next, kind);
+      const reordered = bestExistingOrder(next, kind, scoreWeights, typeMultiplier);
       if (reordered !== next) {
         next = reordered;
         applied.push("optimize:existing-order");
@@ -224,7 +226,8 @@ export function composeWithRules(
   const preserved = preservesAuthorFacts(text, next) && phrasesHeld;
   let committed = next;
   if (commit === "keep_best") {
-    const trial = scoreContent(next, (mode === "THREADIFY" ? "thread" : mode === "ARTICLEIFY" ? "article" : kind) as ContentKind);
+    const trialKind = (mode === "THREADIFY" ? "thread" : mode === "ARTICLEIFY" ? "article" : kind) as ContentKind;
+    const trial = scoreContent(next, trialKind, scoreWeights, typeMultiplier);
     if (!preserved || trial.total < before.total) {
       committed = text.trim();
       if (!preserved) notes.push("Edit dropped a fact or required line. Original kept.");
@@ -235,7 +238,7 @@ export function composeWithRules(
   }
 
   const outKind: ContentFormat = mode === "THREADIFY" ? "thread" : mode === "ARTICLEIFY" ? "article" : kind;
-  const after = scoreContent(committed, outKind);
+  const after = scoreContent(committed, outKind, scoreWeights, typeMultiplier);
   const deltas = dimensionDeltas(before, after);
   for (const delta of deltas) notes.push(`${delta.label} ${delta.delta > 0 ? "+" : ""}${delta.delta}`);
   return {
@@ -268,6 +271,8 @@ export function optimizeContent(input: {
     input.mode,
     "keep_best",
     input.requiredPhrases ?? [],
+    input.logic.scoreWeights,
+    input.logic.scoreTypeMultipliers?.[input.kind] ?? 1,
   );
 }
 
