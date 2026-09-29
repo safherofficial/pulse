@@ -14,7 +14,7 @@ import { WalletPortfolio } from "@/components/chamber/WalletPortfolio";
 import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
-import { clearPosts, compareXUrls, deletePosts, enrichAnalysis, rewriteEnriched } from "@/lib/xpulse/api";
+import { beginXConnect, clearPosts, compareXUrls, deletePosts, enrichAnalysis, rewriteEnriched, syncPosts } from "@/lib/xpulse/api";
 import type { EnrichedAnalysis, EnrichedRewrite } from "@/lib/xpulse/enrich";
 import {
   formatCompact,
@@ -83,6 +83,8 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
   const setFocus = usePulseStore((s) => s.setFocus);
   const reset = usePulseStore((s) => s.reset);
   const [compare, setCompare] = useState<PublicCompareResult | null>(null);
+  const [xBusy, setXBusy] = useState(false);
+  const [xNotice, setXNotice] = useState<string | null>(null);
   const pendingId = useRef<string | null>(null);
   const mainRef = useRef<HTMLElement | null>(null);
 
@@ -123,6 +125,37 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
   const signals = selectedPost ? writingSignals(selectedPost.text) : null;
   const graphPost = view === "compare" ? undefined : selectedPost;
 
+  async function connectX() {
+    setXBusy(true);
+    setXNotice(null);
+    try {
+      const result = await beginXConnect();
+      if (!result.ok) {
+        setXNotice(result.message);
+        return;
+      }
+      window.location.assign(result.url);
+    } catch (error: unknown) {
+      setXNotice(error instanceof Error ? error.message : "Could not start X connection.");
+    } finally {
+      setXBusy(false);
+    }
+  }
+
+  async function syncX() {
+    setXBusy(true);
+    setXNotice(null);
+    try {
+      const result = await syncPosts();
+      setXNotice(result.imported > 0 ? `Imported ${result.imported} posts from X.` : "X is connected, but no eligible posts were returned.");
+      onReload?.();
+    } catch (error: unknown) {
+      setXNotice(error instanceof Error ? error.message : "X sync failed.");
+    } finally {
+      setXBusy(false);
+    }
+  }
+
   return (
     <div className="relative min-h-dvh bg-bg text-fg">
       {/* Ambient 3D — fixed, non-interactive, never steals scroll */}
@@ -154,23 +187,47 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
                 </p>
               </div>
             </div>
-            <Link
-              to={model.mode === "sample" ? "/onboard" : "/studio"}
-              className="inline-flex h-10 items-center text-sm text-muted transition-colors hover:text-accent"
-            >
-              {model.mode === "sample" ? "Unlock yours" : "Sample"}
-            </Link>
+            <div className="flex items-center gap-3">
+              {model.mode === "account" ? (
+                <div className="hidden items-center gap-2 sm:flex">
+                  <span className={`h-1.5 w-1.5 rounded-full ${model.xApiLinked ? "bg-accent" : "bg-muted"}`} aria-hidden />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+                    {model.xApiLinked ? "X API linked" : "X API not linked"}
+                  </span>
+                </div>
+              ) : null}
+              <Link
+                to={model.mode === "sample" ? "/onboard" : "/studio"}
+                className="inline-flex h-10 items-center text-sm text-muted transition-colors hover:text-accent"
+              >
+                {model.mode === "sample" ? "Unlock yours" : "Sample"}
+              </Link>
+            </div>
           </div>
 
           {model.mode === "account" ? (
             <div className="mx-auto max-w-6xl border-t border-line/50 px-4 py-3 sm:px-6">
-              <AnalyzeLinkField
-                compact
-                onImported={(id) => {
-                  if (id) pendingId.current = id;
-                  onReload?.();
-                }}
-              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <AnalyzeLinkField
+                  compact
+                  onImported={(id) => {
+                    if (id) pendingId.current = id;
+                    onReload?.();
+                  }}
+                />
+                <div className="flex shrink-0 items-center gap-2">
+                  {model.xApiLinked ? (
+                    <Button type="button" variant="quiet" disabled={xBusy} onClick={() => void syncX()}>
+                      {xBusy ? "Syncing…" : "Sync X"}
+                    </Button>
+                  ) : (
+                    <Button type="button" variant="quiet" disabled={xBusy} onClick={() => void connectX()}>
+                      {xBusy ? "Connecting…" : "Connect X"}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {xNotice ? <p className="mt-2 text-xs text-muted" role="status">{xNotice}</p> : null}
             </div>
           ) : null}
 
