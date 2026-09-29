@@ -2067,6 +2067,12 @@ export async function handleXCallback(
     url.searchParams.get("code");
   const state =
     url.searchParams.get("state");
+  const oauthError =
+    url.searchParams.get("error");
+
+  if (oauthError) {
+    return back(`x_${oauthError}`);
+  }
 
   if (!code || !state) {
     return back("missing_code");
