@@ -168,7 +168,8 @@ test("draft generator keeps format identity and avoids outline-label threads", (
     "post",
   );
   assert.equal(postGate.pass, true);
-});\n
+})});
+
 test("deterministic validator rejects unsupported numeric claims", () => {
   const valid = generateFromFactSet(makeFacts(), "post");
   const checked = validateGeneratedContent(valid.text, "post", makeFacts());
