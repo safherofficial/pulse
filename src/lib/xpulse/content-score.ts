@@ -72,7 +72,7 @@ function threadBeats(text: string): string[] {
     .filter(Boolean);
 }
 
-export function scoreContent(text: string, kind: ContentKind = "post"): ContentScoreReport {
+export function scoreContent(text: string, kind: ContentKind = "post", weights: Record<string, number> = CONTENT_SCORE_WEIGHTS, typeMultiplier = 1): ContentScoreReport {
   const clean = text.trim();
   const signals = writingSignals(clean);
   const w = words(clean);
@@ -220,14 +220,15 @@ export function scoreContent(text: string, kind: ContentKind = "post"): ContentS
   });
 
   const weightedTotal = dims.reduce((sum, dimension) => {
-    const weight = Math.max(0, CONTENT_SCORE_WEIGHTS[dimension.key] ?? 1);
+    const weight = Math.max(0, weights[dimension.key] ?? 1);
     return sum + dimension.score * weight;
   }, 0);
   const totalWeight = dims.reduce(
     (sum, dimension) => sum + Math.max(0, CONTENT_SCORE_WEIGHTS[dimension.key] ?? 1),
     0,
   );
-  const total = clamp(weightedTotal / Math.max(1, totalWeight));
+  const baseTotal = weightedTotal / Math.max(1, totalWeight);
+  const total = clamp(baseTotal * Math.max(0.1, typeMultiplier));
 
   const working = dims
     .filter((d) => d.score >= 72)
