@@ -1,7 +1,7 @@
 import { callLlm, parseJsonObject, type LlmResult } from "./llm-runtime.ts";
 import { scoreContent, type ContentScoreReport } from "./content-score.ts";
 import type { EditorDossier } from "./editor/pipeline.ts";
-import { loadMemory, memoryPromptContext } from "./memory.ts";
+import { loadMemory, memoryPromptContextAsync } from "./memory.ts";
 import { detectEcho } from "./echo-detector.ts";
 
 export type AiSuggestion = {
@@ -103,7 +103,7 @@ function factsPayload(dossier: EditorDossier) {
 }
 
 export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis | null> {
-  const memory = memoryPromptContext(dossier.input.text, dossier.output.kind);
+  const memory = await memoryPromptContextAsync(dossier.input.text, dossier.output.kind);
   const memoryBundle = loadMemory();
   const report = scoreContent(dossier.input.text, dossier.output.kind, memoryBundle.weights.criteria, memoryBundle.weights.contentTypes[dossier.output.kind] ?? 1);
   const result = await callLlm(
@@ -171,7 +171,7 @@ export async function reviseWithLlm(
       },
       {
         role: "user",
-        content: JSON.stringify({ draft: dossier.output.text || dossier.input.text, selected, memory: memoryPromptContext(dossier.output.text || dossier.input.text, dossier.output.kind) }),
+        content: JSON.stringify({ draft: dossier.output.text || dossier.input.text, selected, memory: await memoryPromptContextAsync(dossier.output.text || dossier.input.text, dossier.output.kind) }),
       },
     ],
     {
