@@ -209,27 +209,27 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
             >
               {busy === item.id ? "Working…" : item.label}
             </Button>
-            <Button
-              type="button"
-              variant="quiet"
-              disabled={busy !== null || (!text.trim() && !url.trim())}
-              onClick={async () => {
-                setBusy("REWRITE");
-                setNotice(null);
-                try {
-                  const result = await improveLoop({ data: { text, url, kind, target: 80 } }) as typeof loopResult;
-                  setLoopResult(result);
-                  setDossier(result.final);
-                } catch {
-                  setNotice("Automatic improvement could not complete. The deterministic analysis remains available.");
-                } finally {
-                  setBusy(null);
-                }
-              }}
-            >
-              Auto improve → 80
-            </Button>
           ))}
+          <Button
+            type="button"
+            variant="quiet"
+            disabled={busy !== null || (!text.trim() && !url.trim())}
+            onClick={async () => {
+              setBusy("REWRITE");
+              setNotice(null);
+              try {
+                const result = await improveLoop({ data: { text, url, kind, target: 80 } }) as NonNullable<typeof loopResult>;
+                setLoopResult(result);
+                setDossier(result.final);
+              } catch {
+                setNotice("Automatic improvement could not complete. The deterministic analysis remains available.");
+              } finally {
+                setBusy(null);
+              }
+            }}
+          >
+            Auto improve → 80
+          </Button>
         </div>
         {notice ? (
           <p className="text-sm text-danger" role="status">
