@@ -1,7 +1,7 @@
 import { callLlm, parseJsonObject, type LlmResult } from "./llm-runtime.ts";
 import { scoreContent, type ContentScoreReport } from "./content-score.ts";
 import type { EditorDossier } from "./editor/pipeline.ts";
-import { memoryPromptContext } from "./memory.ts";
+import { loadMemory, memoryPromptContext } from "./memory.ts";
 import { detectEcho } from "./echo-detector.ts";
 
 export type AiSuggestion = {
@@ -104,8 +104,8 @@ function factsPayload(dossier: EditorDossier) {
 
 export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis | null> {
   const memory = memoryPromptContext(dossier.input.text, dossier.output.kind);
-  const memoryJson = JSON.parse(JSON.stringify(memory));
-  const report = scoreContent(dossier.input.text, dossier.output.kind, (memoryJson as { memory: { weights: { criteria: Record<string, number>; contentTypes: Record<string, number> } } }).memory.weights.criteria, (memoryJson as { memory: { weights: { contentTypes: Record<string, number> } } }).memory.weights.contentTypes[dossier.output.kind] ?? 1);
+  const memoryBundle = loadMemory();
+  const report = scoreContent(dossier.input.text, dossier.output.kind, memoryBundle.weights.criteria, memoryBundle.weights.contentTypes[dossier.output.kind] ?? 1);
   const result = await callLlm(
     [
       {
