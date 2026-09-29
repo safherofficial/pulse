@@ -11,6 +11,7 @@ export type LlmTrace = {
   durationMs: number;
   attempt: number;
   rawOutput?: string;
+  prompt?: LlmMessage[];
   error?: string;
 };
 
@@ -148,7 +149,7 @@ export async function callLlm(
           model: provider.model,
           durationMs: Date.now() - started,
           attempt,
-          ...(debugEnabled() ? { rawOutput: raw } : {}),
+          ...(debugEnabled() ? { rawOutput: raw, prompt: currentMessages } : {}),
           ...(!res.ok ? { error: `HTTP ${res.status}` } : {}),
         };
         logTrace(trace);
@@ -170,7 +171,7 @@ export async function callLlm(
           model: provider.model,
           durationMs: Date.now() - started,
           attempt,
-          ...(debugEnabled() ? { rawOutput: "" } : {}),
+          ...(debugEnabled() ? { rawOutput: "", prompt: currentMessages } : {}),
           error: error instanceof Error ? error.message : "LLM request failed",
         };
         logTrace(trace);
