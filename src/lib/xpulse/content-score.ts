@@ -24,6 +24,20 @@ export type ContentScoreReport = {
   signals: WritingSignals;
 };
 
+export const CONTENT_SCORE_WEIGHTS: Record<string, number> = {
+  hook: 1,
+  clarity: 1,
+  density: 1,
+  curiosity: 1,
+  emotion: 1,
+  shareability: 1,
+  structure: 1,
+  readability: 1,
+  thread_craft: 1,
+  human: 1,
+  anti_spam: 1,
+};
+
 const AI_SLACK =
   /\b(in today's rapidly evolving|it's important to note|significant milestone|the future is here|game[- ]?changer|revolutionary|buckle up|delve into|landscape of|leverage synergies|unlock the potential|as an ai|in conclusion)\b/gi;
 
@@ -205,7 +219,15 @@ export function scoreContent(text: string, kind: ContentKind = "post"): ContentS
     note: spamScore < 70 ? "Engagement-bait or hashtag overload hurts real attention." : "Avoids obvious bait patterns.",
   });
 
-  const total = clamp(dims.reduce((sum, d) => sum + d.score, 0) / Math.max(1, dims.length));
+  const weightedTotal = dims.reduce((sum, dimension) => {
+    const weight = Math.max(0, CONTENT_SCORE_WEIGHTS[dimension.key] ?? 1);
+    return sum + dimension.score * weight;
+  }, 0);
+  const totalWeight = dims.reduce(
+    (sum, dimension) => sum + Math.max(0, CONTENT_SCORE_WEIGHTS[dimension.key] ?? 1),
+    0,
+  );
+  const total = clamp(weightedTotal / Math.max(1, totalWeight));
 
   const working = dims
     .filter((d) => d.score >= 72)
