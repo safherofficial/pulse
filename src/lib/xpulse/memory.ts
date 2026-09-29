@@ -115,6 +115,7 @@ export async function exportMemorySnapshot(): Promise<string> {
 export async function importMemorySnapshot(snapshot: unknown): Promise<number> {
   if (!snapshot || typeof snapshot !== "object") throw new Error("Invalid memory snapshot.");
   const learned = Array.isArray((snapshot as { learned?: unknown }).learned) ? (snapshot as { learned: unknown[] }).learned : [];
+  const { getSql } = await import("@/lib/db");
   const sql = getSql();
   let inserted = 0;
   for (const item of learned.slice(0, 500)) {
