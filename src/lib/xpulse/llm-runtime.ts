@@ -117,6 +117,9 @@ export async function callLlm(
   const providersList = providers();
   if (!providersList.length) return null;
 
+  const { reserveAiAction } = await import("./ai-gateway");
+  await reserveAiAction();
+
   for (const provider of providersList) {
     let currentMessages = messages;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
