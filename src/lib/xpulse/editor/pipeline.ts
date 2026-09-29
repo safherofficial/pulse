@@ -194,9 +194,10 @@ export function runEditorPipeline(input: {
   const intent = detectIntent(text);
   const entities = extractEntities(text);
   const statements = extractStatements(text);
+  // Resolve active content logic before any scoring that depends on it.
+  const logic = input.logic ?? baselineContent();
   const before = text ? scoreWithLogic(text, kind, logic) : emptyReport();
   const plan = buildPlan(before, text, statements.claims, request);
-  const logic = input.logic ?? baselineContent();
   const drafted = input.proposed?.text.trim()
     ? {
         text: normalizeDraft(input.proposed.text),
