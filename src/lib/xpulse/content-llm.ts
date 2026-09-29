@@ -7,6 +7,8 @@
 import { checkLanguageTool } from "./public-apis";
 import { scoreContent, type ContentKind } from "./content-score";
 import { validateGeneratedContent } from "./content-validator";
+import { detectEcho } from "./echo-detector.ts";
+import { memoryPromptContextAsync } from "./memory.ts";
 import {
   buildEditorialSelfCritiquePrompt,
   buildEditorialSystemPrompt,
@@ -225,6 +227,7 @@ function userPrompt(
 
   return [
     "Create original editorial content from the evidence below.",
+    "TRANSFORM THE RESEARCH INTO ORIGINAL WRITING. Never copy the input or source wording verbatim. The selected mode must produce an observable structural or rhetorical change.",
     "First find the single strongest story or contradiction. Then build the content around that thesis.",
     "Do not mention every field. Select the evidence that actually advances the argument.",
     "Use viral trend guidance only to improve hook, sequencing, pacing and narrative mechanics. Never copy wording.",
@@ -424,7 +427,7 @@ export async function writeTokenCopy(
     variant,
     trendGuidance,
     contentGuidance,
-  );
+  ) + "\n\n" + (await memoryPromptContextAsync(facts.story ?? facts.identity.name, kind));
   const temperature =
     mode === "more_concise"
       ? 0.62
@@ -470,8 +473,18 @@ export async function writeTokenCopy(
 
     let candidate = refined && refined.length >= 120 ? refined : draft;
     let cleaned = await polish(sanitize(candidate, facts, kind));
+    let echo = detectEcho(facts.story ?? facts.identity.name, cleaned);
+    if (echo.isEcho) {
+      applied.push("Echo rejected: " + echo.combinedSimilarity.toFixed(3));
+      const forced = await chatComplete(provider, [{ role: "system", content: system }, { role: "user", content: user + "\n\nThe previous candidate was an echo. Rewrite materially differently now." }], Math.max(0.72, temperature), maxTokens);
+      if (!forced || detectEcho(facts.story ?? facts.identity.name, forced).isEcho) continue;
+      candidate = forced;
+      cleaned = await polish(sanitize(candidate, facts, kind));
+    }
     let composed = await composeGenerated(cleaned, kind, facts);
     let validation = validateGeneratedContent(composed, kind, facts);
+    echo = detectEcho(facts.story ?? facts.identity.name, composed);
+    if (echo.isEcho) validation = { ...validation, pass: false, violations: [...validation.violations, "echo_output"] };
 
     // Controlled repair: one deterministic retry per provider, then reject and move to the next provider.
     if (!validation.pass) {
