@@ -15,9 +15,9 @@ import { PulseCanvas } from "@/components/scene/PulseCanvas";
 import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
-import { beginXConnect, clearPosts, compareXUrls, deletePosts, runEditor, syncPosts } from "@/lib/xpulse/api";
+import { beginXConnect, clearPosts, compareXUrls, deletePosts, syncPosts } from "@/lib/xpulse/api";
 import { getAiUsage } from "@/lib/xpulse/ai-gateway-client";
-import type { EditorDossier } from "@/lib/xpulse/editor/pipeline";
+import type { EditorHandoff } from "@/lib/xpulse/editor/pipeline";
 import {
   formatCompact,
   formatDwell,
@@ -488,76 +488,15 @@ function OverviewPane({
 }
 
 function RewriteCoach({ post }: { post: PulsePost }) {
-  const [analysis, setAnalysis] = useState<EditorDossier | null>(null);
-  const [result, setResult] = useState<EditorDossier | null>(null);
-  const [busy, setBusy] = useState<"analyze" | "rewrite" | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setAnalysis(null);
-    setResult(null);
-    setError(null);
-    setBusy("analyze");
-    void runEditor({
-      data: {
-        text: post.text,
-        kind: "post",
-        mode: "ANALYZE",
-        request: "Analyze this post and identify the highest-impact changes. Do not rewrite it yet.",
-      },
-    })
-      .then((value) => {
-        if (!cancelled) setAnalysis(value as EditorDossier);
-      })
-      .catch((reason: unknown) => {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : "AI analysis unavailable.");
-      })
-      .finally(() => {
-        if (!cancelled) setBusy(null);
-      });
-    return () => {
-      cancelled = true;
+  function openAnalyze() {
+    const handoff: EditorHandoff = {
+      text: post.text,
+      kind: "post",
+      token: null,
+      at: Date.now(),
     };
-  }, [post.id, post.text]);
-
-  const suggestions = analysis?.analysis.ai?.suggestions ?? [];
-  const weakest = analysis?.score.original
-    ? Object.entries(analysis.score.original)
-        .filter(([, value]) => typeof value === "number" && value < 70)
-        .sort((a, b) => Number(a[1]) - Number(b[1]))
-        .slice(0, 4)
-    : [];
-
-  async function runRewrite() {
-    setBusy("rewrite");
-    setError(null);
-    try {
-      const next = await runEditor({
-        data: {
-          text: post.text,
-          kind: "post",
-          mode: "REWRITE",
-          request: [
-            "Rewrite this post materially.",
-            "Use the highest-impact weaknesses found by the editorial analysis.",
-            "Preserve every fact, number, name, ticker and URL.",
-            "Only accept a transformation that passes deterministic validation and improves the measured score.",
-          ].join(" "),
-        },
-      });
-      setResult(next as EditorDossier);
-    } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : "AI rewrite unavailable.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function copyRewrite() {
-    const text = result?.output.text;
-    if (!text) return;
-    await navigator.clipboard.writeText(text);
+    sessionStorage.setItem("xpulse.editor.handoff", JSON.stringify(handoff));
+    window.location.assign("/analyze");
   }
 
   return (
@@ -568,85 +507,37 @@ function RewriteCoach({ post }: { post: PulsePost }) {
             <p className="kicker">AI coach · Groq</p>
             <h2 className="mt-1 text-xl tracking-tight">Make this post stronger</h2>
             <p className="mt-1 text-sm text-muted">
-              The AI explains the deterministic score first, then rewrites only when the validated score can improve.
+              Analyze is the workspace for scoring, diagnosis, comparison, and AI rewriting. Your Chamber stays
+              read-only and brings you there when you want to act.
             </p>
           </div>
-          <span className="rounded-full border border-accent/30 bg-accent/5 px-2.5 py-1 font-mono text-[10px] tracking-wide text-accent uppercase">
-            {busy ? (busy === "analyze" ? "Analyzing" : "Rewriting") : "Ready"}
+          <span className="rounded-full border border-line bg-surface-2/50 px-2.5 py-1 font-mono text-[10px] tracking-wide text-subtle uppercase">
+            Chamber summary
           </span>
         </div>
       </div>
 
       <div className="space-y-4 p-4 sm:p-5">
-        {error ? (
-          <p className="rounded-lg border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger" role="status">{error}</p>
-        ) : null}
-
-        {analysis?.analysis.ai?.summary ? (
-          <div className="rounded-lg border border-line bg-surface-2/40 p-4">
-            <p className="kicker">Diagnosis</p>
-            <p className="mt-2 text-sm leading-relaxed text-fg">{analysis.analysis.ai.summary}</p>
-          </div>
-        ) : null}
-
-        {suggestions.length ? (
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <p className="kicker">Highest-impact interventions</p>
-              <span className="font-mono text-[10px] text-subtle">{suggestions.length} signals</span>
-            </div>
-            <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-              {suggestions.slice(0, 4).map((item) => (
-                <li key={item.id} className="rounded-lg border border-line bg-bg/30 p-3">
-                  <p className="text-xs font-medium text-fg">{item.criterion}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted">{item.problem}</p>
-                  <p className="mt-2 text-xs leading-relaxed text-accent">{item.correction}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {weakest.length ? (
-          <div className="flex flex-wrap gap-2">
-            {weakest.map(([key, value]) => (
-              <span key={key} className="rounded-full border border-line bg-bg/30 px-2.5 py-1 font-mono text-[10px] text-muted">
-                {key}: {String(value)}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" disabled={busy !== null} onClick={() => void runRewrite()}>
-            {busy === "rewrite" ? "Rewriting…" : result ? "Rewrite again" : "Rewrite with AI"}
-          </Button>
-          {result?.output.text ? (
-            <Button type="button" variant="quiet" onClick={() => void copyRewrite()}>
-              Copy rewrite
-            </Button>
-          ) : null}
-          {result ? (
-            <span className="font-mono text-xs text-subtle">
-              {result.score.original.total} → <span className="text-accent">{result.score.improved.total}</span>
-            </span>
-          ) : null}
+        <div className="rounded-lg border border-line bg-surface-2/40 p-4">
+          <p className="kicker">Next step</p>
+          <p className="mt-2 text-sm leading-relaxed text-fg">
+            Open this post in Analyze to inspect the full score, weaknesses, improvement plan, and validated AI
+            changes. Nothing is rewritten from Your Chamber.
+          </p>
         </div>
 
-        {result?.output.text ? (
-          <div className="rounded-xl border border-accent/30 bg-accent/5 p-4">
-            <p className="kicker">Validated rewrite</p>
-            <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-fg">{result.output.text}</p>
-            <p className="mt-3 text-[11px] text-subtle">
-              {result.output.notes.slice(-3).join(" · ")}
-            </p>
-          </div>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" onClick={openAnalyze}>
+            Open in Analyze →
+          </Button>
+          <span className="font-mono text-[10px] tracking-wide text-subtle uppercase">
+            Post context will be carried over
+          </span>
+        </div>
       </div>
     </div>
   );
 }
-
 function GraphPane({ post, signals }: { post?: PulsePost; signals: WritingSignals | null }) {
   if (!post || !signals) {
     return <EmptyState text="Choose a link in Library to open its writing signal map." />;
