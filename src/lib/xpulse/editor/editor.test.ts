@@ -314,6 +314,34 @@ test("failed candidates trigger targeted repair before any integrity fallback", 
   assert.ok(dossier.score.dimensions.some((dimension) => dimension.delta > 0));
 });
 
+
+test("simple create brief gets deterministic editorial recovery when writer is unavailable", async () => {
+  clearEditorCache();
+  const brief = "I want to see more web3 contents in my timeline.";
+  const dossier = await executeEditor(
+    {
+      text: brief,
+      kind: "post",
+      mode: "MAKE_POST",
+      request: "Create finished publishable content from the supplied source material.",
+    },
+    {
+      loadLogic: async () => baselineContent(),
+      rewrite: async () => null,
+      polish: async (text) => ({ text, notes: [] }),
+    },
+  );
+
+  assert.notEqual(dossier.output.text, brief);
+  assert.equal(dossier.output.keptOriginal, false);
+  assert.equal(dossier.output.source, "deterministic");
+  assert.equal(dossier.validation.factsPreserved, true);
+  assert.equal(dossier.validation.promoAdded, false);
+  assert.ok(dossier.score.dimensions.some((dimension) => dimension.delta > 0));
+  assert.doesNotMatch(dossier.output.notes.join(" "), /safe transformed candidate survived|integrity fallback/i);
+  assert.match(dossier.output.text, /more web3/i);
+});
+
 test("token handoff keeps market context out of the scored draft", () => {
   const parsed = parseEditorHandoff(
     JSON.stringify({
