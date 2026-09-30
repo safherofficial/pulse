@@ -8,7 +8,7 @@
  */
 
 import { baselineContent } from "../optimize/baseline.ts";
-import type { ContentLogicVersion } from "../optimize/types.ts";
+import type { ContentLogicVersion, OptimizeMode } from "../optimize/types.ts";
 import { extractPublicXPostId, resolvePublicXPost } from "../x-public.ts";
 import { isEditorMode, runEditorPipeline, weakestLevers, type EditorDossier, type EditorMode } from "./pipeline.ts";
 import { classifyUrl, extractPublicPage, type UrlExtraction } from "./url.ts";
@@ -419,11 +419,11 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       { mode: "SCORE_IMPROVE" as const, label: "DETERMINISTIC INFORMATION / STRUCTURE REPAIR" },
       { mode: "HOOK_OPTIMIZE" as const, label: "DETERMINISTIC HOOK REPAIR" },
       {
-        mode: deterministic.output.kind === "thread"
+        mode: (deterministic.output.kind === "thread"
           ? "THREADIFY"
           : deterministic.output.kind === "article"
             ? "ARTICLEIFY"
-            : "REWRITE",
+            : "REWRITE") as OptimizeMode,
         label: "DETERMINISTIC FORMAT REPAIR",
       },
     ];
