@@ -173,6 +173,34 @@ function scoreWithLogic(text: string, kind: ContentKind, logic: ContentLogicVers
   return scoreContent(text, kind, logic?.scoreWeights ?? undefined, logic?.scoreTypeMultipliers?.[kind] ?? 1);
 }
 
+function repetitionScore(text: string): number {
+  const sentences = text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((item) => item.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim())
+    .filter((item) => item.length >= 18);
+  if (sentences.length < 2) return 100;
+  const unique = new Set(sentences);
+  const duplicatePenalty = (sentences.length - unique.size) * 22;
+  const trigrams = new Map<string, number>();
+  for (const sentence of sentences) {
+    const words = sentence.split(" ");
+    for (let i = 0; i + 2 < words.length; i += 1) {
+      const key = words.slice(i, i + 3).join(" ");
+      trigrams.set(key, (trigrams.get(key) ?? 0) + 1);
+    }
+  }
+  const repeatedTrigrams = [...trigrams.values()].filter((count) => count > 1).length;
+  return Math.max(0, Math.min(100, 100 - duplicatePenalty - repeatedTrigrams * 4));
+}
+
+function intentAlignmentScore(before: DraftIntent, afterText: string): number {
+  const after = detectIntent(afterText);
+  if (before === after) return 100;
+  if (before === "neutral" || after === "neutral") return 72;
+  return 45;
+}
+
+
 export function runEditorPipeline(input: {
   text: string;
   mode: EditorMode;
@@ -212,6 +240,45 @@ export function runEditorPipeline(input: {
   const after = scoreWithLogic(finalText, drafted.kind, logic);
   const original = namedScore(before, input.trend, input.liveTrends, text);
   const improved = namedScore(after, input.trend, input.liveTrends, finalText);
+  const editorialIntegrity = finalText === text
+    ? { factual: 100, intent: 100 }
+    : {
+        factual: validated.facts && validated.numbers && validated.language && !validated.promoAdded ? 100 : 0,
+        intent: intentAlignmentScore(intent, finalText),
+      };
+  const baseDimensions = before.dimensions.map((dimension) => {
+    const next = after.dimensions.find((item) => item.key === dimension.key)?.score ?? dimension.score;
+    return {
+      key: dimension.key,
+      label: dimension.label,
+      before: dimension.score,
+      after: next,
+      delta: next - dimension.score,
+    };
+  });
+  baseDimensions.push(
+    {
+      key: "repetition",
+      label: "Repetition",
+      before: repetitionScore(text),
+      after: repetitionScore(finalText),
+      delta: repetitionScore(finalText) - repetitionScore(text),
+    },
+    {
+      key: "factual_consistency",
+      label: "Factual consistency",
+      before: 100,
+      after: editorialIntegrity.factual,
+      delta: editorialIntegrity.factual - 100,
+    },
+    {
+      key: "intent_alignment",
+      label: "User-intent alignment",
+      before: 100,
+      after: editorialIntegrity.intent,
+      delta: editorialIntegrity.intent - 100,
+    },
+  );
   const activePatterns = logic.rules
     .filter((rule) => rule.learned && rule.status === "ACTIVE" && rule.weight > 0)
     .map((rule) => rule.patternId)
@@ -233,16 +300,7 @@ export function runEditorPipeline(input: {
       original,
       improved,
       delta: improved.total - original.total,
-      dimensions: before.dimensions.map((dimension) => {
-        const next = after.dimensions.find((item) => item.key === dimension.key)?.score ?? dimension.score;
-        return {
-          key: dimension.key,
-          label: dimension.label,
-          before: dimension.score,
-          after: next,
-          delta: next - dimension.score,
-        };
-      }),
+      dimensions: baseDimensions,
     },
     analysis: {
       works: before.working,
