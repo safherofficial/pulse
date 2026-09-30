@@ -238,14 +238,14 @@ export async function loadUserContentPerformance(
 ): Promise<ContentPerformanceGuidance> {
   try {
     const sql = await getSql();
-    const rows = await sql<StoredPost>\`
+    const rows = await sql<StoredPost>`
       select id, type, text, metrics, published_at
       from xpulse_posts
-      where user_id = \${userId}
+      where user_id = ${userId}
         and published_at is not null
       order by published_at desc
       limit 150
-    \`;
+    `;
 
     const posts = rows
       .map((row) => ({
@@ -283,11 +283,11 @@ export function performancePromptContext(guidance: ContentPerformanceGuidance): 
 
   return [
     "REAL X PERFORMANCE DATA — account history, not a generic benchmark:",
-    \`Sample: \${guidance.sampleCount} stored posts; \${guidance.measuredCount} with impressions; window: \${guidance.windowDays} days.\`,
-    \`Median engagement rate: \${guidance.baseline.medianEngagementRate == null ? "unavailable" : (guidance.baseline.medianEngagementRate * 100).toFixed(2) + "%"}.\`,
+    `Sample: ${guidance.sampleCount} stored posts; ${guidance.measuredCount} with impressions; window: ${guidance.windowDays} days.`,
+    `Median engagement rate: ${guidance.baseline.medianEngagementRate == null ? "unavailable" : (guidance.baseline.medianEngagementRate * 100).toFixed(2) + "%"}.`,
     ...guidance.patterns.map(
       (pattern) =>
-        \`Observed pattern [\${pattern.confidence}, n=\${pattern.sampleSize}\${pattern.lift == null ? "" : ", lift=" + (pattern.lift * 100).toFixed(1) + "%"}]: \${pattern.observation}\`,
+        `Observed pattern [${pattern.confidence}, n=${pattern.sampleSize}${pattern.lift == null ? "" : ", lift=" + (pattern.lift * 100).toFixed(1) + "%"}]: ${pattern.observation}`,
     ),
     "Use these observations to choose hooks, pacing, evidence density and closes. They are account-specific signals, not guarantees.",
   ].join("\n");
