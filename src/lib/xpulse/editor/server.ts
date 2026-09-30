@@ -15,6 +15,7 @@ import { classifyUrl, extractPublicPage, type UrlExtraction } from "./url.ts";
 import { getTrendSnapshot } from "../trends.ts";
 import { loadMemory, memoryPromptContext } from "../memory.ts";
 import { detectEcho } from "../echo-detector.ts";
+import { composeWithRules } from "../optimize/compose.ts";
 
 const ANALYSIS_CACHE = new Map<string, { at: number; value: EditorDossier }>();
 const TTL_MS = 5 * 60 * 1000;
@@ -399,6 +400,55 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       const trial = await evaluateCandidate(repairedText, repaired.source, candidateAttempts + repairRound, "TARGETED REPAIR", repair);
       if (trial && materiallyImproved(trial)) acceptedBest = trial;
       if (trial) repairBase = trial;
+    }
+  }
+
+  // Provider-independent recovery: the optimizer must still attempt a real
+  // transformation when the LLM is unavailable or every generated candidate is rejected.
+  // Only safe, evidence-preserving levers are allowed here; learned/promo levers are excluded.
+  if (!acceptedBest) {
+    const safeLevers = new Set([
+      "strip_ai_slack",
+      "drop_outline_labels",
+      "break_paragraphs",
+      "number_thread_beats",
+      "surface_existing_question",
+      "surface_existing_number",
+    ]);
+    const safeRules = effectiveLogic.rules.filter((rule) => safeLevers.has(rule.lever));
+    const fallbackModes = [
+      { mode: "SCORE_IMPROVE" as const, label: "DETERMINISTIC INFORMATION / STRUCTURE REPAIR" },
+      { mode: "HOOK_OPTIMIZE" as const, label: "DETERMINISTIC HOOK REPAIR" },
+      {
+        mode: (deterministic.output.kind === "thread"
+          ? "THREADIFY"
+          : deterministic.output.kind === "article"
+            ? "ARTICLEIFY"
+            : "REWRITE") as const,
+        label: "DETERMINISTIC FORMAT REPAIR",
+      },
+    ];
+    for (let index = 0; index < fallbackModes.length; index += 1) {
+      if (acceptedBest) break;
+      const fallback = fallbackModes[index]!;
+      const composed = composeWithRules(
+        text,
+        deterministic.output.kind,
+        safeRules,
+        fallback.mode,
+        "measure",
+        [],
+        effectiveLogic.scoreWeights,
+        effectiveLogic.scoreTypeMultipliers?.[deterministic.output.kind] ?? 1,
+      );
+      if (!composed.text.trim() || composed.text.trim() === text.trim()) continue;
+      const trial = await evaluateCandidate(
+        composed.text,
+        "deterministic",
+        candidateAttempts + 3 + index,
+        fallback.label,
+      );
+      if (trial && materiallyImproved(trial)) acceptedBest = trial;
     }
   }
 
