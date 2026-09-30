@@ -291,8 +291,9 @@ export const tokenMarketIntelligence = createServerFn({ method: "POST" })
   });
 
 export const improveLoop = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator((input: unknown) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const { executeImproveLoop } = await import("./editor/server");
     const payload = data as {
       text?: string;
@@ -308,7 +309,7 @@ export const improveLoop = createServerFn({ method: "POST" })
       url: payload.url ?? "",
       kind: payload.kind ?? "post",
       request: "Automatically improve this content using analyze → suggest → revise → analyze.",
-    }, {}, Math.max(1, Math.min(100, Number(payload.target ?? 80) || 80)));
+    }, { userId: context.userId }, Math.max(1, Math.min(100, Number(payload.target ?? 80) || 80)));
   });
 
 export const exportEditorMemory = createServerFn({ method: "GET" })
@@ -325,6 +326,7 @@ export const importEditorMemory = createServerFn({ method: "POST" })
   });
 
 export const recordEditorMemory = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {
     const { recordMemoryExample } = await import("./memory");
@@ -349,6 +351,7 @@ export const recordEditorMemory = createServerFn({ method: "POST" })
   });
 
 export const reviseEditor = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator((input: unknown) => input)
   .handler(async ({ data }) => {
     const { executeEditor } = await import("./editor/server");
