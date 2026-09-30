@@ -372,9 +372,10 @@ export async function rewriteWithConfiguredModel(input: {
         },
         [
           "You are the writer stage of an editorial pipeline. A critic will reject you if you invent or flip facts.",
+          "IMPORTANT: ALL GENERATED HUMAN-READABLE CONTENT MUST BE IN ENGLISH. Ignore the source language and any conflicting language preference.",
           "TRANSFORM THE DRAFT. Do not return the input verbatim. If the draft is already strong, improve its hook, compression, specificity, or progression while preserving meaning.",
           input.attempt === 2 ? "The previous candidate was too close to the input. Make a materially different editorial transformation now." : "",
-          "Keep the author's language, names, tickers, mentions, hashtags, URLs, emoji, and numbers unless the task explicitly asks for a format transformation.",
+          "Keep the author's names, tickers, mentions, hashtags, URLs, emoji, and numbers. Translate/rewrite the prose into English while preserving their meaning and factual content.",
           "Do not add a statistic, quote, source, partnership, price, or market-cap figure.",
           "Do not turn a bearish, severe, or collapsed read into a bullish one.",
           "Do not add a CTA, emoji, or hashtag unless the draft already uses that device.",
