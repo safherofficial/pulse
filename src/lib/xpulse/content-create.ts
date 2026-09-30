@@ -743,10 +743,10 @@ function fitThreadBeat(text: string): string {
 }
 
 function fitPost(text: string): string {
-  const clean = polish(text).replace(/\\n{3,}/g, "\\n\\n").trim();
+  const clean = polish(text).replace(/\n{3,}/g, "\n\n").trim();
   if (clean.length <= 280) return clean;
-  const beats = clean.split(/\\n\\n/).filter(Boolean);
-  const compact = beats.slice(0, 4).join("\\n\\n");
+  const beats = clean.split(/\n\n/).filter(Boolean);
+  const compact = beats.slice(0, 4).join("\n\n");
   if (compact.length <= 280) return compact;
   return compact.slice(0, 277).replace(/\\s+\\S*$/, "") + "…";
 }
@@ -802,7 +802,7 @@ function writeStateThread(facts: TokenFactSet, mode: RegenMode, variant: number)
 
   const unique = [...new Set(beats.map((beat) => beat.trim()).filter(Boolean))].slice(0, 8);
   const text = unique
-    .map((beat, index) => `${index + 1}/ ${fitThreadBeat(beat.replace(/^\\d+\\/\\s*/, ""))}`)
+    .map((beat, index) => `${index + 1}/ ${fitThreadBeat(beat.replace(/^\d+\/\s*/, ""))}`)
     .join("\\n\\n");
 
   return { text: polish(text), voice };
