@@ -197,8 +197,9 @@ export const researchTokenIntel = createServerFn({ method: "POST" })
   });
 
 export const writeTokenContent = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator((input: unknown) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const { writeTokenCopy } = await import("./content-llm");
     const payload = data as {
       facts?: import("./content-create").TokenFactSet;
@@ -212,7 +213,14 @@ export const writeTokenContent = createServerFn({ method: "POST" })
     const kind = payload.kind === "thread" || payload.kind === "article" ? payload.kind : "post";
     const mode = payload.mode ?? "default";
     const variant = Number(payload.variant ?? 0) || 0;
-    return writeTokenCopy(payload.facts, kind, mode, variant);
+    return writeTokenCopy(payload.facts, kind, mode, variant, context.userId);
+  });
+
+export const getContentPerformance = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const { loadUserContentPerformance } = await import("./x-performance");
+    return loadUserContentPerformance(context.userId);
   });
 
 export const tokenMarketIntelligence = createServerFn({ method: "POST" })
