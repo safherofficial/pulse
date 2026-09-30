@@ -218,6 +218,7 @@ export function validateEditorialShape(text: string, kind: ContentKind): Editori
       .map((beat) => beat.replace(/^\s*\d+\s*[/.)-]\s*/, "").trim())
       .filter(Boolean);
     if (beats.length < 4) violations.push("thread_needs_progression");
+    if (beats.length > 8) violations.push("thread_is_overextended");
     if (beats.some((beat) => beat.length > 280)) violations.push("thread_tweet_over_280");
     if (beats.some((beat) => /^(hook|context|insight|summary|implication)\s*:/i.test(beat))) {
       violations.push("thread_outline_labels");
@@ -235,9 +236,11 @@ export function validateEditorialShape(text: string, kind: ContentKind): Editori
     if (blocks.length < 5) notes.push("article_has_limited_sectioning");
     if (clean.split(/\s+/).filter(Boolean).length < 180) notes.push("article_is_compact_because_value_is_limited");
   } else {
+    const charCount = clean.length;
     const wordCount = clean.split(/\s+/).filter(Boolean).length;
-    if (wordCount > 280) notes.push("post_is_long_but_not_rejected");
+    if (charCount > 280) violations.push("post_over_280_characters");
     if (wordCount < 12) notes.push("post_is_highly_compressed");
+    if (wordCount > 70) notes.push("post_is_dense_for_single_post");
   }
 
   return { pass: violations.length === 0, violations, notes };
