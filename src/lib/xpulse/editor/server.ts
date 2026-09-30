@@ -193,7 +193,8 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     url: urlResult?.status ?? null,
     body: urlResult?.text ?? null,
   });
-  const cached = cacheGet(cacheKey);
+  const cacheableAnalysis = mode === "ANALYZE" || mode === "SCORE" || mode === "FACT_CHECK";
+  const cached = cacheableAnalysis ? cacheGet(cacheKey) : null;
   if (cached) return cached;
 
   if (text.trim() && (mode === "ANALYZE" || mode === "SCORE" || mode === "FACT_CHECK")) {
@@ -320,7 +321,14 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       return bGain - aGain;
     })[0];
 
-  if (!best || best.output.keptOriginal) {
+  const explicitTransformation = mode !== "ANALYZE" && mode !== "SCORE" && mode !== "FACT_CHECK";
+  const acceptedBest = explicitTransformation
+    ? [deterministic, ...candidates]
+        .filter((candidate) => !candidate.output.keptOriginal)
+        .sort((a, b) => b.score.improved.total - a.score.improved.total)[0]
+    : best;
+
+  if (!acceptedBest || acceptedBest.output.keptOriginal) {
     // Never return an empty editor result. If no validated rewrite improves the
     // measured score, preserve the source text so the UI can continue editing.
     deterministic.output = {
@@ -335,12 +343,15 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     return cacheSet(cacheKey, deterministic);
   }
 
-  best.output.notes = [
-    ...best.output.notes,
-    `Validated improvement: ${originalScore} → ${best.score.improved.total} (+${best.score.improved.total - originalScore}).`,
-    `Viral score: ${originalViral} → ${best.score.improved.viral} (+${best.score.improved.viral - originalViral}).`,
+  const selectedBest = explicitTransformation ? acceptedBest : best;
+  selectedBest.output.notes = [
+    ...selectedBest.output.notes,
+    selectedBest.score.improved.total > originalScore
+      ? `Validated improvement: ${originalScore} → ${selectedBest.score.improved.total} (+${selectedBest.score.improved.total - originalScore}).`
+      : "User-requested transformation accepted after factuality, language, and editorial validation.",
+    `Viral score: ${originalViral} → ${selectedBest.score.improved.viral} (${selectedBest.score.improved.viral - originalViral >= 0 ? "+" : ""}${selectedBest.score.improved.viral - originalViral}).`,
   ];
-  return cacheSet(cacheKey, best);
+  return cacheableAnalysis ? cacheSet(cacheKey, selectedBest) : selectedBest;
 }
 
 export type ImproveLoopResult = {
