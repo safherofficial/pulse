@@ -9,6 +9,7 @@ import { scoreContent, type ContentKind } from "./content-score";
 import { validateGeneratedContent } from "./content-validator";
 import { detectEcho } from "./echo-detector.ts";
 import { loadMemory, memoryPromptContextAsync } from "./memory.ts";
+import { loadUserContentPerformance, performancePromptContext } from "./x-performance.ts";
 import {
   buildEditorialSelfCritiquePrompt,
   buildEditorialSystemPrompt,
@@ -378,6 +379,7 @@ export async function writeTokenCopy(
   kind: ContentKind,
   mode: RegenMode = "default",
   variant = 0,
+  userId?: string,
 ): Promise<GeneratedContent> {
   const { reserveAiAction } = await import("./ai-gateway");
   await reserveAiAction();
@@ -413,6 +415,10 @@ export async function writeTokenCopy(
       engagementLift: pattern.engagementLift,
     }));
 
+  const performanceGuidance = userId
+    ? await loadUserContentPerformance(userId, kind)
+    : null;
+
   const contentGuidance = logic.rules
     .filter((rule) => rule.status === "ACTIVE" && rule.weight > 0)
     .sort((a, b) => b.weight - a.weight)
@@ -432,7 +438,8 @@ export async function writeTokenCopy(
     variant,
     trendGuidance,
     contentGuidance,
-  ) + "\n\n" + (await memoryPromptContextAsync(facts.story ?? facts.identity.name, kind));
+  ) + "\n\n" + (performanceGuidance ? performancePromptContext(performanceGuidance) : "REAL X PERFORMANCE DATA: no authenticated account history was supplied.");
+  const enrichedUser = user + "\n\n" + (await memoryPromptContextAsync(facts.story ?? facts.identity.name, kind));
   const temperature =
     mode === "more_concise"
       ? 0.62
@@ -452,7 +459,7 @@ export async function writeTokenCopy(
       provider,
       [
         { role: "system", content: system },
-        { role: "user", content: user },
+        { role: "user", content: enrichedUser },
       ],
       temperature,
       maxTokens,
