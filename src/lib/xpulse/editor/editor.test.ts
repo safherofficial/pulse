@@ -215,7 +215,9 @@ test("provider failure and rejected rewrites fall back to the measured draft", a
     },
   );
   assert.equal(down.output.source, "deterministic");
-  assert.match(down.output.notes.join(" "), /integrity fallback|safe transformed candidate/);
+  assert.notEqual(down.output.text, weak);
+  assert.equal(down.output.keptOriginal, false);
+  assert.ok(down.score.dimensions.some((dimension) => dimension.delta > 0));
   clearEditorCache();
   const flipped = await executeEditor(
     { text: bearish, mode: "REWRITE" },
@@ -283,6 +285,33 @@ test("rewrite uses distinct strategies and does not fall back after candidate on
   assert.equal(dossier.validation.promoAdded, false);
   assert.ok(dossier.score.dimensions.some((dimension) => dimension.delta > 0));
   assert.doesNotMatch(dossier.output.notes.join(" "), /No validated LLM transformation improved/);
+});
+
+
+test("failed candidates trigger targeted repair before any integrity fallback", async () => {
+  clearEditorCache();
+  const calls: Array<{ strategy?: string; repair?: string }> = [];
+  const source = weak;
+  const nearMiss = "The market is doing things today. This is a cleaner version, but the opening still lacks a useful reason to keep reading.";
+  const repaired = "The useful signal is what the draft does not prove. Strip the filler, surface the missing specifics, and make the uncertainty itself readable.";
+  const dossier = await executeEditor(
+    { text: source, mode: "REWRITE" },
+    {
+      loadLogic: async () => baselineContent(),
+      polish: async (text) => ({ text, notes: [] }),
+      rewrite: async (input) => {
+        calls.push({ strategy: input.strategy, repair: input.repair });
+        if (input.strategy === "TARGETED REPAIR") return { text: repaired, source: "mock" };
+        return { text: nearMiss, source: "mock" };
+      },
+    },
+  );
+
+  assert.ok(calls.some((call) => call.strategy === "TARGETED REPAIR"));
+  assert.ok(calls.some((call) => Boolean(call.repair)));
+  assert.notEqual(dossier.output.text, source);
+  assert.equal(dossier.output.keptOriginal, false);
+  assert.ok(dossier.score.dimensions.some((dimension) => dimension.delta > 0));
 });
 
 test("token handoff keeps market context out of the scored draft", () => {
