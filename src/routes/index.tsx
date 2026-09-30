@@ -6,169 +6,180 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const PILLARS = [
-  {
-    kicker: "Mentions",
-    title: "See who is talking",
-    body: "Public X mentions for a token: the account, the post, and the link. Official, KOL, verified, or just an account — classified from the data you already have.",
-  },
-  {
-    kicker: "Analysis",
-    title: "Read the piece, then the pair",
-    body: "Score a draft. Compare two public X posts. Break down what is stronger without inventing metrics that were never returned.",
-  },
-  {
-    kicker: "Creation",
-    title: "Write from the live tape",
-    body: "Generate a post, thread, or article with the token’s real price and market cap woven in. Regeneration changes the writing, not the numbers.",
-  },
-  {
-    kicker: "Chamber",
-    title: "Your X workspace",
-    body: "Wallet, saved activity, and creator tools in one place. Compare, rewrite, and keep the work attached to the address that owns it.",
-  },
+const WORKFLOW = [
+  ["01", "Find", "Search by token name, symbol, or contract address. Open the token snapshot and its available market data."],
+  ["02", "Read", "Inspect public X mentions, account classifications, market state, risk signals, and time-based momentum when data exists."],
+  ["03", "Create", "Generate a post, thread, or article from your source material. XPulse keeps factual inputs locked and validates the result."],
+  ["04", "Sharpen", "Analyze a draft, run Rewrite, compare public X links, or send generated content into Analyze for another pass."],
 ] as const;
 
-const STEPS = [
-  ["01", "Look up a token", "Search by name or contract. Market structure comes from the live pair, or it stays unavailable."],
-  ["02", "Read X", "Viral Intelligence shows who is talking about that token on X, and what they said."],
-  ["03", "Generate", "Posts, threads, and articles pick up the current price and a compact market cap when those fields exist."],
-  ["04", "Sharpen", "Score the draft or compare it with a stronger public post before you publish."],
+const FEATURES = [
+  {
+    kicker: "Token intelligence",
+    title: "Market + public X in one view",
+    body: "Token pages can show identity, price, market cap, liquidity, volume, price history, public X mentions, market-state signals, and temporal momentum. Missing fields stay unavailable instead of being guessed.",
+    href: "/tokens",
+    cta: "Search a token",
+  },
+  {
+    kicker: "Analyze",
+    title: "Score the writing before you publish",
+    body: "Analyze scores hook, clarity, structure, specificity, originality, readability, value density, engagement potential, and credibility. The editor also uses account performance when that data is available.",
+    href: "/analyze",
+    cta: "Open Analyze",
+  },
+  {
+    kicker: "Create",
+    title: "Turn source material into content",
+    body: "Create supports posts, threads, and articles with selectable editorial intent. Generated output is validated and can be improved or copied into your publishing workflow.",
+    href: "/create",
+    cta: "Create content",
+  },
+  {
+    kicker: "Your Chamber",
+    title: "A workspace for your own X data",
+    body: "The personal Chamber keeps wallet-linked activity, imported X posts, performance signals, saved work, and comparison tools together. X connection is optional for public-link analysis.",
+    href: "/pulse",
+    cta: "Open Chamber",
+  },
 ] as const;
 
 function Home() {
   return (
-    <main className="mx-auto flex max-w-6xl flex-col gap-16 px-4 py-5 sm:gap-20 sm:px-6 sm:py-7">
+    <main className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 pb-10 sm:px-6">
       <TopNav />
 
-      <section className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-12">
+      <section className="grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,.85fr)]">
         <div>
-          <p className="kicker">For people who publish on X</p>
-          <h1 className="mt-4 max-w-3xl text-[2.4rem] leading-[1.05] sm:text-6xl">
-            Turn X signals into better content.
+          <p className="kicker">X intelligence · analysis · creation</p>
+          <h1 className="mt-4 max-w-4xl text-[2.7rem] leading-[1.02] sm:text-6xl">
+            From live signals to content you can actually use.
           </h1>
-          <p className="mt-5 max-w-xl text-base text-muted sm:text-lg">
-            XPulse puts public X mentions, the live market tape, content analysis, and generation in one workflow.
-            You see who is talking, what the market is doing, and you write from that — not from a blank page.
+          <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">
+            XPulse connects token intelligence, public X research, deterministic content scoring, AI-assisted writing,
+            and your own X performance data in one workflow.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Link to="/login" className={`${buttonVariants()} w-full justify-center sm:w-auto`}>
-              Start 7-day trial
+            <Link to="/tokens" className={buttonVariants({ className: "w-full justify-center sm:w-auto" })}>
+              Explore tokens
             </Link>
-            <a href="#how" className={`${buttonVariants({ variant: "quiet" })} w-full justify-center sm:w-auto`}>
-              See how it works
-            </a>
+            <Link to="/analyze" className={buttonVariants({ variant: "quiet", className: "w-full justify-center sm:w-auto" })}>
+              Analyze content
+            </Link>
+            <Link to="/studio" className={buttonVariants({ variant: "quiet", className: "w-full justify-center sm:w-auto" })}>
+              Preview the Chamber
+            </Link>
           </div>
-          <p className="mt-4 max-w-md text-sm text-subtle">
-            Enter with a Solana wallet. The 7-day Pro trial starts on that address. Lifetime access is $10, paid once in SOL or USDC.
+          <p className="mt-4 max-w-2xl text-xs leading-relaxed text-subtle">
+            Authentication uses a Solana wallet signature. The current access flow includes a 7-day Pro trial and a
+            one-time $10 lifetime option; the paying wallet remains the account owner.
           </p>
         </div>
 
-        <aside className="panel p-5 sm:p-6" aria-label="What XPulse shows">
-          <p className="kicker">On a token</p>
-          <h2 className="mt-3 text-2xl">Who is talking, and what the tape says.</h2>
-          <ol className="mt-5 grid gap-3">
-            {[
-              ["Viral Intelligence", "Public X mentions and notable accounts. X only."],
-              ["Market tape", "Price, market cap, liquidity, and listing signals from the pair."],
-              ["Generated content", "A post that can say the price and a compact market cap — only when those numbers exist."],
-            ].map(([title, copy]) => (
-              <li key={title} className="rounded-lg border border-line bg-surface-2/40 px-4 py-3">
-                <p className="text-sm text-fg">{title}</p>
-                <p className="mt-1 text-sm text-muted">{copy}</p>
-              </li>
+        <aside className="panel hud-corners p-5 sm:p-6">
+          <span className="corner corner-tl" />
+          <span className="corner corner-tr" />
+          <span className="corner corner-bl" />
+          <span className="corner corner-br" />
+          <p className="kicker">The workflow</p>
+          <div className="mt-5 space-y-4">
+            {WORKFLOW.map(([n, title, copy]) => (
+              <div key={n} className="grid grid-cols-[2.2rem_1fr] gap-3">
+                <span className="font-mono text-xs text-accent">{n}</span>
+                <div>
+                  <h2 className="text-base">{title}</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-muted">{copy}</p>
+                </div>
+              </div>
             ))}
-          </ol>
-          <Link to="/tokens" className="mt-5 inline-flex text-sm text-accent hover:underline">
-            Open Token
-          </Link>
+          </div>
         </aside>
       </section>
 
-      <section>
-        <p className="kicker">Why it matters</p>
-        <h2 className="mt-3 max-w-2xl text-3xl">Token data and writing stop living in different tabs.</h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          {[
-            ["Discover", "Find the token and the public X posts that actually mention it."],
-            ["Understand", "Keep price and market cap attached to the story you are about to tell."],
-            ["Publish", "Generate, score, and compare before the post goes live."],
-          ].map(([title, copy]) => (
-            <article key={title} className="border-t border-line pt-4">
-              <h3 className="text-lg">{title}</h3>
-              <p className="mt-2 text-sm text-muted">{copy}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2">
-        {PILLARS.map((item) => (
-          <article key={item.kicker} className="panel p-5 sm:p-6">
-            <p className="kicker">{item.kicker}</p>
-            <h2 className="mt-3 text-2xl">{item.title}</h2>
-            <p className="mt-2 text-sm text-muted">{item.body}</p>
-          </article>
-        ))}
-      </section>
-
-      <section id="how" className="scroll-mt-8 border-t border-line pt-12">
-        <p className="kicker">How it works</p>
-        <h2 className="mt-3 max-w-2xl text-3xl">From a contract to a post you can stand behind.</h2>
-        <ol className="mt-6 grid gap-3 sm:grid-cols-2">
-          {STEPS.map(([n, title, copy]) => (
-            <li key={n} className="panel p-4 sm:p-5">
-              <p className="font-mono text-xs text-accent">{n}</p>
-              <h3 className="mt-2 text-lg">{title}</h3>
-              <p className="mt-1 text-sm text-muted">{copy}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="border-t border-line pt-12">
-        <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <section className="border-t border-line/80 py-12 sm:py-16">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="kicker">What you get</p>
-            <h2 className="mt-3 text-3xl">Try it on the wallet. Keep it if it earns the desk.</h2>
-            <p className="mt-3 text-muted">
-              Access follows the Solana address that signs in. No email account. The trial is seven days.
-              Lifetime is a single $10 payment in SOL or USDC, verified on-chain, bound to that wallet.
-            </p>
+            <p className="kicker">One product, clear jobs</p>
+            <h2 className="mt-2 max-w-2xl text-3xl">Each screen has one job. Move forward without losing context.</h2>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <article className="rounded-xl border border-accent/30 bg-accent/5 p-5">
-              <p className="kicker">Start</p>
-              <h3 className="mt-3 text-xl">7-day Pro trial</h3>
-              <p className="mt-2 text-sm text-muted">Starts automatically for a new wallet. Full product access while it is active.</p>
+          <Link to="/analyze" className="text-sm text-accent hover:underline">Start with a draft →</Link>
+        </div>
+
+        <div className="mt-7 grid gap-4 md:grid-cols-2">
+          {FEATURES.map((item) => (
+            <article key={item.kicker} className="lift-card panel p-5 sm:p-6">
+              <p className="kicker">{item.kicker}</p>
+              <h3 className="mt-3 text-2xl">{item.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted">{item.body}</p>
+              <Link to={item.href} className="mt-5 inline-flex text-sm text-accent hover:underline">
+                {item.cta} →
+              </Link>
             </article>
-            <article className="rounded-xl border border-line bg-surface-2/40 p-5">
-              <p className="kicker">Keep</p>
-              <h3 className="mt-3 text-xl">$10 lifetime</h3>
-              <p className="mt-2 text-sm text-muted">One payment. No renewal. The wallet that paid is the wallet that stays open.</p>
-            </article>
-          </div>
+          ))}
         </div>
       </section>
 
-      <section className="panel p-6 sm:p-8">
-        <p className="kicker">Enter XPulse</p>
-        <h2 className="mt-3 max-w-2xl text-3xl">Start with the wallet you already use.</h2>
-        <p className="mt-3 max-w-2xl text-muted">
-          Look up a token, read the X mentions, and write with the market snapshot still attached.
-        </p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Link to="/login" className={`${buttonVariants()} w-full justify-center sm:w-auto`}>
-            Enter XPulse
-          </Link>
-          <Link to="/tokens" className={`${buttonVariants({ variant: "quiet" })} w-full justify-center sm:w-auto`}>
-            Search a token
-          </Link>
+      <section className="grid gap-5 border-t border-line/80 py-12 sm:py-16 lg:grid-cols-[.8fr_1.2fr]">
+        <div>
+          <p className="kicker">What stays factual</p>
+          <h2 className="mt-2 text-3xl">Unavailable data stays unavailable.</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            XPulse separates verified market fields and public metrics from interpretation. Content generation can use
+            the verified token fact set, while scoring and validation remain deterministic where possible.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            ["Market data", "Price, market cap, liquidity, volume, pair and OHLCV fields when returned by the source."],
+            ["X data", "Public posts and available metrics. Coverage is a sample when the underlying source does not provide totals."],
+            ["Content", "Post, thread, and article generation with format-specific editorial playbooks and validation."],
+            ["Learning", "When enough measured posts exist, XPulse derives account-specific performance patterns instead of pretending they are universal rules."],
+          ].map(([title, copy]) => (
+            <div key={title} className="rounded-xl border border-line bg-surface/55 p-4">
+              <h3 className="text-sm">{title}</h3>
+              <p className="mt-1.5 text-xs leading-relaxed text-muted">{copy}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-t border-line/80 py-12 sm:py-16">
+        <p className="kicker">Access</p>
+        <div className="mt-3 grid gap-5 lg:grid-cols-2">
+          <div className="panel p-6">
+            <h2 className="text-2xl">Wallet first. X connection optional.</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              Sign in with a Solana wallet. If you connect X, XPulse can import available public posts and attach
+              account-specific performance learning to future content generation. Public-link analysis remains usable
+              without connecting X.
+            </p>
+            <Link to="/login" className={buttonVariants({ className: "mt-5" })}>
+              Sign in with wallet
+            </Link>
+          </div>
+          <div className="panel p-6">
+            <h2 className="text-2xl">Need a quick first step?</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              No setup is required to understand the workflow. Open the sample Chamber, search a token, or paste a
+              public post into Analyze.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link to="/studio" className={buttonVariants({ variant: "quiet" })}>Sample Chamber</Link>
+              <Link to="/tokens" className={buttonVariants({ variant: "quiet" })}>Token</Link>
+              <Link to="/analyze" className={buttonVariants({ variant: "quiet" })}>Analyze</Link>
+            </div>
+          </div>
         </div>
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-6 text-sm text-muted">
-        <span className="wordmark text-fg">XPulse</span>
+        <Link to="/" className="wordmark text-fg">XPulse</Link>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <Link to="/tokens" className="hover:text-fg">Token</Link>
+          <Link to="/analyze" className="hover:text-fg">Analyze</Link>
+          <Link to="/create" className="hover:text-fg">Create</Link>
+          <Link to="/studio" className="hover:text-fg">Sample Chamber</Link>
+        </div>
         <span>Not affiliated with X or Solana.</span>
       </footer>
     </main>
