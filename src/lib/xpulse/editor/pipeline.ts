@@ -169,6 +169,18 @@ export function namedScore(report: ContentScoreReport, trend?: ViralTrendVersion
   };
 }
 
+/** Return the lowest-scoring craft levers first; integrity gates are never optimization targets. */
+export function weakestLevers(
+  report: Pick<EditorDossier["score"], "dimensions">,
+  limit = 3,
+): Array<{ key: string; label: string; score: number }> {
+  return report.dimensions
+    .filter((dimension) => dimension.key !== "factual_consistency" && dimension.key !== "intent_alignment" && dimension.score < 72)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, Math.max(1, limit))
+    .map((dimension) => ({ key: dimension.key, label: dimension.label, score: dimension.score }));
+}
+
 function scoreWithLogic(text: string, kind: ContentKind, logic: ContentLogicVersion | null | undefined): ContentScoreReport {
   return scoreContent(text, kind, logic?.scoreWeights ?? undefined, logic?.scoreTypeMultipliers?.[kind] ?? 1);
 }
