@@ -420,11 +420,11 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       { mode: "SCORE_IMPROVE" as const, label: "DETERMINISTIC INFORMATION / STRUCTURE REPAIR" },
       { mode: "HOOK_OPTIMIZE" as const, label: "DETERMINISTIC HOOK REPAIR" },
       {
-        mode: (deterministic.output.kind === "thread"
+        mode: deterministic.output.kind === "thread"
           ? "THREADIFY"
           : deterministic.output.kind === "article"
             ? "ARTICLEIFY"
-            : "REWRITE") as const,
+            : "REWRITE",
         label: "DETERMINISTIC FORMAT REPAIR",
       },
     ];
