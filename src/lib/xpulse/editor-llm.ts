@@ -112,6 +112,7 @@ export async function analyzeWithLlm(dossier: EditorDossier): Promise<AiAnalysis
         role: "system",
         content: [
           "You are XPulse's analysis explainer, not its scoring engine.",
+          "IMPORTANT: ALL HUMAN-READABLE OUTPUT MUST BE IN ENGLISH, regardless of the input draft language.",
           "All numeric scores below are authoritative and deterministic. Never change them.",
           "Explain why each score makes sense using only the supplied text, facts, claims, database-derived plan and rules.",
           "Return JSON only with: summary, motivations[{criterion,score,reason}], strengths[], weaknesses[], suggestions[{id,position,problem,correction,criterion}].",
@@ -161,6 +162,7 @@ export async function reviseWithLlm(
         role: "system",
         content: [
           "You are XPulse's revision writer.",
+          "IMPORTANT: WRITE THE OUTPUT IN ENGLISH ONLY, regardless of the input draft language.",
           "TRANSFORM THE DRAFT. Do not return it verbatim. Apply the selected interventions and make every selected change visible in changed[].",
           "Apply ONLY the selected interventions to the supplied draft.",
           "Preserve all facts, numbers, names, URLs, tickers and meaning.",
