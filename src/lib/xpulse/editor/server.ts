@@ -10,7 +10,7 @@
 import { baselineContent } from "../optimize/baseline.ts";
 import type { ContentLogicVersion } from "../optimize/types.ts";
 import { extractPublicXPostId, resolvePublicXPost } from "../x-public.ts";
-import { isEditorMode, runEditorPipeline, type EditorDossier, type EditorMode } from "./pipeline.ts";
+import { isEditorMode, runEditorPipeline, weakestLevers, type EditorDossier, type EditorMode } from "./pipeline.ts";
 import { classifyUrl, extractPublicPage, type UrlExtraction } from "./url.ts";
 import { getTrendSnapshot } from "../trends.ts";
 import { loadMemory, memoryPromptContext } from "../memory.ts";
@@ -251,11 +251,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     deps.performanceContext ?? "",
   ].filter(Boolean);
   const candidates: EditorDossier[] = [];
-  const optimizationTargets = deterministic.score.dimensions
-    .filter((dimension) => dimension.score < 72)
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 3)
-    .map((dimension) => dimension.label);
+  const optimizationTargets = weakestLevers(deterministic.score).map((dimension) => dimension.label);
   const strategies = [
     "HOOK OPTIMIZATION: rebuild the opening around the strongest concrete tension, specificity, or unanswered question. Do not change facts.",
     "INFORMATION COMPRESSION: remove filler and repetition, strengthen verbs, compress the signal, and make every sentence carry useful information.",
