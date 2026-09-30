@@ -215,7 +215,7 @@ test("provider failure and rejected rewrites fall back to the measured draft", a
     },
   );
   assert.equal(down.output.source, "deterministic");
-  assert.match(down.output.notes.join(" "), /unavailable|Deterministic/);
+  assert.match(down.output.notes.join(" "), /integrity fallback|safe transformed candidate/);
   clearEditorCache();
   const flipped = await executeEditor(
     { text: bearish, mode: "REWRITE" },
@@ -251,6 +251,38 @@ test("provider failure and rejected rewrites fall back to the measured draft", a
     },
   );
   assert.equal(calls, 0);
+});
+
+test("rewrite uses distinct strategies and does not fall back after candidate one fails", async () => {
+  clearEditorCache();
+  const source = weak;
+  const calls: Array<{ attempt?: number; strategy?: string; targets?: string[] }> = [];
+  const improved = "The market is vague. Cut the noise: the draft offers no specific number or named outcome. That absence of evidence is the signal.";
+  const dossier = await executeEditor(
+    { text: source, mode: "REWRITE" },
+    {
+      loadLogic: async () => baselineContent(),
+      polish: async (text) => ({ text, notes: [] }),
+      rewrite: async (input) => {
+        calls.push({ attempt: input.attempt, strategy: input.strategy, targets: input.optimizationTargets });
+        if ((input.attempt ?? 0) === 1) {
+          return { text: "This is an exciting opportunity and could explode.", source: "mock" };
+        }
+        return { text: improved, source: "mock" };
+      },
+    },
+  );
+
+  assert.ok(calls.length >= 2);
+  assert.notEqual(calls[0]?.strategy, calls[1]?.strategy);
+  assert.ok((calls[0]?.targets?.length ?? 0) > 0);
+  assert.notEqual(dossier.output.text, source);
+  assert.equal(dossier.output.keptOriginal, false);
+  assert.equal(dossier.validation.factsPreserved, true);
+  assert.equal(dossier.validation.numbersPreserved, true);
+  assert.equal(dossier.validation.promoAdded, false);
+  assert.ok(dossier.score.dimensions.some((dimension) => dimension.delta > 0));
+  assert.doesNotMatch(dossier.output.notes.join(" "), /No validated LLM transformation improved/);
 });
 
 test("token handoff keeps market context out of the scored draft", () => {
