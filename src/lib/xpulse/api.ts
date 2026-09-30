@@ -422,16 +422,21 @@ export const strongerHookDraft = createServerFn({ method: "POST" })
   });
 
 export const runEditor = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
   .validator((input: unknown) => input)
-  .handler(async ({ data }) => {
+  .handler(async ({ context, data }) => {
     const { executeEditor } = await import("./editor/server");
+    const { loadUserContentPerformance, performancePromptContext } = await import("./x-performance");
     const payload = data as { text?: string; url?: string; mode?: unknown; kind?: string; request?: string };
     const kind = payload?.kind === "thread" || payload?.kind === "article" || payload?.kind === "post" ? payload.kind : null;
+    const performance = await loadUserContentPerformance(context.userId, kind ?? "post");
     return executeEditor({
       text: typeof payload?.text === "string" ? payload.text : "",
       url: typeof payload?.url === "string" ? payload.url : "",
       mode: payload?.mode,
       kind,
       request: typeof payload?.request === "string" ? payload.request : "",
+    }, {
+      performanceContext: performancePromptContext(performance),
     });
   });
