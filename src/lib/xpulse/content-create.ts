@@ -558,6 +558,28 @@ function marketLine(rng: Rng, t: Tape): string | null {
   return null;
 }
 
+function lockTokenIdentity(text: string, facts: TokenFactSet): string {
+  const symbol = facts.identity.symbol.trim();
+  const name = facts.identity.name.trim();
+  if (!symbol) return text;
+
+  // Token-generated copy is about one locked asset. Any $TICKER emitted by a
+  // writer must resolve to the fact-set ticker; this prevents hallucinated
+  // tickers such as $ROXIE when the source asset is $VOXIE.
+  const tickerPattern = /\$[A-Za-z][A-Za-z0-9_]{1,15}\b/g;
+  let out = text.replace(tickerPattern, (match) => {
+    const candidate = match.slice(1);
+    return candidate.toLowerCase() === symbol.toLowerCase() ? match : '$' + symbol;
+  });
+
+  // Normalize an all-caps token name directly adjacent to the canonical ticker.
+  if (name) {
+    const escapedSymbol = symbol.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&');
+    const nearTicker = new RegExp('\\\\b[A-Z][A-Z0-9_-]{2,24}\\\\b(?=\\\\s*\\$' + escapedSymbol + '\\\\b)', 'g');
+    out = out.replace(nearTicker, name);
+  }
+  return out;
+}
 export function ensureLockedMarket(text: string, facts: TokenFactSet): string {
   const price = metric(facts, "price");
   const mcap = metric(facts, "market_cap");
@@ -872,7 +894,7 @@ export function generateFromFactSet(
         ? writeStateArticle(facts, mode, variant)
         : writeStatePost(facts, mode, variant);
 
-  const text = ensureMarketVerdict(ensureLockedMarket(written.text, facts), facts);
+  const text = lockTokenIdentity(ensureMarketVerdict(ensureLockedMarket(written.text, facts), facts), facts);
   const editorialGate = validateEditorialShape(text, kind);
   const score = scoreContent(text, kind);
   return {
