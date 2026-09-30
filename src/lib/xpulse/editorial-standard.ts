@@ -6,7 +6,7 @@
 
 import type { ContentKind } from "./content-score";
 
-export const EDITORIAL_ENGINE_VERSION = "v1.0";
+export const EDITORIAL_ENGINE_VERSION = "v1.1";
 export const EDITORIAL_ENGINE_BASELINE = "v1.0";
 
 export const GLOBAL_EDITORIAL_STANDARD = [
@@ -27,6 +27,42 @@ export const GLOBAL_EDITORIAL_STANDARD = [
   "SELF-CRITIQUE before finalizing: Is this merely a rewrite of the analysis? What is the central idea? Does the format fit? Does it sound human and Web3-native? Any generic language or repetition? Does every part add value? Do user choices materially affect the result? Is the opening strong? Is there a payoff? Did I invent anything? Can the piece become more specific? Can anything be removed without losing value? Could it be published as-is?",
   "FINAL PRINCIPLE: turn data + user preferences into publishable editorial content.",
 ].join("\n");
+
+const FORMAT_PLAYBOOKS: Record<ContentKind, string> = {
+  post: [
+    "X POST PROFESSIONAL PATTERN:",
+    "1) HOOK: one sharp, specific observation or tension. Avoid generic introductions.",
+    "2) SIGNAL: give the 1-3 strongest facts that prove the hook. Prefer numbers, changes, named entities or a concrete event.",
+    "3) READ: add the author's/editorial interpretation — explain why those facts matter rather than repeating them.",
+    "4) PAYOFF: finish with the implication, unresolved question, or crisp takeaway.",
+    "Use 2-5 visual beats/paragraphs. Preserve whitespace. Keep one dominant idea. Avoid metric laundry lists.",
+    "Do not force a CTA. If a CTA is useful, make it a natural question or invitation to discuss the actual point.",
+  ].join("\n"),
+  thread: [
+    "X THREAD PROFESSIONAL PATTERN:",
+    "Tweet 1 — THESIS/HYPOTHESIS: state the reason this thread deserves attention.",
+    "Tweet 2 — CONTEXT: establish the event, setup or baseline needed to understand the thesis.",
+    "Tweets 3-5 — EVIDENCE: one meaningful fact, comparison, mechanism or observation per tweet.",
+    "Next tweet — TURN: surface the contradiction, implication, risk, second-order effect, or unexpected connection supported by evidence.",
+    "Final tweet — PAYOFF: resolve the thesis, state what to watch next, or leave one useful open question.",
+    "Every tweet must add a new piece of information or narrative movement. Never split one sentence across tweets.",
+    "Target 5-8 tweets when source material supports it; use fewer only when the evidence is genuinely limited.",
+    "Keep each tweet <=270 characters to leave publishing headroom. Number tweets 1/, 2/, 3/.",
+    "Do not use labels such as Hook:, Context:, Insight:, Summary:, or Conclusion:.",
+  ].join("\n"),
+  article: [
+    "X ARTICLE PROFESSIONAL PATTERN:",
+    "HEADLINE: specific editorial promise, not a generic topic label.",
+    "DECK/OPENING: 1-2 paragraphs that establish the tension and why the reader should care now.",
+    "SECTION 1 — WHAT HAPPENED: establish verified facts and context.",
+    "SECTION 2 — WHAT THE DATA SHOWS: select evidence, comparisons and concrete numbers that support the thesis.",
+    "SECTION 3 — WHAT IT MEANS: interpret mechanisms, incentives, implications or second-order effects without inventing facts.",
+    "SECTION 4 — WHAT DOES NOT YET FOLLOW: explicitly separate evidence from inference and identify uncertainty.",
+    "CONCLUSION: return to the opening tension and give the reader a precise takeaway or question.",
+    "Use purposeful section headings only. No filler background, repeated facts, or artificial length.",
+    "An article should feel like a magazine/editorial analysis, not an expanded X post or a numbered report.",
+  ].join("\n"),
+};
 
 const FORMAT_RULES: Record<ContentKind, string> = {
   post: [
@@ -109,6 +145,7 @@ export function buildEditorialSystemPrompt(
     "XPULSE EDITORIAL ENGINE " + EDITORIAL_ENGINE_VERSION,
     GLOBAL_EDITORIAL_STANDARD,
     FORMAT_RULES[kind],
+    FORMAT_PLAYBOOKS[kind],
     describeEditorialPreferences({ ...preferences, format: kind }),
     ...taskInstructions.filter(Boolean),
     "GENERATION ORDER: understand the evidence -> select the editorial thesis -> choose the narrative structure -> write -> self-critique -> finalize.",
