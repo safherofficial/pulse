@@ -353,6 +353,9 @@ export async function rewriteWithConfiguredModel(input: {
   request?: string;
   plan: string[];
   attempt?: number;
+  strategy?: string;
+  optimizationTargets?: string[];
+  repair?: string;
 }): Promise<{ text: string; source: string } | null> {
   const keyed = providers().filter((provider) => provider.key);
   const publicFallback = providers().filter((provider) => provider.id === "pollinations-public");
@@ -373,8 +376,11 @@ export async function rewriteWithConfiguredModel(input: {
         [
           "You are the writer stage of an editorial pipeline. A critic will reject you if you invent or flip facts.",
           "IMPORTANT: ALL GENERATED HUMAN-READABLE CONTENT MUST BE IN ENGLISH. Ignore the source language and any conflicting language preference.",
-          "TRANSFORM THE DRAFT. Do not return the input verbatim. If the draft is already strong, improve its hook, compression, specificity, or progression while preserving meaning.",
-          input.attempt === 2 ? "The previous candidate was too close to the input. Make a materially different editorial transformation now." : "",
+          "TRANSFORM THE DRAFT. Do not return the input verbatim. A failed candidate is never a reason to restore the source. Make a material editorial transformation while preserving meaning.",
+          input.strategy ? `MANDATORY STRATEGY FOR THIS CANDIDATE: ${input.strategy}` : "",
+          input.optimizationTargets?.length ? `MANDATORY OPTIMIZATION TARGETS (weakest first): ${input.optimizationTargets.join(", ")}. Explicitly improve these dimensions in the writing.` : "",
+          input.repair ? `TARGETED REPAIR PASS: ${input.repair}` : "",
+          input.attempt && input.attempt > 1 ? "This is a distinct optimization attempt. Do not repeat the previous architecture or merely swap synonyms." : "",
           "Keep the author's names, tickers, mentions, hashtags, URLs, emoji, and numbers. Translate/rewrite the prose into English while preserving their meaning and factual content.",
           "Do not add a statistic, quote, source, partnership, price, or market-cap figure.",
           "Do not turn a bearish, severe, or collapsed read into a bullish one.",
@@ -394,7 +400,7 @@ export async function rewriteWithConfiguredModel(input: {
     },
     {
       role: "user",
-      content: `Mode: ${input.mode}\nAttempt: ${input.attempt ?? 1}\nKind: ${input.kind}\nLanguage: ${input.language}\nUser request: ${input.request ?? "General editorial analysis"}\nPlan:\n${input.plan.join("\n")}\n\n${memoryPromptContext(input.text, input.kind)}\n\nDRAFT:\n${input.text}`,
+      content: `Mode: ${input.mode}\nAttempt: ${input.attempt ?? 1}\nStrategy: ${input.strategy ?? "unspecified"}\nOptimization targets: ${input.optimizationTargets?.join(", ") ?? "none"}\nRepair: ${input.repair ?? "none"}\nKind: ${input.kind}\nLanguage: ${input.language}\nUser request: ${input.request ?? "General editorial analysis"}\nPlan:\n${input.plan.join("\n")}\n\n${memoryPromptContext(input.text, input.kind)}\n\nDRAFT:\n${input.text}`,
     },
   ];
   for (const provider of available) {
