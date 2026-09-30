@@ -205,7 +205,7 @@ export function runEditorPipeline(input: {
         notes: [`Configured model ${input.proposed.source}. Critic still checks facts, numbers, language, and promo wording.`],
       }
     : applyMode(text, input.mode, kind, logic);
-  const validated = validate(text, drafted.text, language);
+  const validated = validate(text, drafted.text, language, input.mode !== "ANALYZE" && input.mode !== "SCORE" && input.mode !== "FACT_CHECK");
   const editorialGate = validateEditorialShape(drafted.text, drafted.kind);
   const accepted = validated.ok && editorialGate.pass;
   const finalText = accepted ? drafted.text : text;
@@ -329,7 +329,7 @@ function shorten(text: string): string {
   return preservesAuthorFacts(text, next) ? next : text;
 }
 
-function validate(before: string, after: string, language: DraftLanguage): {
+function validate(before: string, after: string, language: DraftLanguage, requireEnglish = false): {
   ok: boolean;
   facts: boolean;
   numbers: boolean;
@@ -339,7 +339,10 @@ function validate(before: string, after: string, language: DraftLanguage): {
   const facts = !before.trim() || preservesAuthorFacts(before, after);
   const numbers = (before.match(/\d+(?:[.,]\d+)?%?/g) ?? []).every((token) => token.length < 2 || after.includes(token));
   const promoAdded = !PROMO_RE.test(before) && PROMO_RE.test(after);
-  const languageKept = language === "und" || language === "en" || sharesLanguageToken(before, after, language);
+  const detectedOutputLanguage = detectLanguage(after);
+  const languageKept = requireEnglish
+    ? detectedOutputLanguage === "en" || detectedOutputLanguage === "und"
+    : language === "und" || language === "en" || sharesLanguageToken(before, after, language);
   return { ok: facts && numbers && !promoAdded && languageKept, facts, numbers, promoAdded, language: languageKept };
 }
 
