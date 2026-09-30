@@ -329,7 +329,9 @@ export function runEditorPipeline(input: {
             `Editorial engine: ${EDITORIAL_ENGINE_VERSION}`,
             ...drafted.notes,
           ].filter(Boolean),
-      source: validated.ok && input.proposed ? "configured-llm" : (input.source ?? "deterministic"),
+      source: validated.ok && input.proposed
+        ? input.proposed.source === "deterministic" ? "deterministic" : "configured-llm"
+        : (input.source ?? "deterministic"),
     },
     diff: diffLines(text, finalText),
     validation: {
