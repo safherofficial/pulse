@@ -9,6 +9,7 @@ const PRIMARY = [
   { to: "/tokens", label: "Token" },
   { to: "/analyze", label: "Analyze" },
   { to: "/create", label: "Create" },
+  { to: "/rewrite", label: "Rewrite" },
 ] as const;
 
 export function TopNav() {
