@@ -2448,11 +2448,20 @@ export async function runSync(
     const posts = await loadPosts(userId);
     await saveHeat(userId, posts);
 
+    let performanceLearning = null;
+    try {
+      const { loadUserContentPerformance } = await import("./x-performance");
+      performanceLearning = await loadUserContentPerformance(userId);
+    } catch {
+      // Performance learning is additive; sync must still succeed if it is unavailable.
+    }
+
     return {
       ok: true as const,
       imported: publicPosts.length,
       posts,
       heatmap: inferHeatmap(posts),
+      performanceLearning,
       x: {
         id: publicPosts[0]?.authorId || profile?.x_id || null,
         username: publicPosts[0]?.authorUsername || handle,
