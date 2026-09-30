@@ -309,7 +309,7 @@ export const improveLoop = createServerFn({ method: "POST" })
       url: payload.url ?? "",
       kind: payload.kind ?? "post",
       request: "Automatically improve this content using analyze → suggest → revise → analyze.",
-    }, { userId: context.userId }, Math.max(1, Math.min(100, Number(payload.target ?? 80) || 80)));
+    }, {}, Math.max(1, Math.min(100, Number(payload.target ?? 80) || 80)));
   });
 
 export const exportEditorMemory = createServerFn({ method: "GET" })
