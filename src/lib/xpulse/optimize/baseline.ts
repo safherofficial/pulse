@@ -57,6 +57,7 @@ export function baselineRules(now = "1970-01-01T00:00:00.000Z"): ContentRule[] {
     craftRule("drop_outline_labels", "Drop Hook:/Context: labels. Keep the author's sentence.", ["post", "thread", "article"]),
     craftRule("break_paragraphs", "Break a wall of text into sentences the author already wrote.", ["post", "article"]),
     craftRule("number_thread_beats", "Number existing thread beats. Do not add a new closer.", ["thread"]),
+    craftRule("reframe_sparse_brief", "Turn a one-line content brief into a concise publishable form without adding factual claims.", ["post"]),
   ];
   return rules.map((rule) => ({ ...rule, lastUpdated: now }));
 }
