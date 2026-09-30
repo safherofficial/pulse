@@ -407,7 +407,12 @@ function validate(before: string, after: string, language: DraftLanguage, requir
   promoAdded: boolean;
   language: boolean;
 } {
-  const facts = !before.trim() || preservesAuthorFacts(before, after);
+  const beforeEntities = extractEntities(before);
+  const afterEntities = extractEntities(after);
+  const entitiesPreserved = (["tickers", "mentions", "urls", "addresses"] as const).every((key) =>
+    beforeEntities[key].every((entity) => afterEntities[key].includes(entity)),
+  );
+  const facts = (!before.trim() || preservesAuthorFacts(before, after)) && entitiesPreserved;
   const numbers = (before.match(/\d+(?:[.,]\d+)?%?/g) ?? []).every((token) => token.length < 2 || after.includes(token));
   const promoAdded = !PROMO_RE.test(before) && PROMO_RE.test(after);
   const detectedOutputLanguage = detectLanguage(after);
