@@ -178,6 +178,7 @@ function Home() {
           <Link to="/tokens" className="hover:text-fg">Token</Link>
           <Link to="/analyze" className="hover:text-fg">Analyze</Link>
           <Link to="/create" className="hover:text-fg">Create</Link>
+          <Link to="/rewrite" className="hover:text-fg">Rewrite</Link>
           <Link to="/studio" className="hover:text-fg">Sample Chamber</Link>
         </div>
         <span>Not affiliated with X or Solana.</span>
