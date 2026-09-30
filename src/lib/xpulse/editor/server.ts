@@ -27,6 +27,9 @@ type Rewrite = (input: {
   plan: string[];
   request?: string;
   attempt?: number;
+  strategy?: string;
+  optimizationTargets?: string[];
+  repair?: string;
 }) => Promise<{ text: string; source: string } | null>;
 
 export type EditorRequest = {
@@ -247,8 +250,57 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     deps.performanceContext ?? "",
   ].filter(Boolean);
   const candidates: EditorDossier[] = [];
+  const optimizationTargets = deterministic.score.dimensions
+    .filter((dimension) => dimension.score < 72)
+    .sort((a, b) => a.score - b.score)
+    .slice(0, 3)
+    .map((dimension) => dimension.label);
+  const strategies = [
+    "HOOK OPTIMIZATION: rebuild the opening around the strongest concrete tension, specificity, or unanswered question. Do not change facts.",
+    "INFORMATION COMPRESSION: remove filler and repetition, strengthen verbs, compress the signal, and make every sentence carry useful information.",
+    "EMOTIONAL RESONANCE: make the human stakes, consequence, tension, or relevance clearer using only implications already supported by the source. Do not fabricate emotion.",
+    "SHAREABILITY: craft one memorable, quotable insight and a useful payoff. Increase discussion value without adding claims or engagement bait.",
+    "STRUCTURAL REWRITE: change the architecture materially into hook → context → insight → tension/implication → payoff. Do not merely paraphrase.",
+    "WEB3-NATIVE EDITORIAL: use natural Web3-native language where appropriate, remove corporate/AI filler and fake hype, and keep the source's factual posture.",
+  ];
+  const targetLine = optimizationTargets.length
+    ? `PRIMARY OPTIMIZATION TARGETS (weakest first): ${optimizationTargets.join(", ")}.`
+    : "PRIMARY OPTIMIZATION TARGETS: improve the weakest measurable craft signals without changing facts.";
+  const candidateAttempts = strategies.length;
 
-  for (const attempt of [1, 2]) {
+  const evaluateCandidate = async (
+    proposed: string,
+    source: string,
+    attempt: number,
+    strategy: string,
+    repair?: string,
+  ): Promise<EditorDossier | null> => {
+    const echo = detectEcho(text, proposed);
+    if (echo.isEcho) {
+      deterministic.output.notes = [...deterministic.output.notes, `LLM echo rejected: ${echo.combinedSimilarity.toFixed(3)} similarity (attempt ${attempt}).`];
+      return null;
+    }
+    const trial = runEditorPipeline({
+      text,
+      mode,
+      kind,
+      request,
+      logic: effectiveLogic,
+      url: urlResult,
+      proposed: { text: proposed, source },
+      trend,
+      liveTrends,
+    });
+    if (!trial.output.keptOriginal && trial.validation.factsPreserved && trial.validation.numbersPreserved && trial.validation.languageKept && !trial.validation.promoAdded) {
+      trial.output.notes = [...trial.output.notes, `Optimization strategy: ${strategy}`, repair ? `Targeted repair: ${repair}` : targetLine];
+      candidates.push(trial);
+      return trial;
+    }
+    return null;
+  };
+
+  for (let attempt = 1; attempt <= candidateAttempts; attempt += 1) {
+    const strategy = strategies[attempt - 1]!;
     let candidate: { text: string; source: string } | null = null;
     try {
       candidate = await writer({
@@ -257,95 +309,117 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
         kind: deterministic.output.kind,
         language: deterministic.input.language,
         request,
-        plan: plans,
+        plan: [...plans, targetLine, strategy],
         attempt,
+        strategy,
+        optimizationTargets,
       });
     } catch {
       candidate = null;
     }
     if (!candidate?.text.trim()) continue;
-
     let proposed = candidate.text;
-    const echoBeforePolish = detectEcho(text, proposed);
-    if (echoBeforePolish.isEcho) {
-      deterministic.output.notes = [...deterministic.output.notes, `LLM echo rejected: ${echoBeforePolish.combinedSimilarity.toFixed(3)} similarity (attempt ${attempt}).`];
-      continue;
-    }
     try {
-      const polish =
-        deps.polish ??
-        (async (value: string) => {
-          const { polishDraft } = await import("../content-improve.ts");
-          return polishDraft(value);
-        });
+      const polish = deps.polish ?? (async (value: string) => {
+        const { polishDraft } = await import("../content-improve.ts");
+        return polishDraft(value);
+      });
       const polished = await polish(proposed);
       if (polished.text.trim()) proposed = polished.text;
     } catch {
       /* polishing is optional */
     }
-
-    const echoAfterPolish = detectEcho(text, proposed);
-    if (echoAfterPolish.isEcho) {
-      deterministic.output.notes = [...deterministic.output.notes, `LLM echo rejected after polish: ${echoAfterPolish.combinedSimilarity.toFixed(3)} similarity.`];
-      continue;
-    }
-
-    const trial = runEditorPipeline({
-      text,
-      mode,
-      kind,
-      request,
-      logic: effectiveLogic,
-      url: urlResult,
-      proposed: { text: proposed, source: candidate.source },
-      trend,
-      liveTrends,
-    });
-
-    if (
-      !trial.output.keptOriginal &&
-      trial.validation.factsPreserved &&
-      trial.validation.numbersPreserved &&
-      trial.validation.languageKept &&
-      !trial.validation.promoAdded
-    ) {
-      candidates.push(trial);
-    }
+    await evaluateCandidate(proposed, candidate.source, attempt, strategy);
   }
 
   const originalScore = deterministic.score.original.total;
   const originalViral = deterministic.score.original.viral;
-  const best = [deterministic, ...candidates]
-    .filter((candidate) => candidate.score.improved.total > originalScore && candidate.score.improved.viral >= originalViral)
+  const targetKeys = deterministic.score.dimensions
+    .filter((dimension) => optimizationTargets.includes(dimension.label))
+    .map((dimension) => dimension.key);
+  const targetGain = (candidate: EditorDossier) => targetKeys.reduce((sum, key) => {
+    const dimension = candidate.score.dimensions.find((item) => item.key === key);
+    return sum + Math.max(0, dimension?.delta ?? 0);
+  }, 0);
+  const materiallyImproved = (candidate: EditorDossier) =>
+    !candidate.output.keptOriginal &&
+    candidate.score.dimensions.some((dimension) => dimension.delta > 0) &&
+    (targetKeys.length === 0 || targetGain(candidate) > 0);
+
+  let acceptedBest = candidates
+    .filter(materiallyImproved)
     .sort((a, b) => {
-      const aGain = a.score.improved.total - originalScore + (a.score.improved.viral - originalViral) * 0.75;
-      const bGain = b.score.improved.total - originalScore + (b.score.improved.viral - originalViral) * 0.75;
-      return bGain - aGain;
+      const aGain = targetGain(a);
+      const bGain = targetGain(b);
+      return (bGain - aGain) ||
+        ((b.score.improved.total - originalScore) - (a.score.improved.total - originalScore)) ||
+        ((b.score.improved.viral - originalViral) - (a.score.improved.viral - originalViral));
     })[0];
 
-  const explicitTransformation = mode !== "ANALYZE" && mode !== "SCORE" && mode !== "FACT_CHECK";
-  const acceptedBest = explicitTransformation
-    ? [deterministic, ...candidates]
-        .filter((candidate) => !candidate.output.keptOriginal)
-        .sort((a, b) => b.score.improved.total - a.score.improved.total)[0]
-    : best;
+  if (!acceptedBest && candidates.length) {
+    let repairBase = [...candidates].sort((a, b) => b.score.improved.total - a.score.improved.total)[0]!;
+    for (let repairRound = 1; repairRound <= 2 && !acceptedBest; repairRound += 1) {
+      const weakRepairTargets = repairBase.score.dimensions
+        .filter((dimension) => dimension.score < 78)
+        .sort((a, b) => a.score - b.score)
+        .slice(0, 2)
+        .map((dimension) => dimension.label);
+      const repair = weakRepairTargets.length
+        ? `Repair only these weak dimensions: ${weakRepairTargets.join(", ")}. Preserve every fact, number, name, ticker, URL and meaning. Make a material editorial change, not a paraphrase.`
+        : "Repair the weakest remaining craft signal and make the wording materially sharper without adding facts.";
+      let repaired: { text: string; source: string } | null = null;
+      try {
+        repaired = await writer({
+          text: repairBase.output.text,
+          mode,
+          kind: repairBase.output.kind,
+          language: deterministic.input.language,
+          request,
+          plan: [...plans, targetLine, repair],
+          attempt: candidateAttempts + repairRound,
+          strategy: "TARGETED REPAIR",
+          optimizationTargets: weakRepairTargets,
+          repair,
+        });
+      } catch {
+        repaired = null;
+      }
+      if (!repaired?.text.trim()) continue;
+      let repairedText = repaired.text;
+      try {
+        const polish = deps.polish ?? (async (value: string) => {
+          const { polishDraft } = await import("../content-improve.ts");
+          return polishDraft(value);
+        });
+        const polished = await polish(repairedText);
+        if (polished.text.trim()) repairedText = polished.text;
+      } catch {
+        /* optional */
+      }
+      const trial = await evaluateCandidate(repairedText, repaired.source, candidateAttempts + repairRound, "TARGETED REPAIR", repair);
+      if (trial && materiallyImproved(trial)) acceptedBest = trial;
+      if (trial) repairBase = trial;
+    }
+  }
 
-  if (!acceptedBest || acceptedBest.output.keptOriginal) {
-    // Never return an empty editor result. If no validated rewrite improves the
-    // measured score, preserve the source text so the UI can continue editing.
+  const explicitTransformation = mode !== "ANALYZE" && mode !== "SCORE" && mode !== "FACT_CHECK";
+  const bestAnyValid = candidates
+    .filter((candidate) => !candidate.output.keptOriginal)
+    .sort((a, b) => b.score.improved.total - a.score.improved.total)[0];
+  const selectedBest = explicitTransformation ? (acceptedBest ?? bestAnyValid) : null;
+
+  if (!selectedBest) {
     deterministic.output = {
       ...deterministic.output,
       text: deterministic.input.text,
       keptOriginal: true,
       notes: [
         ...deterministic.output.notes,
-        "No validated LLM transformation improved the measured score. Original text preserved.",
+        "No safe transformed candidate survived factuality/editorial validation after bounded optimization. Source retained as an integrity fallback.",
       ],
     };
-    return cacheSet(cacheKey, deterministic);
+    return cacheableAnalysis ? cacheSet(cacheKey, deterministic) : deterministic;
   }
-
-  const selectedBest = explicitTransformation ? acceptedBest : best;
   selectedBest.output.notes = [
     ...selectedBest.output.notes,
     selectedBest.score.improved.total > originalScore
