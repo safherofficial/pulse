@@ -145,8 +145,9 @@ export function deriveContentPerformance(
     const group = usable.filter(predicate);
     if (group.length < 3) return;
     const groupRates = group.map((post) => engagementRate(post.metrics)).filter((v): v is number => v != null);
+    if (groupRates.length < 3 || baselineRate == null) return;
     const lift = liftAgainst(groupRates, baselineRate);
-    if (lift != null && lift < 0.10) return;
+    if (lift == null || lift < 0.10) return;
     patterns.push({
       signal,
       observation,
