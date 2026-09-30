@@ -276,10 +276,12 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
     strategy: string,
     repair?: string,
   ): Promise<EditorDossier | null> => {
-    const echo = detectEcho(text, proposed);
-    if (echo.isEcho) {
-      deterministic.output.notes = [...deterministic.output.notes, `LLM echo rejected: ${echo.combinedSimilarity.toFixed(3)} similarity (attempt ${attempt}).`];
-      return null;
+    if (source !== "deterministic") {
+      const echo = detectEcho(text, proposed);
+      if (echo.isEcho) {
+        deterministic.output.notes = [...deterministic.output.notes, `LLM echo rejected: ${echo.combinedSimilarity.toFixed(3)} similarity (attempt ${attempt}).`];
+        return null;
+      }
     }
     const trial = runEditorPipeline({
       text,
