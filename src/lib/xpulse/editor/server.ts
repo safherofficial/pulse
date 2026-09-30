@@ -3,7 +3,7 @@
  * Analyzer + strategist: runEditorPipeline (scoreContent, entities, plan).
  * Writer: one configured model (Groq, OpenRouter, or Gemini) when a key exists.
  * Critic: fact, number, language, and promo checks. A failed critic reverts.
- * Scorer: scoreContent again. A rewrite that does not raise the score is dropped.
+ * Scorer: compare baseline vs candidates across craft, repetition, integrity, and intent dimensions.
  * Public Pollinations and LLM7 are not called from this path.
  */
 
