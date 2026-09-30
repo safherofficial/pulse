@@ -412,6 +412,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
       "number_thread_beats",
       "surface_existing_question",
       "surface_existing_number",
+      "reframe_sparse_brief",
     ]);
     const safeRules = effectiveLogic.rules.filter((rule) => safeLevers.has(rule.lever));
     const fallbackModes = [
