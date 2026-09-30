@@ -42,6 +42,7 @@ export type EditorDeps = {
   fetchImpl?: typeof fetch;
   rewrite?: Rewrite | null;
   polish?: (text: string) => Promise<{ text: string; notes: string[] }>;
+  performanceContext?: string;
   resolveX?: (url: string) => Promise<{ text: string; title: string | null }>;
 };
 
@@ -243,6 +244,7 @@ export async function executeEditor(input: EditorRequest, deps: EditorDeps = {})
   const plans = [
     ...deterministic.plan.map((item) => `${item.action} ${item.target}: ${item.reason}`),
     memoryContext,
+    deps.performanceContext ?? "",
   ].filter(Boolean);
   const candidates: EditorDossier[] = [];
 
