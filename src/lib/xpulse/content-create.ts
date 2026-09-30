@@ -742,6 +742,15 @@ function fitThreadBeat(text: string): string {
   return out ? out + "…" : clean.slice(0, 257) + "…";
 }
 
+function fitPost(text: string): string {
+  const clean = polish(text).replace(/\\n{3,}/g, "\\n\\n").trim();
+  if (clean.length <= 280) return clean;
+  const beats = clean.split(/\\n\\n/).filter(Boolean);
+  const compact = beats.slice(0, 4).join("\\n\\n");
+  if (compact.length <= 280) return compact;
+  return compact.slice(0, 277).replace(/\\s+\\S*$/, "") + "…";
+}
+
 function writeStatePost(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
   const rng = mulberry32(
     variant * 9973 + 13 + hashStr(facts.identity.address + facts.builtAt + mode),
@@ -753,22 +762,16 @@ function writeStatePost(facts: TokenFactSet, mode: RegenMode, variant: number): 
   const evidence = pickEvidence(facts, 3);
   const interpretation = pickInterpretations(facts, 2);
 
-  const text = [
-    opener(rng, voice, t, market),
-    market.headline,
-    snap,
-    evidence[0],
-    evidence[1],
-    interpretation[0],
-    interpretation[1],
-    closeFor(rng, market, t),
-    caLine(rng, t),
-    disclaimer(rng, t),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  // Professional X post arc: hook -> proof -> read -> payoff.
+  const hook = opener(rng, voice, t, market);
+  const proof = [snap, evidence[0]].filter(Boolean).join(" ");
+  const read = interpretation[0] ?? evidence[1] ?? null;
+  const payoff = closeFor(rng, market, t);
 
-  return { text: polish(text), voice };
+  return {
+    text: fitPost([hook, proof, read, payoff].filter(Boolean).join("\n\n")),
+    voice,
+  };
 }
 
 function writeStateThread(facts: TokenFactSet, mode: RegenMode, variant: number): { text: string; voice: Voice } {
@@ -778,37 +781,38 @@ function writeStateThread(facts: TokenFactSet, mode: RegenMode, variant: number)
   const voice = pick(rng, voicesFor(mode));
   const t = readTape(facts);
   const market = facts.market;
-  const evidence = pickEvidence(facts, 4);
-  const interpretations = pickInterpretations(facts, 3);
+  const evidence = pickEvidence(facts, 5);
+  const interpretations = pickInterpretations(facts, 4);
   const risk = market.signals.find((signal) => signal.polarity === "risk")?.explanation ?? market.rugLine;
   const social = market.facts.find((fact) => /public x|official/i.test(fact));
-  const relationship =
-    market.signals.find(
-      (signal) =>
-        signal.type === "volume_liquidity" ||
-        signal.type === "sell_pressure" ||
-        signal.type === "flow",
-    )?.explanation ?? interpretations[0];
 
+  // Professional thread arc: thesis -> context -> evidence -> turn -> payoff.
   const beats = [
     opener(rng, voice, t, market),
     market.headline,
     snapLine(t, market),
     evidence[0],
-    relationship,
-    evidence[1] ? evidence[1] + (interpretations[1] ? " " + interpretations[1] : "") : interpretations[1],
-    social,
-    risk,
+    evidence[1],
+    interpretations[0] ?? relationshipLine(facts),
+    evidence[2],
+    risk ?? interpretations[1],
+    social ?? interpretations[2],
     closeFor(rng, market, t),
-    caLine(rng, t),
-    disclaimer(rng, t),
   ].filter((line): line is string => Boolean(line));
 
-  const text = beats
-    .map((beat, index) => `${index + 1}/ ${fitThreadBeat(beat.replace(/^\d+\/\s*/, ""))}`)
-    .join("\n\n");
+  const unique = [...new Set(beats.map((beat) => beat.trim()).filter(Boolean))].slice(0, 8);
+  const text = unique
+    .map((beat, index) => `${index + 1}/ ${fitThreadBeat(beat.replace(/^\\d+\\/\\s*/, ""))}`)
+    .join("\\n\\n");
 
   return { text: polish(text), voice };
+}
+
+function relationshipLine(facts: TokenFactSet): string | null {
+  const signal = facts.market.signals.find(
+    (item) => item.type === "volume_liquidity" || item.type === "sell_pressure" || item.type === "flow",
+  );
+  return signal?.explanation ?? null;
 }
 
 function snapLine(t: Tape, market: MarketDiagnosis): string {
@@ -825,59 +829,45 @@ function writeStateArticle(facts: TokenFactSet, mode: RegenMode, variant: number
   const rng = mulberry32(
     variant * 3343 + 7 + hashStr(facts.identity.name + mode),
   );
-  const voice = pick(
-    rng,
-    voicesFor(mode === "default" ? "more_professional" : mode),
-  );
+  const voice = pick(rng, voicesFor(mode === "default" ? "more_professional" : mode));
   const t = readTape(facts);
   const market = facts.market;
-  const evidence = pickEvidence(facts, 6);
+  const evidence = pickEvidence(facts, 7);
   const interpretations = pickInterpretations(facts, 5);
   const social = market.facts.find((fact) => /public x|official/i.test(fact));
 
   const title =
     market.state === "SEVERE_RISK" || market.state === "COLLAPSED" || market.state === "BEARISH"
-      ? t.ticker + ": reading the damage without turning it into a pitch"
-      : t.ticker + " on " + t.chain + ": what the current tape actually says";
+      ? `${t.ticker}: reading the tape without turning it into a pitch`
+      : `${t.ticker} on ${t.chain}: what the current tape actually says`;
 
   const sections = [
     title,
     "",
-    market.headline ?? "A data-led snapshot of the token, using only the fields returned by the current research pass.",
+    market.headline ?? "A data-led snapshot of the token using only the fields returned by the current research pass.",
     "",
-    "The setup",
-    opener(rng, voice, t, market) +
-      " " +
-      (snapLine(t, market) ?? "") +
-      (market.conclusions[0] ? " " + market.conclusions[0] : ""),
+    "What happened",
+    opener(rng, voice, t, market) + " " + (snapLine(t, market) ?? ""),
     "",
-    "What the numbers say",
-    evidence.length
-      ? evidence
-          .slice(0, 3)
-          .map((line) => line.trim().replace(/^[•-]\s*/, ""))
-          .join(" ")
-      : "The current snapshot does not contain enough verified market detail for a stronger quantitative claim.",
+    "What the data shows",
+    evidence.slice(0, 4).map((line) => line.trim().replace(/^[•-]\\s*/, "")).join(" "),
     "",
-    "Where the signals connect",
-    interpretations.length
-      ? interpretations.slice(0, 2).join(" ")
-      : "The available data does not support a stronger inference beyond the measured snapshot.",
+    "What it means",
+    interpretations.slice(0, 3).join(" ") ||
+      "The available evidence supports a measured snapshot, but not a stronger inference.",
     "",
-    "The part worth watching",
-    [evidence[3], social, interpretations[2]]
-      .filter(Boolean)
-      .join(" ") ||
-      "No additional public signal was strong enough to add without overstating the evidence.",
+    "The tension",
+    [evidence[4], social, interpretations[3]].filter(Boolean).join(" ") ||
+      "No additional signal is strong enough to extend the thesis without overstating the evidence.",
     "",
+    "What remains uncertain",
     market.rugLine
-      ? "Risk and uncertainty\n" + market.rugLine + " " + (riskContext(facts) ?? "")
-      : "Risk and uncertainty\n" + (facts.risks[0] ?? "No additional risk signal was supported by the returned data."),
+      ? market.rugLine + " " + (riskContext(facts) ?? "")
+      : facts.risks[0] ?? "Missing fields remain unresolved; they are not estimated.",
     "",
     "Bottom line",
-    closeFor(rng, market, t) +
-      " " +
-      (market.caveats[0] ?? "The conclusion remains limited to the current snapshot; missing fields are not estimated."),
+    closeFor(rng, market, t) + " " +
+      (market.caveats[0] ?? "The conclusion remains limited to the current snapshot."),
     "",
     "Contract",
     t.ca,
@@ -885,7 +875,7 @@ function writeStateArticle(facts: TokenFactSet, mode: RegenMode, variant: number
     disclaimer(rng, t),
   ];
 
-  return { text: polish(sections.join("\n")), voice };
+  return { text: polish(sections.join("\\n")), voice };
 }
 
 function riskContext(facts: TokenFactSet): string | null {
