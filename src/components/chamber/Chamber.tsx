@@ -16,6 +16,7 @@ import { AnalyzeLinkField } from "@/components/pulse/AnalyzeLinkField";
 import { Button, fieldClass } from "@/components/ui/button";
 import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import { beginXConnect, clearPosts, compareXUrls, deletePosts, runEditor, syncPosts } from "@/lib/xpulse/api";
+import { getAiUsage } from "@/lib/xpulse/ai-gateway-client";
 import type { EditorDossier } from "@/lib/xpulse/editor/pipeline";
 import {
   formatCompact,
@@ -276,6 +277,7 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
               <WalletPortfolio />
             </CollapsibleSection>
           ) : null}
+          {model.mode === "account" ? <AiUsageStrip /> : null}
           {selectedPost && view !== "library" ? (
             <FocusBanner post={selectedPost} onOpenLibrary={() => setView("library")} />
           ) : null}
@@ -304,6 +306,59 @@ export function Chamber({ model, onReload }: { model: PulseModel; onReload?: () 
           </p>
         </main>
       </div>
+    </div>
+  );
+}
+
+function AiUsageStrip() {
+  const [quota, setQuota] = useState<{
+    dailyUsed: number;
+    dailyLimit: number;
+    monthlyUsed: number;
+    monthlyLimit: number;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getAiUsage({ data: undefined })
+      .then((value) => {
+        if (!cancelled) setQuota(value);
+      })
+      .catch(() => {
+        if (!cancelled) setQuota(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!quota) return null;
+
+  const dailyLeft = Math.max(0, quota.dailyLimit - quota.dailyUsed);
+  const monthlyLeft = Math.max(0, quota.monthlyLimit - quota.monthlyUsed);
+  const dailyPct = Math.min(100, Math.round((quota.dailyUsed / Math.max(1, quota.dailyLimit)) * 100));
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-line/70 bg-surface/55 px-4 py-2.5 backdrop-blur-sm">
+      <div className="flex items-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_10px_var(--color-accent)]" aria-hidden />
+        <span className="font-mono text-[10px] tracking-[0.14em] text-subtle uppercase">AI power</span>
+      </div>
+      <div className="min-w-[180px] flex-1">
+        <div className="flex items-center justify-between gap-3 font-mono text-[11px] tabular-nums">
+          <span className="text-muted">{dailyLeft} actions left today</span>
+          <span className="text-subtle">{quota.dailyUsed}/{quota.dailyLimit}</span>
+        </div>
+        <div className="mt-1 h-1 overflow-hidden rounded-full bg-line/70" aria-hidden>
+          <div
+            className="h-full rounded-full bg-accent transition-[width] duration-500"
+            style={{ width: `${dailyPct}%` }}
+          />
+        </div>
+      </div>
+      <span className="font-mono text-[10px] tabular-nums text-subtle">
+        {monthlyLeft} left this month
+      </span>
     </div>
   );
 }
