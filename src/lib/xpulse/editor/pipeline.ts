@@ -196,7 +196,6 @@ function repetitionScore(text: string): number {
 function intentAlignmentScore(before: DraftIntent, afterText: string): number {
   const after = detectIntent(afterText);
   if (before === after) return 100;
-  if (before === "neutral" || after === "neutral") return 72;
   return 45;
 }
 
