@@ -5,31 +5,43 @@ import { buttonVariants } from "@/components/ui/button";
 import { UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 
+const PRIMARY = [
+  { to: "/tokens", label: "Token" },
+  { to: "/analyze", label: "Analyze" },
+  { to: "/create", label: "Create" },
+] as const;
+
 export function TopNav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <header className="relative z-30">
-      <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
-        <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
+    <header className="sticky top-0 z-40 -mx-4 border-b border-line/80 bg-bg/88 px-4 py-3 backdrop-blur-xl sm:-mx-6 sm:px-6">
+      <div className="flex min-h-11 items-center justify-between gap-4">
+        <Link to="/" className="flex shrink-0 items-center gap-2" onClick={() => setOpen(false)} aria-label="XPulse home">
           <BrandMark />
           <span className="wordmark text-sm text-fg">XPulse</span>
         </Link>
-        <button
-          type="button"
-          className="tap inline-flex h-11 items-center px-3 font-mono text-xs tracking-widest text-muted uppercase md:hidden"
-          aria-expanded={open}
-          aria-controls="site-nav"
-          onClick={() => setOpen((value) => !value)}
-        >
-          {open ? "Close" : "Menu"}
-        </button>
-        <div className="hidden md:block">
+
+        <div className="hidden min-w-0 items-center gap-1 md:flex">
           <NavLinks onNavigate={() => setOpen(false)} />
         </div>
+
+        <div className="flex items-center gap-2">
+          <AuthSlot onNavigate={() => setOpen(false)} compact />
+          <button
+            type="button"
+            className="tap inline-flex h-10 items-center rounded-md border border-line px-3 font-mono text-[11px] tracking-widest text-muted uppercase hover:border-accent/40 hover:text-fg md:hidden"
+            aria-expanded={open}
+            aria-controls="site-nav"
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? "Close" : "Menu"}
+          </button>
+        </div>
       </div>
+
       {open ? (
-        <div id="site-nav" className="panel absolute inset-x-0 top-full mt-2 p-3 md:hidden">
+        <div id="site-nav" className="mt-3 border-t border-line/60 pt-3 md:hidden">
           <NavLinks stacked onNavigate={() => setOpen(false)} />
         </div>
       ) : null}
@@ -38,57 +50,62 @@ export function TopNav() {
 }
 
 function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNavigate: () => void }) {
-  const item = `nav-link inline-flex h-11 items-center px-3 text-sm text-muted hover:text-fg ${stacked ? "w-full" : ""}`;
+  const item = `nav-link inline-flex min-h-10 items-center rounded-md px-3 text-sm text-muted hover:bg-surface/70 hover:text-fg ${stacked ? "w-full" : ""}`;
 
   return (
-    <nav
-      className={stacked ? "flex flex-col" : "flex flex-wrap items-center gap-1"}
-      aria-label="Primary"
-    >
-      <Link
-        to="/tokens"
-        className={item}
-        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
-        onClick={onNavigate}
-      >
-        Token
-      </Link>
-      <Link
-        to="/analyze"
-        className={item}
-        activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
-        onClick={onNavigate}
-      >
-        Analyze
-      </Link>
+    <nav className={stacked ? "grid gap-1" : "flex items-center gap-1"} aria-label="Primary">
+      {PRIMARY.map((itemDef) => (
+        <Link
+          key={itemDef.to}
+          to={itemDef.to}
+          className={item}
+          activeProps={{ className: `${item} text-fg`, "data-active": "true" }}
+          onClick={onNavigate}
+        >
+          {itemDef.label}
+        </Link>
+      ))}
       <AuthSlot onNavigate={onNavigate} stacked={stacked} />
     </nav>
   );
 }
 
-function AuthSlot({ onNavigate, stacked }: { onNavigate: () => void; stacked: boolean }) {
+function AuthSlot({
+  onNavigate,
+  stacked = false,
+  compact = false,
+}: {
+  onNavigate: () => void;
+  stacked?: boolean;
+  compact?: boolean;
+}) {
   const { user, isPending } = useCurrentUserState();
 
   if (isPending) {
-    return <div className="skeleton h-11 w-28 bg-surface" aria-hidden />;
+    return <div className="skeleton h-9 w-24 rounded-md bg-surface" aria-hidden />;
   }
 
   if (!user) {
     return (
-      <Link to="/login" className={buttonVariants({ variant: "quiet" })} onClick={onNavigate}>
-        Sign in with wallet
+      <Link
+        to="/login"
+        className={buttonVariants({ variant: "quiet", className: compact ? "ml-1 h-9" : "" })}
+        onClick={onNavigate}
+      >
+        Sign in
       </Link>
     );
   }
 
   return (
-    <div className={`flex items-center gap-2 ${stacked ? "flex-wrap px-3 py-2" : ""}`}>
+    <div className={`flex items-center gap-1 ${stacked ? "mt-2 flex-wrap border-t border-line/60 px-1 pt-3" : "ml-1"}`}>
       <Link
         to="/pulse"
-        className="inline-flex h-11 items-center px-3 text-sm text-fg"
+        className="nav-link inline-flex min-h-10 items-center rounded-md px-3 text-sm text-muted hover:bg-surface/70 hover:text-fg"
+        activeProps={{ "data-active": "true", className: "nav-link inline-flex min-h-10 items-center rounded-md bg-surface px-3 text-sm text-fg" }}
         onClick={onNavigate}
       >
-        Your Chamber
+        Chamber
       </Link>
       <UserButton />
     </div>
