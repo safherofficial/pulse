@@ -224,7 +224,7 @@ export function scoreContent(text: string, kind: ContentKind = "post", weights: 
     return sum + dimension.score * weight;
   }, 0);
   const totalWeight = dims.reduce(
-    (sum, dimension) => sum + Math.max(0, CONTENT_SCORE_WEIGHTS[dimension.key] ?? 1),
+    (sum, dimension) => sum + Math.max(0, weights[dimension.key] ?? 1),
     0,
   );
   const baseTotal = weightedTotal / Math.max(1, totalWeight);
