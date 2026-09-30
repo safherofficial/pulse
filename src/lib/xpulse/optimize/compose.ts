@@ -89,6 +89,35 @@ function numberBeats(text: string): string {
     .join("\n\n");
 }
 
+function reframeSparseBrief(text: string, kind: ContentFormat): string {
+  const clean = text.trim();
+  if (!clean || kind !== "post" || clean.includes("\n")) return clean;
+
+  const web3Match = clean.match(
+    /^i\s+want\s+to\s+see\s+more\s+(.+?)\s+(?:contents?|posts?|content)\s+in\s+my\s+timeline\.?$/i,
+  );
+  if (web3Match) {
+    const topic = web3Match[1]!.trim().replace(/\s+/g, " ");
+    return [
+      `I want more ${topic} on my timeline.`,
+      "",
+      "More signal. More ideas. Less noise.",
+    ].join("\n");
+  }
+
+  const desireMatch = clean.match(/^i\s+want\s+more\s+(.+?)\.?$/i);
+  if (desireMatch && desireMatch[1]!.split(/\s+/).length <= 8) {
+    const topic = desireMatch[1]!.trim().replace(/\s+/g, " ");
+    return [
+      `I want more ${topic}.`,
+      "",
+      "More signal. Less noise.",
+    ].join("\n");
+  }
+
+  return clean;
+}
+
 function moveSentence(text: string, predicate: (sentence: string) => boolean): string {
   if (downsideLocked(text)) return text;
   const blocks = text.split(/\n\n/).map((part) => part.trim()).filter(Boolean);
@@ -104,6 +133,7 @@ function moveSentence(text: string, predicate: (sentence: string) => boolean): s
 function applyLever(text: string, lever: string, kind: ContentFormat, mode: OptimizeMode): string {
   if (lever === "strip_ai_slack") return stripAi(text);
   if (lever === "drop_outline_labels") return dropLabels(text);
+  if (lever === "reframe_sparse_brief") return reframeSparseBrief(text, kind);
   if (lever === "break_paragraphs" && kind !== "thread") return breakParagraphs(text);
   if (lever === "number_thread_beats" && (kind === "thread" || mode === "THREADIFY")) return numberBeats(text);
   if (lever === "surface_existing_question") {
