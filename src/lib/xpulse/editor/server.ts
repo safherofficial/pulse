@@ -445,44 +445,45 @@ export type ImproveLoopResult = {
 
 export async function executeImproveLoop(input: EditorRequest, deps: EditorDeps = {}, target = 80): Promise<ImproveLoopResult> {
   const rounds: ImproveLoopResult["rounds"] = [];
-  let current = await executeEditor({ ...input, mode: "ANALYZE" }, deps);
+  let current = await executeEditor({
+    ...input,
+    mode: "IMPROVE",
+    request: input.request || "Improve this content by targeting its weakest measured editorial dimensions.",
+  }, deps);
 
   for (let round = 1; round <= 3; round += 1) {
     if (current.score.improved.total >= target) {
       return { target, rounds, final: current, stoppedReason: "target_reached" };
     }
 
-    let ai = current.analysis.ai ?? null;
-    let revision: { text: string } | null = null;
-    try {
-      const { analyzeWithLlm, reviseWithLlm } = await import("../editor-llm.ts");
-      ai = ai ?? await analyzeWithLlm(current);
-      if (!ai?.suggestions.length) {
-        return { target, rounds, final: current, stoppedReason: "no_suggestions" };
-      }
-      revision = await reviseWithLlm(current, ai.suggestions);
-    } catch {
-      return { target, rounds, final: current, stoppedReason: "revision_failed" };
-    }
-    if (!revision?.text.trim()) {
-      return { target, rounds, final: current, stoppedReason: "revision_failed" };
-    }
+    const weakest = current.score.dimensions
+      .filter((dimension) => dimension.score < 78)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 3)
+      .map((dimension) => dimension.label);
+
+    const request = weakest.length
+      ? `Target these measured weaknesses, in order: ${weakest.join(", ")}. Make a material editorial improvement while preserving every factual element.`
+      : "Make the smallest material editorial improvement that raises at least one measured craft dimension without changing facts.";
 
     const next = await executeEditor({
-      text: revision.text,
-      mode: "ANALYZE",
+      text: current.output.text || current.input.text,
+      mode: "IMPROVE",
       kind: current.output.kind,
-      request: "Re-analyze the revised content after the selected interventions.",
+      request,
     }, deps);
 
     rounds.push({
       round,
       before: current,
       after: next,
-      selected: ai.suggestions.length,
+      selected: weakest.length,
       revisionApplied: next.output.text.trim() !== current.output.text.trim(),
     });
 
+    if (next.output.text.trim() === current.output.text.trim()) {
+      return { target, rounds, final: current, stoppedReason: "max_rounds" };
+    }
     current = next;
   }
 
