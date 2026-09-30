@@ -582,13 +582,13 @@ function lockTokenIdentity(text: string, facts: TokenFactSet): string {
   // The opening line of token-generated copy is an identity-bearing field.
   // If it starts with a different all-caps token name while the canonical
   // ticker is present later, normalize that token name to the fact-set name.
-  const lines = out.split(/\\n/);
+  const lines = out.split(/\n/);
   if (lines.length && out.toLowerCase().includes("$" + symbol.toLowerCase())) {
-    lines[0] = lines[0].replace(/^\\s*([A-Z][A-Z0-9_-]{2,24})(?=\\s+(?:is|has|on|at|does|:))/,
+    lines[0] = lines[0].replace(/^\s*([A-Z][A-Z0-9_-]{2,24})(?=\s+(?:is|has|on|at|does|:))/,
       (match, candidate: string) => candidate.toLowerCase() === name.toLowerCase() || candidate.toLowerCase() === symbol.toLowerCase()
         ? match
         : name);
-    out = lines.join("\\n");
+    out = lines.join("\n");
   }
 
   return out;
