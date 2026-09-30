@@ -66,7 +66,6 @@ function NavLinks({ stacked = false, onNavigate }: { stacked?: boolean; onNaviga
           {itemDef.label}
         </Link>
       ))}
-      <AuthSlot onNavigate={onNavigate} stacked={stacked} />
     </nav>
   );
 }
