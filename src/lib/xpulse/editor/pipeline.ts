@@ -248,7 +248,7 @@ export function runEditorPipeline(input: {
       works: before.working,
       limits: before.limiting,
       why: [
-        ...(request ? [`User request: ${request}`] : []),
+        ...(request ? ["The user's requested outcome is being applied to this result."] : []),
         ...plan.filter((item) => item.action !== "KEEP").map((item) => `${item.target}: ${item.reason}`),
       ],
       risks: riskLines(text, intent),
