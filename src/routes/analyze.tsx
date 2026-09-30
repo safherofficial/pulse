@@ -67,6 +67,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
   const [loopResult, setLoopResult] = useState<{ target: number; rounds: Array<{ round: number; before: EditorDossier; after: EditorDossier }>; final: EditorDossier; stoppedReason: string } | null>(null);
   const [revisionCandidate, setRevisionCandidate] = useState<{ before: EditorDossier; after: EditorDossier } | null>(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +104,19 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
     // Handoff is read once on entry.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function clearWorkspace() {
+    setText("");
+    setUrl("");
+    setRequest("");
+    setDossier(null);
+    setToken(null);
+    setLoopResult(null);
+    setRevisionCandidate(null);
+    setSelectedSuggestions([]);
+    setNotice(null);
+    sessionStorage.removeItem(EDITOR_HANDOFF_KEY);
+  }
 
   async function execute(nextMode: EditorMode, draft = text, page = url, nextKind = kind, nextRequest = request) {
     if (!draft.trim() && !page.trim()) return;
@@ -162,7 +176,7 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
         </CollapsibleSection>
       ) : null}
 
-      <CollapsibleSection kicker="Input" title="Content tool" activityKey={dossier ? `${dossier.input.text}|${dossier.output.text}` : null}>
+      <CollapsibleSection kicker="01 · Input" title="Give XPulse something to work with" activityKey={dossier ? `${dossier.input.text}|${dossier.output.text}` : null}>
         <label className="block">
           <span className="kicker">Draft</span>
           <textarea
@@ -172,12 +186,15 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
             onChange={(event) => setText(event.target.value)}
           />
         </label>
+        <div className="rounded-lg border border-accent/15 bg-accent/5 px-3 py-2.5 text-xs leading-relaxed text-muted">
+          <span className="font-medium text-fg">Start with one source.</span> Paste text or add a public URL. You can then analyze, improve, or rewrite it without losing the current draft.
+        </div>
         <label className="block">
           <span className="kicker">What do you want XPulse to do?</span>
           <textarea className="mt-2 min-h-20 w-full rounded-md border border-line bg-surface-2 px-4 py-3 text-fg outline-none ring-accent focus:ring-1" placeholder="Find the biggest weakness, improve the hook, make it technical, or turn it into a thread." value={request} onChange={(event) => setRequest(event.target.value)} />
         </label>
         <label className="block">
-          <span className="kicker">Public URL, optional</span>
+          <span className="kicker">Public URL · optional</span>
           <input
             className="mt-2 w-full rounded-md border border-line bg-surface-2 px-4 py-3 text-fg outline-none ring-accent focus:ring-1"
             placeholder="x.com status, article, or token page. If it cannot be read, paste the text."
@@ -185,7 +202,8 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
             onChange={(event) => setUrl(event.target.value)}
           />
         </label>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
           {(["post", "thread", "article"] as ContentKind[]).map((item) => (
             <button
               key={item}
@@ -198,6 +216,8 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
               {item}
             </button>
           ))}
+          </div>
+          <button type="button" className="text-xs text-subtle hover:text-fg" onClick={clearWorkspace}>Clear</button>
         </div>
         <div className="flex flex-wrap gap-2">
           {modes.map((item) => (
@@ -231,7 +251,15 @@ export function AnalyzePage({ initialMode = "ANALYZE", title = "Analyze", active
           >
             Auto improve → 80
           </Button>
+          <button type="button" className="ml-auto text-xs text-subtle hover:text-fg" onClick={() => setShowAdvanced((value) => !value)}>
+            {showAdvanced ? "Hide advanced" : "Advanced"}
+          </button>
         </div>
+        {showAdvanced ? (
+          <div className="rounded-lg border border-line bg-surface-2/30 px-3 py-3 text-xs leading-relaxed text-muted">
+            Auto improve runs the deterministic editor loop toward the selected target. The editor also uses your measured X performance when enough data is available.
+          </div>
+        ) : null}
         {notice ? (
           <p className="text-sm text-danger" role="status">
             {notice}
@@ -358,8 +386,8 @@ function DossierView({
     <>
 
       <CollapsibleSection
-        kicker="Output"
-        title="Original & regenerated content"
+        kicker="02 · Result"
+        title="What XPulse found and changed"
         activityKey={activityKey}
       >
         <div className="grid gap-4 lg:grid-cols-2">
@@ -411,7 +439,7 @@ function DossierView({
       </CollapsibleSection>
 
       <CollapsibleSection
-        kicker="Score"
+        kicker="03 · Score"
         title={`Content ${dossier.score.improved.total} · Viral ${dossier.score.improved.viral} · ${dossier.output.source} · ${dossier.output.kind}`}
         activityKey={activityKey}
       >
