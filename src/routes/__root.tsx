@@ -14,7 +14,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "XPulse reads detail expands, dwell, and profile visits for X articles and launch threads.",
+          "XPulse connects token intelligence, public X research, content analysis, AI-assisted creation, and account-specific performance learning.",
       },
       { name: "theme-color", content: "#05070b" },
     ],
